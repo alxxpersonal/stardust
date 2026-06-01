@@ -35,11 +35,17 @@ func resolveVault() (vaultContext, error) {
 	return vaultContext{Layout: layout, Config: cfg}, nil
 }
 
-// openService opens the core Service for the vault containing the working dir.
+// openService opens the core Service for the vault containing the working dir,
+// or the directory named by STARDUST_VAULT when set (so a launched MCP/API
+// server can target a specific vault regardless of cwd).
 func openService(ctx context.Context) (*service.Service, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("get working dir: %w", err)
+	start := os.Getenv("STARDUST_VAULT")
+	if start == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("get working dir: %w", err)
+		}
+		start = cwd
 	}
-	return service.Open(ctx, cwd)
+	return service.Open(ctx, start)
 }

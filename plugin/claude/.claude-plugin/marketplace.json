@@ -1,0 +1,14 @@
+{
+  "name": "stardust-local",
+  "description": "Local development marketplace for the Stardust plugin",
+  "owner": { "name": "alxxpersonal" },
+  "plugins": [
+    {
+      "name": "stardust",
+      "description": "Hybrid keyword + semantic search over your local markdown vault, as an MCP server.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": { "name": "alxxpersonal" }
+    }
+  ]
+}

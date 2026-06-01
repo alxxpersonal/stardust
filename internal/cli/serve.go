@@ -13,21 +13,37 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/api"
+	"github.com/alxxpersonal/stardust/internal/mcp"
 )
 
-// newServeCmd runs a Stardust server. v1 serves the HTTP/JSON API.
+// newServeCmd runs a Stardust server: the HTTP/JSON API, or the MCP server over
+// stdio with --mcp.
 func newServeCmd() *cobra.Command {
 	var addr string
+	var mcpMode bool
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the Stardust HTTP/JSON API server",
-		Long:  "Serves the HTTP/JSON API over the same core the CLI uses (see docs/openapi.yaml).",
+		Short: "Run a Stardust server (HTTP/JSON API, or MCP over stdio with --mcp)",
+		Long:  "Serves the same core the CLI uses. Default: HTTP/JSON API (see docs/openapi.yaml).\nWith --mcp: an MCP server over stdio for agents (Claude Code).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if mcpMode {
+				return runMCP(cmd)
+			}
 			return runAPI(cmd, addr)
 		},
 	}
-	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:7777", "listen address")
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:7777", "HTTP API listen address")
+	cmd.Flags().BoolVar(&mcpMode, "mcp", false, "serve the MCP server over stdio instead of HTTP")
 	return cmd
+}
+
+func runMCP(cmd *cobra.Command) error {
+	svc, err := openService(cmd.Context())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = svc.Close() }()
+	return mcp.Serve(cmd.Context(), svc)
 }
 
 func runAPI(cmd *cobra.Command, addr string) error {

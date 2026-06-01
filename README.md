@@ -34,7 +34,7 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `index [--since SHA] [--background]` | incremental reindex; content-hash skips unchanged, `--since` is the git-diff fast path |
 | `query <text> [--limit N] [--output auto/md/json/plain]` | hybrid keyword + semantic search |
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
-| `serve [--addr]` | run the HTTP/JSON API server (see [docs/openapi.yaml](docs/openapi.yaml)) |
+| `serve [--addr] [--mcp]` | run the HTTP/JSON API, or the MCP server over stdio with `--mcp` |
 | `archive [--dest DIR]` | snapshot the vault's git history (timestamped bare mirror) |
 | `cron list` / `cron run <job>` | list or run declarative cron jobs |
 | `hooks install` / `hooks uninstall` | manage the auto-index commit hooks |
@@ -55,6 +55,15 @@ curl -X POST http://127.0.0.1:7777/index
 ```
 
 Routes: `GET /query`, `/note`, `/status`, `/graph`, `/cron`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
+
+## Claude Code (MCP)
+
+`stardust serve --mcp` runs an MCP server over stdio exposing `query`, `get_note`, `status`, and `graph` tools, so agents can search your vault. It resolves the vault from the working directory or `STARDUST_VAULT`. A ready-made Claude Code plugin lives in [plugin/claude/](plugin/claude):
+
+```sh
+claude plugin marketplace add ./plugin/claude
+claude plugin install stardust@stardust-local
+```
 
 ## Layout (`.stardust/` inside a vault)
 

@@ -200,9 +200,9 @@ Each layer is independently useful and rebuildable.
 
 **Built in v1 (2026-06-01):** L0 manifest + INDEX.md, the hybrid sqlite index (FTS5 + brute-force vectors + RRF, git-diff/content-hash incremental), `init` / `index` / `query` / `graph` / `archive` / `rebuild` / `cron` / `hooks`, the derived link-graph, the declarative cron scheduler (agent | command | exec), commit-hook wiring, and the full charm-v2 multi-tab TUI (search / status / graph) with dual-mode output.
 
-**Built post-v1:** optional cross-encoder rerank (`internal/rerank`, `reranker_url`); the `internal/service` core seam + the HTTP/JSON API (`stardust serve`, `internal/api`, `docs/openapi.yaml`) - CLI and API now share one implementation, full parity by construction.
+**Built post-v1:** optional cross-encoder rerank (`internal/rerank`, `reranker_url`); the `internal/service` core seam + the HTTP/JSON API (`stardust serve`, `internal/api`, `docs/openapi.yaml`); the MCP server (`stardust serve --mcp`, `internal/mcp` over `modelcontextprotocol/go-sdk`, tools query/get_note/status/graph) + a Claude Code plugin (`plugin/claude/`). CLI, API, and MCP all call the one core - full parity by construction.
 
-**Deferred (documented, not built):** a **full SDK**; the MCP server (arrives with mounts as a Claude Code plugin); the Obsidian plugin; and the entire superpower layer (mounts, context bundles, write-back, temporal/ambient - Sections 8 and 12). Order when resumed: MCP -> mounts -> bundles -> write-back -> temporal -> SDK -> plugin.
+**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the superpower layer (mounts, context bundles, write-back, temporal/ambient - Sections 8 and 12). Order when resumed: mounts -> bundles -> write-back -> temporal -> SDK -> plugin.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 
