@@ -57,7 +57,9 @@ curl  http://127.0.0.1:7777/status
 curl -X POST http://127.0.0.1:7777/index
 ```
 
-Routes: `GET /query`, `/note`, `/status`, `/graph`, `/cron`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
+Routes: `GET /query`, `/note`, `/status`, `/graph`, `/bundle`, `/digest`, `/cron`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
+
+Typed clients over the API live in [sdk/](sdk): a Go client (`sdk.New(url).Query(...)`) and a TypeScript client ([sdk/ts/stardust.ts](sdk/ts/stardust.ts), used by the Obsidian plugin).
 
 ## Claude Code (MCP)
 

@@ -208,7 +208,9 @@ And **write-back / memory** (`internal/memory` six-verb tool + `service.Remember
 
 And **temporal / ambient** (`internal/temporal`, `service.Digest`, `stardust digest` + API `/digest` + MCP `digest` tool) - git-as-event-stream digests grouped by area with surfaced commitments (TODO, "I'll do X"); plus example cron-jobs (`docs/examples/cron-jobs/` morning-digest + librarian) wiring the ambient/librarian pattern over the existing scheduler.
 
-**Deferred (documented, not built):** a **full SDK** (typed clients over the API) and the **Obsidian plugin**. Order when resumed: SDK -> plugin.
+And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript client `sdk/ts/stardust.ts`) over the HTTP API.
+
+**Deferred (documented, not built):** the **Obsidian plugin** (`plugin/obsidian/`, TypeScript over the SDK).
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 
