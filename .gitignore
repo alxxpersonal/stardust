@@ -1,0 +1,19 @@
+# Build output
+/build/
+/stardust
+
+# Env
+.env
+.env.local
+
+# Derived cache (rebuildable; never commit) - matches any vault's .stardust/cache
+**/.stardust/cache/
+
+# macOS folder icon
+Icon?
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
