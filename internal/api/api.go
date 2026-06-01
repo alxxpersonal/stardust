@@ -59,6 +59,15 @@ func (h *Handler) query(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
+	if r.URL.Query().Get("mounts") == "true" {
+		fused, err := h.svc.QueryMounts(r.Context(), q, limit)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"query": q, "hits": fused})
+		return
+	}
 	res, err := h.svc.Query(r.Context(), q, limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err)

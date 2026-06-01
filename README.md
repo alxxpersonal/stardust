@@ -65,6 +65,21 @@ claude plugin marketplace add ./plugin/claude
 claude plugin install stardust@stardust-local
 ```
 
+## Mounts (federate other sources)
+
+A mount is any MCP server (a database, email, calendar, code host, ...) declared under `.stardust/mounts/<name>/config.toml`. `stardust query --mounts` fans the query out to every mount plus the local index and fuses the rankings with RRF, so one search spans your whole context, not just your notes. Stardust does not write connectors; it aggregates the MCP ecosystem's existing ones.
+
+```toml
+# .stardust/mounts/<name>/config.toml
+command = "some-mcp-server"   # an executable stdio MCP server
+args = ["serve"]
+tool = "search"               # the downstream search tool (default "query")
+[env]
+API_KEY = "..."
+```
+
+A mount's search tool is called with `{ query, limit }`; results are read from a `hits` or `results` array (with `title` / `snippet` / `path` fields), or the raw text content. A failing mount is skipped, never failing the whole query. Also available over the API as `GET /query?mounts=true`.
+
 ## Layout (`.stardust/` inside a vault)
 
 ```

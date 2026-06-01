@@ -202,7 +202,9 @@ Each layer is independently useful and rebuildable.
 
 **Built post-v1:** optional cross-encoder rerank (`internal/rerank`, `reranker_url`); the `internal/service` core seam + the HTTP/JSON API (`stardust serve`, `internal/api`, `docs/openapi.yaml`); the MCP server (`stardust serve --mcp`, `internal/mcp` over `modelcontextprotocol/go-sdk`, tools query/get_note/status/graph) + a Claude Code plugin (`plugin/claude/`). CLI, API, and MCP all call the one core - full parity by construction.
 
-**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the superpower layer (mounts, context bundles, write-back, temporal/ambient - Sections 8 and 12). Order when resumed: mounts -> bundles -> write-back -> temporal -> SDK -> plugin.
+Plus the first superpower-layer piece: **mounts / context-mesh** (`internal/mounts` + `internal/fusion`) - federate external MCP servers declared under `.stardust/mounts/<name>/config.toml`, fan a query out to every mount plus the local index, and RRF-fuse the rankings (`stardust query --mounts`, API `?mounts=true`).
+
+**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the rest of the superpower layer (context bundles, write-back, temporal/ambient - Sections 8 and 12). Order when resumed: bundles -> write-back -> temporal -> SDK -> plugin.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 

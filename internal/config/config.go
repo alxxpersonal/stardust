@@ -93,6 +93,9 @@ func (l Layout) GraphJSON() string { return filepath.Join(l.Cache(), "graph.json
 // Hooks returns the versioned git-hooks directory.
 func (l Layout) Hooks() string { return filepath.Join(l.Dir(), "hooks") }
 
+// Mounts returns the external-source connector directory.
+func (l Layout) Mounts() string { return filepath.Join(l.Dir(), "mounts") }
+
 // CronJobs returns the declarative cron-jobs directory.
 func (l Layout) CronJobs() string { return filepath.Join(l.Dir(), "cron-jobs") }
 
