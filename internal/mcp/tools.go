@@ -17,6 +17,11 @@ type getNoteArgs struct {
 	Path string `json:"path" jsonschema:"vault-relative path to the note, e.g. notes/foo.md"`
 }
 
+type bundleArgs struct {
+	Task   string `json:"task" jsonschema:"the task description to assemble context for"`
+	Budget int    `json:"budget,omitempty" jsonschema:"approximate token budget, default 4000"`
+}
+
 // registerTools wires the Stardust tools over the core Service. The surface is
 // small and the descriptions are specific so the client invokes them reliably.
 func registerTools(server *sdkmcp.Server, svc *service.Service) {
@@ -38,6 +43,18 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a getNoteArgs) (*sdkmcp.CallToolResult, service.Note, error) {
 		n, err := svc.GetNote(ctx, a.Path)
 		return nil, n, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "bundle",
+		Description: "Assemble a task-scoped context bundle: the notes most relevant to a task, expanded over the link graph with personalized PageRank and packed to a token budget. Use this to load yourself with the right context before starting work on a task.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a bundleArgs) (*sdkmcp.CallToolResult, service.BundleResult, error) {
+		budget := a.Budget
+		if budget <= 0 {
+			budget = 4000
+		}
+		res, err := svc.Bundle(ctx, a.Task, budget)
+		return nil, res, err
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{

@@ -34,6 +34,7 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `index [--since SHA] [--background]` | incremental reindex; content-hash skips unchanged, `--since` is the git-diff fast path |
 | `query <text> [--limit N] [--output auto/md/json/plain]` | hybrid keyword + semantic search |
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
+| `bundle <task> [--budget]` | assemble a task-scoped context bundle (PageRank-expanded, budgeted) |
 | `serve [--addr] [--mcp]` | run the HTTP/JSON API, or the MCP server over stdio with `--mcp` |
 | `archive [--dest DIR]` | snapshot the vault's git history (timestamped bare mirror) |
 | `cron list` / `cron run <job>` | list or run declarative cron jobs |
@@ -79,6 +80,10 @@ API_KEY = "..."
 ```
 
 A mount's search tool is called with `{ query, limit }`; results are read from a `hits` or `results` array (with `title` / `snippet` / `path` fields), or the raw text content. A failing mount is skipped, never failing the whole query. Also available over the API as `GET /query?mounts=true`.
+
+## Context bundles
+
+`stardust bundle "<task>"` assembles the context an agent should boot with for a task: it seeds from hybrid recall, expands over the link graph with personalized PageRank (so notes *linked* to the matches come along, not just keyword/semantic matches), fuses with RRF, and packs the result to a token budget - the most relevant note's body plus summary lines for the rest, leaving headroom for just-in-time retrieval. Also at `GET /bundle?task=...` and as the MCP `bundle` tool.
 
 ## Layout (`.stardust/` inside a vault)
 

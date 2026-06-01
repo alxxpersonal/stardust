@@ -126,6 +126,87 @@ func (g *Graph) Neighbors(name string, hops int) []string {
 	return out
 }
 
+// PersonalizedPageRank runs personalized PageRank over the undirected link graph
+// with the restart distribution concentrated on the seed nodes (paths or names).
+// It returns a score per note name; higher means more central to the seeds. This
+// is the link-aware expansion used by context bundles (the Aider repomap move).
+func (g *Graph) PersonalizedPageRank(seeds []string, iterations int, damping float64) map[string]float64 {
+	n := len(g.Nodes)
+	if n == 0 {
+		return nil
+	}
+	if iterations <= 0 {
+		iterations = 30
+	}
+	if damping <= 0 || damping >= 1 {
+		damping = 0.85
+	}
+
+	// undirected adjacency restricted to in-graph nodes
+	adj := make(map[string][]string, n)
+	for name, node := range g.Nodes {
+		seen := map[string]bool{}
+		for _, e := range node.Out {
+			if _, ok := g.Nodes[e]; ok {
+				seen[e] = true
+			}
+		}
+		for _, e := range node.In {
+			if _, ok := g.Nodes[e]; ok {
+				seen[e] = true
+			}
+		}
+		for nb := range seen {
+			adj[name] = append(adj[name], nb)
+		}
+	}
+
+	// restart vector, concentrated on valid seeds (uniform if none resolve)
+	restart := make(map[string]float64, n)
+	valid := 0
+	for _, s := range seeds {
+		k := vault.NormalizeLink(s)
+		if _, ok := g.Nodes[k]; ok {
+			restart[k]++
+			valid++
+		}
+	}
+	if valid == 0 {
+		for k := range g.Nodes {
+			restart[k] = 1.0 / float64(n)
+		}
+	} else {
+		for k := range restart {
+			restart[k] /= float64(valid)
+		}
+	}
+
+	pr := make(map[string]float64, n)
+	for k := range g.Nodes {
+		pr[k] = restart[k]
+	}
+	for i := 0; i < iterations; i++ {
+		next := make(map[string]float64, n)
+		var dangling float64
+		for node, p := range pr {
+			d := len(adj[node])
+			if d == 0 {
+				dangling += p
+				continue
+			}
+			contrib := damping * p / float64(d)
+			for _, nb := range adj[node] {
+				next[nb] += contrib
+			}
+		}
+		for node := range g.Nodes {
+			next[node] += (1-damping)*restart[node] + damping*dangling*restart[node]
+		}
+		pr = next
+	}
+	return pr
+}
+
 // EdgeCount returns the total number of outgoing links across all notes.
 func (g *Graph) EdgeCount() int {
 	n := 0

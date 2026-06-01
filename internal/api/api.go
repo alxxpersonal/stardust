@@ -30,6 +30,7 @@ func New(svc *service.Service) *Handler {
 	h.mux.HandleFunc("GET /note", h.note)
 	h.mux.HandleFunc("GET /status", h.status)
 	h.mux.HandleFunc("GET /graph", h.graph)
+	h.mux.HandleFunc("GET /bundle", h.bundle)
 	h.mux.HandleFunc("GET /cron", h.cronList)
 	h.mux.HandleFunc("POST /index", h.index)
 	h.mux.HandleFunc("POST /rebuild", h.rebuild)
@@ -106,6 +107,26 @@ func (h *Handler) graph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rep)
+}
+
+func (h *Handler) bundle(w http.ResponseWriter, r *http.Request) {
+	task := r.URL.Query().Get("task")
+	if task == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: task"))
+		return
+	}
+	budget := 4000
+	if b := r.URL.Query().Get("budget"); b != "" {
+		if n, err := strconv.Atoi(b); err == nil && n > 0 {
+			budget = n
+		}
+	}
+	res, err := h.svc.Bundle(r.Context(), task, budget)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) cronList(w http.ResponseWriter, _ *http.Request) {
