@@ -1,5 +1,8 @@
 # Stardust
 
+[![CI](https://github.com/alxxpersonal/stardust/actions/workflows/ci.yml/badge.svg)](https://github.com/alxxpersonal/stardust/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Local-first, git-backed, markdown-truth context engine for AI agents. It indexes a markdown vault into a derived, rebuildable SQLite index (FTS5 keyword + local vector embeddings) and exposes hybrid search to humans (an interactive TUI) and agents (a scriptable CLI). Files stay the source of truth; the index is a disposable cache.
 
 Full architecture and research notes: [SPEC.md](./SPEC.md).
