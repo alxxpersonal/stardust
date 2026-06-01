@@ -18,17 +18,21 @@ const DirName = ".stardust"
 
 // Config is the committed per-vault configuration (.stardust/config.toml).
 type Config struct {
-	EmbedModel string   `toml:"embed_model"`
-	OllamaURL  string   `toml:"ollama_url"`
-	Ignore     []string `toml:"ignore"`
+	EmbedModel    string   `toml:"embed_model"`
+	OllamaURL     string   `toml:"ollama_url"`
+	Ignore        []string `toml:"ignore"`
+	RerankerURL   string   `toml:"reranker_url"`   // optional cross-encoder endpoint; empty = disabled
+	RerankerModel string   `toml:"reranker_model"` // optional model name passed to the reranker
 }
 
 // Default returns the default configuration.
 func Default() Config {
 	return Config{
-		EmbedModel: "bge-m3",
-		OllamaURL:  "http://localhost:11434",
-		Ignore:     []string{".git", ".obsidian", ".stardust", ".trash", "node_modules"},
+		EmbedModel:    "bge-m3",
+		OllamaURL:     "http://localhost:11434",
+		Ignore:        []string{".git", ".obsidian", ".stardust", ".trash", "node_modules"},
+		RerankerURL:   "",
+		RerankerModel: "",
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/index"
+	"github.com/alxxpersonal/stardust/internal/rerank"
 )
 
 // newQueryCmd builds the search command.
@@ -51,19 +52,25 @@ func runQuery(cmd *cobra.Command, query string, limit int, output string) error 
 		return err
 	}
 
+	reranker := rerank.New(vc.Config.RerankerURL, vc.Config.RerankerModel)
+	mode := "keyword"
+	if queryVec != nil {
+		mode = "hybrid"
+	}
+	if reranker.Enabled() {
+		hits = reranker.Rerank(ctx, query, hits)
+		mode += " + rerank"
+	}
+
 	if output == "json" {
 		return emitJSON(cmd.OutOrStdout(), hits)
 	}
-	emitMarkdown(cmd.OutOrStdout(), renderHits(query, hits, queryVec != nil), output)
+	emitMarkdown(cmd.OutOrStdout(), renderHits(query, hits, mode), output)
 	return nil
 }
 
 // renderHits formats search results as markdown.
-func renderHits(query string, hits []index.Hit, semantic bool) string {
-	mode := "keyword"
-	if semantic {
-		mode = "hybrid"
-	}
+func renderHits(query string, hits []index.Hit, mode string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %d results for \"%s\" (%s)\n\n", len(hits), query, mode)
 	if len(hits) == 0 {
