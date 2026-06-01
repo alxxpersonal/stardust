@@ -1,0 +1,10 @@
+# A morning briefing: digest what changed since the last run, then advance the
+# cursor so tomorrow's digest is incremental. Copy this folder into
+# .stardust/cron-jobs/ and a launchd/cron timer can fire `stardust cron run
+# morning-digest`. Output is captured to runs/<ts>.log.
+[trigger]
+schedule = "0 8 * * *"
+
+[run]
+kind = "command"
+command = "digest --advance --output md"

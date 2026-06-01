@@ -26,6 +26,11 @@ type rememberArgs struct {
 	Fact string `json:"fact" jsonschema:"the fact to store in the vault"`
 }
 
+type digestArgs struct {
+	Since   string `json:"since,omitempty" jsonschema:"git SHA to diff from"`
+	Advance bool   `json:"advance,omitempty" jsonschema:"advance the digest cursor to HEAD"`
+}
+
 type memoryArgs struct {
 	Command string `json:"command" jsonschema:"one of: view, create, str_replace, insert, delete, rename"`
 	Path    string `json:"path" jsonschema:"vault-relative file path"`
@@ -90,6 +95,14 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, service.GraphReport, error) {
 		rep, err := svc.Graph(ctx)
 		return nil, rep, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "digest",
+		Description: "Summarize recent vault activity grouped by area, with open commitments (TODO, 'I'll do X'). Uses git as the change feed. Use this for a morning briefing or to catch up on what changed since last time.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a digestArgs) (*sdkmcp.CallToolResult, service.DigestResult, error) {
+		res, err := svc.Digest(ctx, a.Since, a.Advance)
+		return nil, res, err
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{

@@ -1,0 +1,11 @@
+# A weekly librarian pass: dedup near-identical notes, link orphans, summarize
+# clusters, flag stale notes. Runs an agent (codex) against the prompt below in a
+# read-only sandbox; it surfaces proposals rather than editing human notes.
+[trigger]
+schedule = "0 3 * * 0"
+
+[run]
+kind = "agent"
+prompt = "prompt.md"
+model = "codex"
+sandbox = "read-only"

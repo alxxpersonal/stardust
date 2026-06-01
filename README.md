@@ -36,6 +36,7 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
 | `bundle <task> [--budget]` | assemble a task-scoped context bundle (PageRank-expanded, budgeted) |
 | `remember <fact>` | store a fact in the vault (add-only, deduped into the nearest note) |
+| `digest [--since] [--advance]` | summarize recent activity by area, with open commitments |
 | `serve [--addr] [--mcp]` | run the HTTP/JSON API, or the MCP server over stdio with `--mcp` |
 | `archive [--dest DIR]` | snapshot the vault's git history (timestamped bare mirror) |
 | `cron list` / `cron run <job>` | list or run declarative cron jobs |
@@ -89,6 +90,10 @@ A mount's search tool is called with `{ query, limit }`; results are read from a
 ## Write-back (agent memory)
 
 Agents can co-author the vault. `stardust remember "<fact>"` embeds the fact, appends it to the most similar existing note (add-only) or creates a dated note under `memory/`, and re-derives the index so it is immediately searchable. Over MCP, the `remember` tool does the same, and the `memory` tool exposes the six edit verbs (`view`, `create`, `str_replace`, `insert`, `delete`, `rename`). All writes are confined to the vault root and serialized through a mutex, so concurrent agents cannot corrupt a file. Files stay the source of truth; the index follows.
+
+## Temporal (digests + ambient agents)
+
+Git is the change feed - no extra infrastructure. `stardust digest` summarizes what changed since the last cursor (or `--since`), grouped by area, and surfaces open commitments (TODO, "I'll do X") from the changed notes. `--advance` moves the cursor so the next digest is incremental. Wire it to a schedule with a cron job; see `docs/examples/cron-jobs/` for a `morning-digest` (a daily briefing) and a weekly `librarian` agent pass. Also at `GET /digest` and the MCP `digest` tool.
 
 ## Layout (`.stardust/` inside a vault)
 

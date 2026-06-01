@@ -31,6 +31,7 @@ func New(svc *service.Service) *Handler {
 	h.mux.HandleFunc("GET /status", h.status)
 	h.mux.HandleFunc("GET /graph", h.graph)
 	h.mux.HandleFunc("GET /bundle", h.bundle)
+	h.mux.HandleFunc("GET /digest", h.digest)
 	h.mux.HandleFunc("GET /cron", h.cronList)
 	h.mux.HandleFunc("POST /index", h.index)
 	h.mux.HandleFunc("POST /rebuild", h.rebuild)
@@ -122,6 +123,15 @@ func (h *Handler) bundle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	res, err := h.svc.Bundle(r.Context(), task, budget)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) digest(w http.ResponseWriter, r *http.Request) {
+	res, err := h.svc.Digest(r.Context(), r.URL.Query().Get("since"), r.URL.Query().Get("advance") == "true")
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err)
 		return

@@ -206,7 +206,9 @@ Plus superpower-layer pieces: **mounts / context-mesh** (`internal/mounts` + `in
 
 And **write-back / memory** (`internal/memory` six-verb tool + `service.Remember` dedup-capture; `stardust remember`, MCP `remember` + `memory` tools) - agents co-author notes back into the vault, path-confined and mutex-serialized, with the index re-derived after each write.
 
-**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the last superpower piece, temporal/ambient (Section 12.4). Order when resumed: temporal -> SDK -> plugin.
+And **temporal / ambient** (`internal/temporal`, `service.Digest`, `stardust digest` + API `/digest` + MCP `digest` tool) - git-as-event-stream digests grouped by area with surfaced commitments (TODO, "I'll do X"); plus example cron-jobs (`docs/examples/cron-jobs/` morning-digest + librarian) wiring the ambient/librarian pattern over the existing scheduler.
+
+**Deferred (documented, not built):** a **full SDK** (typed clients over the API) and the **Obsidian plugin**. Order when resumed: SDK -> plugin.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 
