@@ -30,10 +30,12 @@ stardust            # no args in a terminal: launch the interactive TUI
 
 | command | what it does |
 |---|---|
+| `new <name> [--template] [--check]` | scaffold a fresh vault: git init + `.stardust` + starter files + first commit |
 | `init` | scaffold `.stardust/`, manifest, INDEX.md, wire `core.hooksPath` |
 | `index [--since SHA] [--background]` | incremental reindex; content-hash skips unchanged, `--since` is the git-diff fast path |
 | `query <text> [--limit N] [--output auto/md/json/plain]` | hybrid keyword + semantic search |
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
+| `check [--strict]` | validate vault integrity (broken links, frontmatter, orphans, dup names) |
 | `bundle <task> [--budget]` | assemble a task-scoped context bundle (PageRank-expanded, budgeted) |
 | `remember <fact>` | store a fact in the vault (add-only, deduped into the nearest note) |
 | `digest [--since] [--advance]` | summarize recent activity by area, with open commitments |
@@ -96,6 +98,12 @@ Agents can co-author the vault. `stardust remember "<fact>"` embeds the fact, ap
 ## Temporal (digests + ambient agents)
 
 Git is the change feed - no extra infrastructure. `stardust digest` summarizes what changed since the last cursor (or `--since`), grouped by area, and surfaces open commitments (TODO, "I'll do X") from the changed notes. `--advance` moves the cursor so the next digest is incremental. Wire it to a schedule with a cron job; see `docs/examples/cron-jobs/` for a `morning-digest` (a daily briefing) and a weekly `librarian` agent pass. Also at `GET /digest` and the MCP `digest` tool.
+
+## Vault health + scaffolding
+
+`stardust check` validates vault integrity: broken wikilinks and malformed frontmatter are errors; orphan notes, missing titles, and duplicate note names are warnings. With `--strict` it exits non-zero on errors, so it can gate commits - `stardust hooks install --check strict` writes a pre-commit hook that **blocks a commit that introduces a broken link** (use `--check warn` to surface issues without blocking). Also at `GET /check` and the MCP `check` tool.
+
+`stardust new <name>` bootstraps a fresh vault in one command: starter files (or `--template <dir>` to copy your own layout), `git init`, the `.stardust` scaffolding with hooks, and a first commit. Ready for `stardust index`.
 
 ## Layout (`.stardust/` inside a vault)
 

@@ -41,6 +41,22 @@ func HeadSHA(ctx context.Context, repoRoot string) (string, error) {
 	return run(ctx, repoRoot, "rev-parse", "HEAD")
 }
 
+// Init initialises a git repository at repoRoot (which must already exist).
+func Init(ctx context.Context, repoRoot string) error {
+	_, err := run(ctx, repoRoot, "init")
+	return err
+}
+
+// CommitAll stages everything and commits it with message, using the caller's
+// configured git identity.
+func CommitAll(ctx context.Context, repoRoot, message string) error {
+	if _, err := run(ctx, repoRoot, "add", "-A"); err != nil {
+		return err
+	}
+	_, err := run(ctx, repoRoot, "commit", "-m", message)
+	return err
+}
+
 // DiffNames returns the markdown paths changed between sinceSHA and HEAD
 // (added, copied, modified, renamed, or deleted). With an empty sinceSHA it
 // returns every tracked markdown file, which drives a full index. Callers stat

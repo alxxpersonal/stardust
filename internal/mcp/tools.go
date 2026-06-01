@@ -98,6 +98,14 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "check",
+		Description: "Validate vault integrity: broken wikilinks and malformed frontmatter (errors), plus orphan notes, missing titles, and duplicate note names (warnings). Use this to verify the vault is healthy before relying on it or after edits.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, service.CheckResult, error) {
+		res, err := svc.Check(ctx)
+		return nil, res, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "digest",
 		Description: "Summarize recent vault activity grouped by area, with open commitments (TODO, 'I'll do X'). Uses git as the change feed. Use this for a morning briefing or to catch up on what changed since last time.",
 	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a digestArgs) (*sdkmcp.CallToolResult, service.DigestResult, error) {

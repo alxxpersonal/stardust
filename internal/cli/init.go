@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,7 +31,24 @@ func runInit(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("get working dir: %w", err)
 	}
-	layout := config.Layout{Root: cwd}
+	if err := scaffoldVault(cmd.Context(), cwd, "off"); err != nil {
+		return err
+	}
+
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Initialised .stardust/ in %s\n", cwd)
+	if gitx.IsRepo(cmd.Context(), cwd) {
+		fmt.Fprintln(out, "Wired commit hooks (core.hooksPath -> .stardust/hooks).")
+	}
+	fmt.Fprintln(out, "Next: run `stardust index` to build the search index.")
+	return nil
+}
+
+// scaffoldVault creates the .stardust layout (dirs, config, manifest, INDEX,
+// cache .gitignore) under root and, when root is a git repo, installs the hooks
+// with the given check mode. Shared by `init` and `new`.
+func scaffoldVault(ctx context.Context, root, check string) error {
+	layout := config.Layout{Root: root}
 
 	for _, dir := range []string{layout.Dir(), layout.Cache(), layout.Hooks(), layout.CronJobs()} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -49,24 +67,17 @@ func runInit(cmd *cobra.Command) error {
 		return fmt.Errorf("write .stardust/.gitignore: %w", err)
 	}
 
-	vaultName := filepath.Base(cwd)
-	if err := manifest.WriteManifest(layout.Manifest(), vaultName); err != nil {
+	if err := manifest.WriteManifest(layout.Manifest(), filepath.Base(root)); err != nil {
 		return err
 	}
 	if err := manifest.WriteIndex(layout.IndexMD(), nil); err != nil {
 		return err
 	}
 
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Initialised .stardust/ in %s\n", cwd)
-
-	if gitx.IsRepo(cmd.Context(), cwd) {
-		if err := hooks.Install(cmd.Context(), cwd, layout.Hooks()); err != nil {
+	if gitx.IsRepo(ctx, root) {
+		if err := hooks.Install(ctx, root, layout.Hooks(), check); err != nil {
 			return err
 		}
-		fmt.Fprintln(out, "Wired commit hooks (core.hooksPath -> .stardust/hooks).")
 	}
-
-	fmt.Fprintln(out, "Next: run `stardust index` to build the search index.")
 	return nil
 }

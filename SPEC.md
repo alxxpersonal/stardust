@@ -210,6 +210,8 @@ And **temporal / ambient** (`internal/temporal`, `service.Digest`, `stardust dig
 
 And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript client `sdk/ts/stardust.ts`) over the HTTP API; and the **Obsidian plugin** (`plugin/obsidian/`, TypeScript over the SDK) - a search panel inside Obsidian backed by the daemon, all logic in the daemon.
 
+Plus vault-ops ergonomics: **`stardust check`** (integrity - broken links + malformed frontmatter as errors, orphans + missing titles + duplicate names as warnings; `--strict` exits non-zero, and `hooks install --check strict` wires a pre-commit gate that blocks a commit introducing a broken link) and **`stardust new`** (scaffold a fresh vault: git init + `.stardust` + starter files + first commit, `--template` for custom layouts).
+
 **Everything in the original deferred list is now built.** Genuinely future work (not yet built): a cross-encoder reranker served in-binary (pure-Go ONNX), LLM-based contradiction detection, and semantic mount routing at scale.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
