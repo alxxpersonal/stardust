@@ -1,0 +1,17 @@
+{
+  "name": "stardust-obsidian",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for Stardust: hybrid search over your vault via the local daemon.",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc --noEmit && node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "alxxpersonal",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "obsidian": "^1.5.7-1",
+    "typescript": "^5.4.5"
+  }
+}

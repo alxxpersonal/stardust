@@ -129,6 +129,8 @@ command = "archive --dest /nas/stardust-archives"
 
 Go 1.26, cobra CLI, TOML config, the charm v2 TUI stack (bubbletea, lipgloss, bubbles, glamour), `modernc.org/sqlite` (pure Go, single static binary) with goose migrations, and Ollama for local embeddings. Vectors are brute-force cosine in Go because pure-Go sqlite cannot load the sqlite-vec C extension; at personal scale a flat scan is instant and keeps the single static binary.
 
-## Deferred
+## Architecture
 
-The HTTP/JSON API, a full client SDK, the MCP server (a Claude Code plugin), the Obsidian plugin, and the superpower layer (mounts, context bundles, write-back, temporal agents) are designed in [SPEC.md](./SPEC.md) but not built in v1. The core library is factored so each is a thin later surface with full parity.
+Everything sits on one core library (`internal/service`) over a vault. The CLI, the HTTP API, and the MCP server are thin frontends over it, so capability parity is structural - none can do anything the others cannot. The full design and the research behind it is in [SPEC.md](./SPEC.md).
+
+The superpower layer (mounts, context bundles, write-back/memory, temporal digests), the surfaces (API, MCP + Claude Code plugin, Go + TS SDKs), and the Obsidian plugin are all built. Genuinely future work: a reranker served in-binary (pure-Go ONNX), LLM-based contradiction detection, and semantic mount routing at scale.

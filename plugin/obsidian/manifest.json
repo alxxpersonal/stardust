@@ -1,0 +1,10 @@
+{
+  "id": "stardust",
+  "name": "Stardust",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Hybrid keyword + semantic search over your vault via the local Stardust daemon.",
+  "author": "alxxpersonal",
+  "authorUrl": "https://github.com/alxxpersonal/stardust",
+  "isDesktopOnly": true
+}

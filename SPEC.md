@@ -208,9 +208,9 @@ And **write-back / memory** (`internal/memory` six-verb tool + `service.Remember
 
 And **temporal / ambient** (`internal/temporal`, `service.Digest`, `stardust digest` + API `/digest` + MCP `digest` tool) - git-as-event-stream digests grouped by area with surfaced commitments (TODO, "I'll do X"); plus example cron-jobs (`docs/examples/cron-jobs/` morning-digest + librarian) wiring the ambient/librarian pattern over the existing scheduler.
 
-And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript client `sdk/ts/stardust.ts`) over the HTTP API.
+And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript client `sdk/ts/stardust.ts`) over the HTTP API; and the **Obsidian plugin** (`plugin/obsidian/`, TypeScript over the SDK) - a search panel inside Obsidian backed by the daemon, all logic in the daemon.
 
-**Deferred (documented, not built):** the **Obsidian plugin** (`plugin/obsidian/`, TypeScript over the SDK).
+**Everything in the original deferred list is now built.** Genuinely future work (not yet built): a cross-encoder reranker served in-binary (pure-Go ONNX), LLM-based contradiction detection, and semantic mount routing at scale.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 
