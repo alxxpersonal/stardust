@@ -158,6 +158,46 @@ func (s *Store) searchVec(ctx context.Context, query []float32, limit int) ([]ra
 	return out, nil
 }
 
+// Nearest returns the notes whose chunks are most cosine-similar to query,
+// collapsed to the best chunk per note, with Score set to that cosine. It is the
+// dedup-before-write primitive. Returns nil when no vectors are indexed.
+func (s *Store) Nearest(ctx context.Context, query []float32, limit int) ([]Hit, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.path, c.title, c.heading, c.body, v.vec
+		FROM vectors v
+		JOIN chunks c ON c.id = v.chunk_id`)
+	if err != nil {
+		return nil, fmt.Errorf("nearest: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	best := map[string]Hit{}
+	for rows.Next() {
+		var path, title, heading, body string
+		var blob []byte
+		if err := rows.Scan(&path, &title, &heading, &body, &blob); err != nil {
+			return nil, fmt.Errorf("scan nearest: %w", err)
+		}
+		sim := cosine(query, decodeVec(blob))
+		if cur, ok := best[path]; !ok || sim > cur.Score {
+			best[path] = Hit{Path: path, Title: title, Heading: heading, Snippet: snippet(body), Score: sim}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate nearest: %w", err)
+	}
+
+	out := make([]Hit, 0, len(best))
+	for _, h := range best {
+		out = append(out, h)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 // --- Helpers ---
 
 func scanRanked(rows interface {

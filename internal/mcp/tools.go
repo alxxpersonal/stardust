@@ -22,6 +22,25 @@ type bundleArgs struct {
 	Budget int    `json:"budget,omitempty" jsonschema:"approximate token budget, default 4000"`
 }
 
+type rememberArgs struct {
+	Fact string `json:"fact" jsonschema:"the fact to store in the vault"`
+}
+
+type memoryArgs struct {
+	Command string `json:"command" jsonschema:"one of: view, create, str_replace, insert, delete, rename"`
+	Path    string `json:"path" jsonschema:"vault-relative file path"`
+	Content string `json:"content,omitempty" jsonschema:"file content (create)"`
+	OldStr  string `json:"old_str,omitempty" jsonschema:"text to replace (str_replace)"`
+	NewStr  string `json:"new_str,omitempty" jsonschema:"replacement text (str_replace)"`
+	Line    int    `json:"line,omitempty" jsonschema:"0-based line index (insert)"`
+	Text    string `json:"text,omitempty" jsonschema:"text to insert (insert)"`
+	Dest    string `json:"dest,omitempty" jsonschema:"destination path (rename)"`
+}
+
+type memoryResult struct {
+	Result string `json:"result"`
+}
+
 // registerTools wires the Stardust tools over the core Service. The surface is
 // small and the descriptions are specific so the client invokes them reliably.
 func registerTools(server *sdkmcp.Server, svc *service.Service) {
@@ -71,5 +90,24 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, service.GraphReport, error) {
 		rep, err := svc.Graph(ctx)
 		return nil, rep, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "remember",
+		Description: "Store a fact in the user's vault, add-only. Embeds it and appends to the most similar existing note, or creates a dated note under memory/. The index updates automatically. Use this to persist something you learned for future sessions.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a rememberArgs) (*sdkmcp.CallToolResult, service.RememberResult, error) {
+		res, err := svc.Remember(ctx, a.Fact)
+		return nil, res, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "memory",
+		Description: "Edit vault files with the memory verbs: view, create, str_replace, insert, delete, rename. Paths are confined to the vault and the index updates after each write. Prefer add-only edits; use 'remember' for quick fact capture.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a memoryArgs) (*sdkmcp.CallToolResult, memoryResult, error) {
+		out, err := svc.Memory(ctx, service.MemoryOp{
+			Command: a.Command, Path: a.Path, Content: a.Content,
+			Old: a.OldStr, New: a.NewStr, Line: a.Line, Text: a.Text, Dest: a.Dest,
+		})
+		return nil, memoryResult{Result: out}, err
 	})
 }

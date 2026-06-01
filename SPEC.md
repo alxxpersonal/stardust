@@ -204,7 +204,9 @@ Each layer is independently useful and rebuildable.
 
 Plus superpower-layer pieces: **mounts / context-mesh** (`internal/mounts` + `internal/fusion`) - federate external MCP servers declared under `.stardust/mounts/<name>/config.toml`, fan a query out to every mount plus the local index, RRF-fuse (`stardust query --mounts`, API `?mounts=true`); and **context bundles** (`stardust bundle`, `service.Bundle` + `graph.PersonalizedPageRank`) - seed from hybrid recall, expand over the link graph with personalized PageRank, RRF-fuse, pack to a token budget (CLI + API `/bundle` + MCP `bundle` tool).
 
-**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the rest of the superpower layer (write-back, temporal/ambient - Sections 8 and 12). Order when resumed: write-back -> temporal -> SDK -> plugin.
+And **write-back / memory** (`internal/memory` six-verb tool + `service.Remember` dedup-capture; `stardust remember`, MCP `remember` + `memory` tools) - agents co-author notes back into the vault, path-confined and mutex-serialized, with the index re-derived after each write.
+
+**Deferred (documented, not built):** a **full SDK**; the Obsidian plugin; and the last superpower piece, temporal/ambient (Section 12.4). Order when resumed: temporal -> SDK -> plugin.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 

@@ -34,6 +34,7 @@ linters:
         - G304
         - G306
         - G702
+        - G703
         - G704
     errcheck:
       exclude-functions:

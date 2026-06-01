@@ -35,6 +35,7 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `query <text> [--limit N] [--output auto/md/json/plain]` | hybrid keyword + semantic search |
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
 | `bundle <task> [--budget]` | assemble a task-scoped context bundle (PageRank-expanded, budgeted) |
+| `remember <fact>` | store a fact in the vault (add-only, deduped into the nearest note) |
 | `serve [--addr] [--mcp]` | run the HTTP/JSON API, or the MCP server over stdio with `--mcp` |
 | `archive [--dest DIR]` | snapshot the vault's git history (timestamped bare mirror) |
 | `cron list` / `cron run <job>` | list or run declarative cron jobs |
@@ -84,6 +85,10 @@ A mount's search tool is called with `{ query, limit }`; results are read from a
 ## Context bundles
 
 `stardust bundle "<task>"` assembles the context an agent should boot with for a task: it seeds from hybrid recall, expands over the link graph with personalized PageRank (so notes *linked* to the matches come along, not just keyword/semantic matches), fuses with RRF, and packs the result to a token budget - the most relevant note's body plus summary lines for the rest, leaving headroom for just-in-time retrieval. Also at `GET /bundle?task=...` and as the MCP `bundle` tool.
+
+## Write-back (agent memory)
+
+Agents can co-author the vault. `stardust remember "<fact>"` embeds the fact, appends it to the most similar existing note (add-only) or creates a dated note under `memory/`, and re-derives the index so it is immediately searchable. Over MCP, the `remember` tool does the same, and the `memory` tool exposes the six edit verbs (`view`, `create`, `str_replace`, `insert`, `delete`, `rename`). All writes are confined to the vault root and serialized through a mutex, so concurrent agents cannot corrupt a file. Files stay the source of truth; the index follows.
 
 ## Layout (`.stardust/` inside a vault)
 
