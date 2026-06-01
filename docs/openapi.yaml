@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: Stardust API
+  version: "0.1.0"
+  description: >
+    HTTP/JSON API over the Stardust core. Every route maps to a core operation
+    also reachable from the CLI and the MCP server. Bind to localhost; this API
+    has no authentication and is intended for local/NAS use behind your own trust
+    boundary.
+servers:
+  - url: http://127.0.0.1:7777
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+  /query:
+    get:
+      summary: Hybrid keyword + semantic search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryResult" }
+        "400": { description: Missing q }
+  /note:
+    get:
+      summary: Read a parsed note by vault-relative path
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Parsed note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        "404": { description: Not found }
+  /status:
+    get:
+      summary: Index health and configuration
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+  /graph:
+    get:
+      summary: Derive the link graph and report orphans + broken links
+      responses:
+        "200":
+          description: Graph report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GraphReport" }
+  /cron:
+    get:
+      summary: List declarative cron jobs
+      responses:
+        "200": { description: Jobs }
+  /index:
+    post:
+      summary: Incrementally index the vault
+      parameters:
+        - name: since
+          in: query
+          schema: { type: string, description: git SHA for the diff fast path }
+      responses:
+        "200":
+          description: Index stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IndexStats" }
+  /rebuild:
+    post:
+      summary: Nuke the cache and reindex from scratch
+      responses:
+        "200":
+          description: Index stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IndexStats" }
+  /archive:
+    post:
+      summary: Snapshot git history into a destination folder
+      parameters:
+        - name: dest
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: "{ path }" }
+  /cron/run:
+    post:
+      summary: Run a cron job now
+      parameters:
+        - name: job
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: "{ output }" }
+        "400": { description: Missing job }
+components:
+  schemas:
+    Hit:
+      type: object
+      properties:
+        path: { type: string }
+        title: { type: string }
+        heading: { type: string }
+        snippet: { type: string }
+        score: { type: number }
+    QueryResult:
+      type: object
+      properties:
+        query: { type: string }
+        mode: { type: string }
+        hits:
+          type: array
+          items: { $ref: "#/components/schemas/Hit" }
+    Note:
+      type: object
+      properties:
+        path: { type: string }
+        title: { type: string }
+        tags: { type: array, items: { type: string } }
+        links: { type: array, items: { type: string } }
+        body: { type: string }
+    Status:
+      type: object
+      properties:
+        root: { type: string }
+        notes: { type: integer }
+        chunks: { type: integer }
+        last_indexed_sha: { type: string }
+        embed_model: { type: string }
+        vectors: { type: boolean }
+        reranker: { type: boolean }
+    GraphReport:
+      type: object
+      properties:
+        notes: { type: integer }
+        links: { type: integer }
+        orphans: { type: array, items: { type: string } }
+        broken:
+          type: array
+          items:
+            type: object
+            properties:
+              from: { type: string }
+              target: { type: string }
+    IndexStats:
+      type: object
+      properties:
+        indexed: { type: integer }
+        skipped: { type: integer }
+        deleted: { type: integer }
+        vectors: { type: boolean }

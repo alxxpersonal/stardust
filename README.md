@@ -34,6 +34,7 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `index [--since SHA] [--background]` | incremental reindex; content-hash skips unchanged, `--since` is the git-diff fast path |
 | `query <text> [--limit N] [--output auto/md/json/plain]` | hybrid keyword + semantic search |
 | `graph [--output ...]` | derive the link graph, report orphans and broken links |
+| `serve [--addr]` | run the HTTP/JSON API server (see [docs/openapi.yaml](docs/openapi.yaml)) |
 | `archive [--dest DIR]` | snapshot the vault's git history (timestamped bare mirror) |
 | `cron list` / `cron run <job>` | list or run declarative cron jobs |
 | `hooks install` / `hooks uninstall` | manage the auto-index commit hooks |
@@ -41,6 +42,19 @@ stardust            # no args in a terminal: launch the interactive TUI
 | `version` | print the version |
 
 Run with no arguments in a terminal to open the TUI. Pipe any command (non-TTY) for clean markdown or JSON, the agent surface. Add `--output json` for structured results.
+
+## HTTP API
+
+`stardust serve` runs a localhost HTTP/JSON API over the same core the CLI uses, so every capability is reachable programmatically (and by the Obsidian plugin). It has no auth and binds to `127.0.0.1` by default; keep it behind your own trust boundary.
+
+```sh
+stardust serve --addr 127.0.0.1:7777
+curl 'http://127.0.0.1:7777/query?q=how+to+handle+errors&limit=5'
+curl  http://127.0.0.1:7777/status
+curl -X POST http://127.0.0.1:7777/index
+```
+
+Routes: `GET /query`, `/note`, `/status`, `/graph`, `/cron`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
 
 ## Layout (`.stardust/` inside a vault)
 

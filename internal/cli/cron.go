@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/alxxpersonal/stardust/internal/cron"
 )
 
 // newCronCmd groups the declarative cron-job commands.
@@ -26,11 +24,13 @@ func newCronListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List configured cron jobs",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			vc, err := resolveVault()
+			svc, err := openService(cmd.Context())
 			if err != nil {
 				return err
 			}
-			jobs, err := cron.Load(vc.Layout.CronJobs())
+			defer func() { _ = svc.Close() }()
+
+			jobs, err := svc.CronList()
 			if err != nil {
 				return err
 			}
@@ -59,19 +59,17 @@ func newCronRunCmd() *cobra.Command {
 		Short: "Run a cron job now",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vc, err := resolveVault()
+			svc, err := openService(cmd.Context())
 			if err != nil {
 				return err
 			}
-			job, err := cron.LoadJob(vc.Layout.CronJobs(), args[0])
-			if err != nil {
-				return err
-			}
+			defer func() { _ = svc.Close() }()
+
 			exe, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf("locate executable: %w", err)
 			}
-			return job.Execute(cmd.Context(), exe, vc.Layout.Root, os.Stderr)
+			return svc.CronRun(cmd.Context(), args[0], exe, os.Stderr)
 		},
 	}
 }

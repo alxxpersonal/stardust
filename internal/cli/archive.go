@@ -3,11 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-
-	"github.com/alxxpersonal/stardust/internal/gitx"
 )
 
 // newArchiveCmd snapshots the vault's git history into a destination folder.
@@ -27,17 +24,13 @@ func newArchiveCmd() *cobra.Command {
 
 func runArchive(cmd *cobra.Command, dest string) error {
 	ctx := cmd.Context()
-	vc, err := resolveVault()
+	svc, err := openService(ctx)
 	if err != nil {
 		return err
 	}
-	if !gitx.IsRepo(ctx, vc.Layout.Root) {
-		return fmt.Errorf("archive: %s is not a git repository", vc.Layout.Root)
-	}
-	if dest == "" {
-		dest = filepath.Join(vc.Layout.Dir(), "archives")
-	}
-	target, err := gitx.Archive(ctx, vc.Layout.Root, dest)
+	defer func() { _ = svc.Close() }()
+
+	target, err := svc.Archive(ctx, dest)
 	if err != nil {
 		return err
 	}

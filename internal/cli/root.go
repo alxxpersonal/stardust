@@ -52,6 +52,7 @@ func newRootCmd() *cobra.Command {
 		newQueryCmd(),
 		newGraphCmd(),
 		newArchiveCmd(),
+		newServeCmd(),
 		newCronCmd(),
 		newHooksCmd(),
 		newRebuildCmd(),

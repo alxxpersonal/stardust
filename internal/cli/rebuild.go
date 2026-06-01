@@ -14,15 +14,21 @@ func newRebuildCmd() *cobra.Command {
 		Short: "Delete and regenerate the entire index cache",
 		Long:  "Nukes .stardust/cache and reindexes the whole vault from markdown. The cache\nis a derived artifact, so this is always safe.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			vc, err := resolveVault()
+			ctx := cmd.Context()
+			svc, err := openService(ctx)
 			if err != nil {
 				return err
 			}
-			if err := os.RemoveAll(vc.Layout.Cache()); err != nil {
-				return fmt.Errorf("clear cache: %w", err)
-			}
+			defer func() { _ = svc.Close() }()
+
 			fmt.Fprintln(os.Stderr, "cache cleared, rebuilding from markdown...")
-			return runIndex(cmd, "")
+			stats, err := svc.Rebuild(ctx)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "indexed %d, skipped %d, deleted %d (vectors: %t)\n",
+				stats.Indexed, stats.Skipped, stats.Deleted, stats.Vectors)
+			return nil
 		},
 	}
 }

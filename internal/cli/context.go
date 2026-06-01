@@ -6,11 +6,11 @@ import (
 	"os"
 
 	"github.com/alxxpersonal/stardust/internal/config"
-	"github.com/alxxpersonal/stardust/internal/embed"
-	"github.com/alxxpersonal/stardust/internal/index"
+	"github.com/alxxpersonal/stardust/internal/service"
 )
 
-// vaultContext bundles the resolved per-vault layout and config for a command.
+// vaultContext bundles the resolved per-vault layout and config for commands
+// that touch .stardust files directly (init, hooks) rather than the index.
 type vaultContext struct {
 	Layout config.Layout
 	Config config.Config
@@ -35,12 +35,11 @@ func resolveVault() (vaultContext, error) {
 	return vaultContext{Layout: layout, Config: cfg}, nil
 }
 
-// openStore opens the sqlite index for this vault.
-func (vc vaultContext) openStore(ctx context.Context) (*index.Store, error) {
-	return index.Open(ctx, vc.Layout.DB())
-}
-
-// embedder returns an Ollama client configured for this vault.
-func (vc vaultContext) embedder() *embed.Client {
-	return embed.New(vc.Config.OllamaURL, vc.Config.EmbedModel)
+// openService opens the core Service for the vault containing the working dir.
+func openService(ctx context.Context) (*service.Service, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("get working dir: %w", err)
+	}
+	return service.Open(ctx, cwd)
 }

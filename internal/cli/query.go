@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/index"
-	"github.com/alxxpersonal/stardust/internal/rerank"
 )
 
 // newQueryCmd builds the search command.
@@ -29,43 +28,20 @@ func newQueryCmd() *cobra.Command {
 
 func runQuery(cmd *cobra.Command, query string, limit int, output string) error {
 	ctx := cmd.Context()
-	vc, err := resolveVault()
+	svc, err := openService(ctx)
 	if err != nil {
 		return err
 	}
-	store, err := vc.openStore(ctx)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Query(ctx, query, limit)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = store.Close() }()
-
-	var queryVec []float32
-	embedder := vc.embedder()
-	if embedder.Available(ctx) {
-		if vecs, err := embedder.Embed(ctx, []string{query}); err == nil && len(vecs) == 1 {
-			queryVec = vecs[0]
-		}
-	}
-
-	hits, err := store.Hybrid(ctx, query, queryVec, limit)
-	if err != nil {
-		return err
-	}
-
-	reranker := rerank.New(vc.Config.RerankerURL, vc.Config.RerankerModel)
-	mode := "keyword"
-	if queryVec != nil {
-		mode = "hybrid"
-	}
-	if reranker.Enabled() {
-		hits = reranker.Rerank(ctx, query, hits)
-		mode += " + rerank"
-	}
-
 	if output == "json" {
-		return emitJSON(cmd.OutOrStdout(), hits)
+		return emitJSON(cmd.OutOrStdout(), res.Hits)
 	}
-	emitMarkdown(cmd.OutOrStdout(), renderHits(query, hits, mode), output)
+	emitMarkdown(cmd.OutOrStdout(), renderHits(res.Query, res.Hits, res.Mode), output)
 	return nil
 }
 
