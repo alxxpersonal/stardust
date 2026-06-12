@@ -95,17 +95,27 @@ func (s *Service) Query(ctx context.Context, query string, limit int) (QueryResu
 	return QueryResult{Query: query, Mode: mode, Hits: hits}, nil
 }
 
+// LinkTarget pairs a note's normalized wikilink with the vault-relative path it
+// resolves to. Path is empty when the link points at no existing note (broken).
+type LinkTarget struct {
+	Link string `json:"link"`
+	Path string `json:"path"`
+}
+
 // Note is a parsed note returned by GetNote.
 type Note struct {
-	Path  string   `json:"path"`
-	Title string   `json:"title"`
-	Tags  []string `json:"tags"`
-	Links []string `json:"links"`
-	Body  string   `json:"body"`
+	Path        string       `json:"path"`
+	Title       string       `json:"title"`
+	Tags        []string     `json:"tags"`
+	Links       []string     `json:"links"`
+	LinkTargets []LinkTarget `json:"link_targets"`
+	Body        string       `json:"body"`
 }
 
 // GetNote parses the markdown file at a vault-relative path. The path is cleaned
-// and confined to the vault root.
+// and confined to the vault root. Each wikilink in Links is resolved against the
+// vault's note set (by normalized name) and reported in LinkTargets, with an
+// empty Path for any link that resolves to no note.
 func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 	clean := strings.TrimPrefix(filepath.ToSlash(filepath.Clean("/"+filepath.FromSlash(path))), "/")
 	if clean == "" {
@@ -115,7 +125,33 @@ func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	return Note{Path: n.Path, Title: n.Title, Tags: n.Tags, Links: n.Links, Body: n.Body}, nil
+	targets, err := s.resolveLinks(n.Links)
+	if err != nil {
+		return Note{}, err
+	}
+	return Note{Path: n.Path, Title: n.Title, Tags: n.Tags, Links: n.Links, LinkTargets: targets, Body: n.Body}, nil
+}
+
+// resolveLinks maps each normalized wikilink to the vault-relative path of the
+// note it resolves to, using the same normalized-name keying as the link graph.
+// Unresolved links keep an empty path. Order follows the input links.
+func (s *Service) resolveLinks(links []string) ([]LinkTarget, error) {
+	out := make([]LinkTarget, 0, len(links))
+	if len(links) == 0 {
+		return out, nil
+	}
+	paths, err := vault.Scan(s.Layout.Root, s.Config.Ignore)
+	if err != nil {
+		return nil, err
+	}
+	byName := make(map[string]string, len(paths))
+	for _, rel := range paths {
+		byName[vault.NormalizeLink(rel)] = filepath.ToSlash(rel)
+	}
+	for _, link := range links {
+		out = append(out, LinkTarget{Link: link, Path: byName[vault.NormalizeLink(link)]})
+	}
+	return out, nil
 }
 
 // Status is index health.
@@ -151,16 +187,20 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	}, nil
 }
 
+// graphPageRankTopN bounds how many notes the graph report ranks by centrality.
+const graphPageRankTopN = 10
+
 // GraphReport summarizes the derived link graph.
 type GraphReport struct {
-	Notes   int                `json:"notes"`
-	Links   int                `json:"links"`
-	Orphans []string           `json:"orphans"`
-	Broken  []graph.BrokenLink `json:"broken"`
+	Notes    int                   `json:"notes"`
+	Links    int                   `json:"links"`
+	Orphans  []string              `json:"orphans"`
+	Broken   []graph.BrokenLink    `json:"broken"`
+	PageRank []graph.PageRankEntry `json:"pagerank"`
 }
 
 // Graph derives the link graph from markdown, saves it to the cache, and reports
-// orphans and broken links.
+// orphans, broken links, and the top notes by link-graph centrality (PageRank).
 func (s *Service) Graph(_ context.Context) (GraphReport, error) {
 	g, err := graph.Build(s.Layout.Root, s.Config.Ignore)
 	if err != nil {
@@ -169,7 +209,13 @@ func (s *Service) Graph(_ context.Context) (GraphReport, error) {
 	if err := g.Save(s.Layout.GraphJSON()); err != nil {
 		return GraphReport{}, err
 	}
-	return GraphReport{Notes: len(g.Nodes), Links: g.EdgeCount(), Orphans: g.Orphans(), Broken: g.BrokenLinks()}, nil
+	return GraphReport{
+		Notes:    len(g.Nodes),
+		Links:    g.EdgeCount(),
+		Orphans:  g.Orphans(),
+		Broken:   g.BrokenLinks(),
+		PageRank: g.TopPageRank(graphPageRankTopN),
+	}, nil
 }
 
 // --- Cron ---

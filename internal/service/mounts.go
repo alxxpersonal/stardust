@@ -82,3 +82,35 @@ func (s *Service) MountNames() ([]string, error) {
 	}
 	return names, nil
 }
+
+// MountInfo describes one configured mount as read from its config.toml. Every
+// mount is an MCP-server connector, so Kind is always "mcp" and Target is the
+// executable launched to reach the source.
+type MountInfo struct {
+	Name   string   `json:"name"`
+	Kind   string   `json:"kind"`           // connector kind; "mcp" for all mounts today
+	Target string   `json:"target"`         // the executable launched for this mount
+	Args   []string `json:"args,omitempty"` // arguments passed to the executable
+	Tool   string   `json:"tool"`           // the mount's search tool name
+}
+
+// Mounts returns the configured mounts read from .stardust/mounts, sorted by
+// name (mounts.Load already sorts). It is the read-only inventory behind the
+// /mounts surface; it never launches a connector.
+func (s *Service) Mounts() ([]MountInfo, error) {
+	ms, err := mounts.Load(s.Layout.Mounts())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MountInfo, len(ms))
+	for i, m := range ms {
+		out[i] = MountInfo{
+			Name:   m.Name,
+			Kind:   "mcp",
+			Target: m.Cfg.Command,
+			Args:   m.Cfg.Args,
+			Tool:   m.Cfg.Tool,
+		}
+	}
+	return out, nil
+}

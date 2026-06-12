@@ -72,6 +72,17 @@ paths:
       summary: List declarative cron jobs
       responses:
         "200": { description: Jobs }
+  /mounts:
+    get:
+      summary: List configured external-source mounts
+      responses:
+        "200":
+          description: Mounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Mount" }
   /index:
     post:
       summary: Incrementally index the vault
@@ -139,7 +150,22 @@ components:
         title: { type: string }
         tags: { type: array, items: { type: string } }
         links: { type: array, items: { type: string } }
+        link_targets:
+          type: array
+          items:
+            type: object
+            properties:
+              link: { type: string }
+              path: { type: string }
         body: { type: string }
+    Mount:
+      type: object
+      properties:
+        name: { type: string }
+        kind: { type: string }
+        target: { type: string }
+        args: { type: array, items: { type: string } }
+        tool: { type: string }
     Status:
       type: object
       properties:
@@ -163,6 +189,14 @@ components:
             properties:
               from: { type: string }
               target: { type: string }
+        pagerank:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              title: { type: string }
+              score: { type: number }
     IndexStats:
       type: object
       properties:

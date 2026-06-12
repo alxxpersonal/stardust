@@ -207,6 +207,40 @@ func (g *Graph) PersonalizedPageRank(seeds []string, iterations int, damping flo
 	return pr
 }
 
+// PageRankEntry is one note's global centrality score in the link graph.
+type PageRankEntry struct {
+	Path  string  `json:"path"`
+	Title string  `json:"title"`
+	Score float64 `json:"score"`
+}
+
+// TopPageRank runs global (non-personalized) PageRank over the undirected link
+// graph and returns the top n notes by centrality, sorted by descending score
+// then path for stability. It reuses PersonalizedPageRank with no seeds, which
+// falls back to the uniform restart distribution that defines standard PageRank.
+// A non-positive n returns all notes.
+func (g *Graph) TopPageRank(n int) []PageRankEntry {
+	pr := g.PersonalizedPageRank(nil, 0, 0)
+	if len(pr) == 0 {
+		return nil
+	}
+	out := make([]PageRankEntry, 0, len(pr))
+	for name, score := range pr {
+		node := g.Nodes[name]
+		out = append(out, PageRankEntry{Path: node.Path, Title: node.Title, Score: score})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Score != out[j].Score {
+			return out[i].Score > out[j].Score
+		}
+		return out[i].Path < out[j].Path
+	})
+	if n > 0 && len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
 // EdgeCount returns the total number of outgoing links across all notes.
 func (g *Graph) EdgeCount() int {
 	n := 0

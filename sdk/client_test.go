@@ -19,8 +19,14 @@ func TestSDKAgainstAPI(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
 	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	mountsDir := config.Layout{Root: root}.Mounts()
+	require.NoError(t, os.MkdirAll(filepath.Join(mountsDir, "gmail"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(mountsDir, "gmail", "config.toml"),
+		[]byte("command = \"gmail-mcp\"\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"),
-		[]byte("---\ntitle: SDK Note\n---\n# SDK Note\ncontent about widgets and gadgets"), 0o644))
+		[]byte("---\ntitle: SDK Note\n---\n# SDK Note\ncontent about widgets and gadgets, see [[related]]"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "related.md"),
+		[]byte("---\ntitle: Related\n---\n# Related\nlinks back to [[note]]"), 0o644))
 
 	svc, err := service.Open(context.Background(), root)
 	require.NoError(t, err)
@@ -36,7 +42,7 @@ func TestSDKAgainstAPI(t *testing.T) {
 
 	st, err := c.Status(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, st.Notes)
+	require.Equal(t, 2, st.Notes)
 
 	qr, err := c.Query(ctx, "widgets", 5)
 	require.NoError(t, err)
@@ -47,10 +53,24 @@ func TestSDKAgainstAPI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "SDK Note", n.Title)
 	require.Contains(t, n.Body, "widgets")
+	require.Len(t, n.LinkTargets, 1)
+	require.Equal(t, "related", n.LinkTargets[0].Link)
+	require.Equal(t, "related.md", n.LinkTargets[0].Path)
 
 	g, err := c.Graph(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, g.Notes)
+	require.Equal(t, 2, g.Notes)
+	require.NotEmpty(t, g.PageRank)
+	require.NotEmpty(t, g.PageRank[0].Path)
+	require.Greater(t, g.PageRank[0].Score, 0.0)
+
+	ms, err := c.Mounts(ctx)
+	require.NoError(t, err)
+	require.Len(t, ms, 1)
+	require.Equal(t, "gmail", ms[0].Name)
+	require.Equal(t, "mcp", ms[0].Kind)
+	require.Equal(t, "gmail-mcp", ms[0].Target)
+	require.Equal(t, "query", ms[0].Tool) // defaulted
 
 	b, err := c.Bundle(ctx, "widgets and gadgets", 1000)
 	require.NoError(t, err)

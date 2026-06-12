@@ -45,12 +45,18 @@ type QueryResult struct {
 	Hits  []Hit  `json:"hits"`
 }
 
+type LinkTarget struct {
+	Link string `json:"link"`
+	Path string `json:"path"`
+}
+
 type Note struct {
-	Path  string   `json:"path"`
-	Title string   `json:"title"`
-	Tags  []string `json:"tags"`
-	Links []string `json:"links"`
-	Body  string   `json:"body"`
+	Path        string       `json:"path"`
+	Title       string       `json:"title"`
+	Tags        []string     `json:"tags"`
+	Links       []string     `json:"links"`
+	LinkTargets []LinkTarget `json:"link_targets"`
+	Body        string       `json:"body"`
 }
 
 type Status struct {
@@ -68,11 +74,26 @@ type BrokenLink struct {
 	Target string `json:"target"`
 }
 
+type PageRankEntry struct {
+	Path  string  `json:"path"`
+	Title string  `json:"title"`
+	Score float64 `json:"score"`
+}
+
 type GraphReport struct {
-	Notes   int          `json:"notes"`
-	Links   int          `json:"links"`
-	Orphans []string     `json:"orphans"`
-	Broken  []BrokenLink `json:"broken"`
+	Notes    int             `json:"notes"`
+	Links    int             `json:"links"`
+	Orphans  []string        `json:"orphans"`
+	Broken   []BrokenLink    `json:"broken"`
+	PageRank []PageRankEntry `json:"pagerank"`
+}
+
+type Mount struct {
+	Name   string   `json:"name"`
+	Kind   string   `json:"kind"`
+	Target string   `json:"target"`
+	Args   []string `json:"args,omitempty"`
+	Tool   string   `json:"tool"`
 }
 
 type BundleItem struct {
@@ -130,6 +151,13 @@ func (c *Client) Status(ctx context.Context) (Status, error) {
 func (c *Client) Graph(ctx context.Context) (GraphReport, error) {
 	var out GraphReport
 	err := c.do(ctx, http.MethodGet, "/graph", nil, &out)
+	return out, err
+}
+
+// Mounts lists the configured external-source mounts.
+func (c *Client) Mounts(ctx context.Context) ([]Mount, error) {
+	var out []Mount
+	err := c.do(ctx, http.MethodGet, "/mounts", nil, &out)
 	return out, err
 }
 

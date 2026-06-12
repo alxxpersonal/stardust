@@ -34,6 +34,7 @@ func New(svc *service.Service) *Handler {
 	h.mux.HandleFunc("GET /check", h.check)
 	h.mux.HandleFunc("GET /digest", h.digest)
 	h.mux.HandleFunc("GET /cron", h.cronList)
+	h.mux.HandleFunc("GET /mounts", h.mounts)
 	h.mux.HandleFunc("POST /index", h.index)
 	h.mux.HandleFunc("POST /rebuild", h.rebuild)
 	h.mux.HandleFunc("POST /archive", h.archive)
@@ -156,6 +157,15 @@ func (h *Handler) cronList(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, jobs)
+}
+
+func (h *Handler) mounts(w http.ResponseWriter, _ *http.Request) {
+	ms, err := h.svc.Mounts()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ms)
 }
 
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {

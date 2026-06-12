@@ -98,6 +98,14 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "mounts",
+		Description: "List the configured external-source mounts (context-mesh connectors). Returns each mount's name, kind, target command, args, and search tool. Use this to see which external sources a federated query can reach.",
+	}, func(_ context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, []service.MountInfo, error) {
+		ms, err := svc.Mounts()
+		return nil, ms, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "check",
 		Description: "Validate vault integrity: broken wikilinks and malformed frontmatter (errors), plus orphan notes, missing titles, and duplicate note names (warnings). Use this to verify the vault is healthy before relying on it or after edits.",
 	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, service.CheckResult, error) {
