@@ -104,12 +104,13 @@ type LinkTarget struct {
 
 // Note is a parsed note returned by GetNote.
 type Note struct {
-	Path        string       `json:"path"`
-	Title       string       `json:"title"`
-	Tags        []string     `json:"tags"`
-	Links       []string     `json:"links"`
-	LinkTargets []LinkTarget `json:"link_targets"`
-	Body        string       `json:"body"`
+	Path        string         `json:"path"`
+	Title       string         `json:"title"`
+	Tags        []string       `json:"tags"`
+	Links       []string       `json:"links"`
+	LinkTargets []LinkTarget   `json:"link_targets"`
+	Frontmatter map[string]any `json:"frontmatter"`
+	Body        string         `json:"body"`
 }
 
 // GetNote parses the markdown file at a vault-relative path. The path is cleaned
@@ -129,7 +130,7 @@ func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	return Note{Path: n.Path, Title: n.Title, Tags: n.Tags, Links: n.Links, LinkTargets: targets, Body: n.Body}, nil
+	return Note{Path: n.Path, Title: n.Title, Tags: n.Tags, Links: n.Links, LinkTargets: targets, Frontmatter: n.Frontmatter, Body: n.Body}, nil
 }
 
 // resolveLinks maps each normalized wikilink to the vault-relative path of the

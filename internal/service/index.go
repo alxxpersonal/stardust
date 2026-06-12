@@ -80,7 +80,7 @@ func (s *Service) Index(ctx context.Context, since string) (IndexStats, error) {
 				vectors = nil
 			}
 		}
-		if err := s.store.UpsertNote(ctx, note.Path, note.Hash, chunks, vectors); err != nil {
+		if err := s.store.UpsertNote(ctx, note.Path, note.Hash, chunks, vectors, note.Frontmatter); err != nil {
 			return stats, err
 		}
 		stats.Indexed++

@@ -130,7 +130,7 @@ func (s *Service) reindexPath(ctx context.Context, rel string) error {
 	if s.embed.Available(ctx) {
 		vectors, _ = embedChunks(ctx, s.embed, chunks)
 	}
-	return s.store.UpsertNote(ctx, note.Path, note.Hash, chunks, vectors)
+	return s.store.UpsertNote(ctx, note.Path, note.Hash, chunks, vectors, note.Frontmatter)
 }
 
 // --- Helpers ---

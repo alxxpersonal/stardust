@@ -37,7 +37,7 @@ func newTestApp(t *testing.T) *App {
 		if err != nil {
 			t.Fatalf("parse %s: %v", rel, err)
 		}
-		if err := store.UpsertNote(context.Background(), note.Path, note.Hash, vault.Chunks(note), nil); err != nil {
+		if err := store.UpsertNote(context.Background(), note.Path, note.Hash, vault.Chunks(note), nil, note.Frontmatter); err != nil {
 			t.Fatalf("upsert %s: %v", rel, err)
 		}
 	}

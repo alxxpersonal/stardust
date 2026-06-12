@@ -99,6 +99,9 @@ func (l Layout) Mounts() string { return filepath.Join(l.Dir(), "mounts") }
 // CronJobs returns the declarative cron-jobs directory.
 func (l Layout) CronJobs() string { return filepath.Join(l.Dir(), "cron-jobs") }
 
+// Collections returns the collection-schema directory.
+func (l Layout) Collections() string { return filepath.Join(l.Dir(), "collections") }
+
 // --- Root resolution ---
 
 // ErrNoVault indicates no .stardust directory was found walking up from a start path.

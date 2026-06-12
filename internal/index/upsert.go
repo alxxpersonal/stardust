@@ -2,6 +2,7 @@ package index
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/alxxpersonal/stardust/internal/vault"
@@ -44,10 +45,20 @@ func (s *Store) Count(ctx context.Context) (notes, chunks int, err error) {
 
 // UpsertNote replaces every chunk for path with the given chunks and, when
 // vectors is non-nil, their embeddings (one per chunk), then records the note in
-// the catalog. Passing nil vectors indexes FTS-only (graceful Ollama fallback).
-func (s *Store) UpsertNote(ctx context.Context, path, hash string, chunks []vault.Chunk, vectors [][]float32) error {
+// the catalog along with its frontmatter serialised as JSON. Passing nil vectors
+// indexes FTS-only (graceful Ollama fallback). A nil frontmatter persists "{}".
+func (s *Store) UpsertNote(ctx context.Context, path, hash string, chunks []vault.Chunk, vectors [][]float32, frontmatter map[string]any) error {
 	if vectors != nil && len(vectors) != len(chunks) {
 		return fmt.Errorf("upsert %s: %d vectors for %d chunks", path, len(vectors), len(chunks))
+	}
+
+	fmJSON := []byte("{}")
+	if len(frontmatter) > 0 {
+		b, err := json.Marshal(frontmatter)
+		if err != nil {
+			return fmt.Errorf("marshal frontmatter for %s: %w", path, err)
+		}
+		fmJSON = b
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -88,13 +99,14 @@ func (s *Store) UpsertNote(ctx context.Context, path, hash string, chunks []vaul
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO catalog (path, content_hash, title, updated_at)
-		 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		`INSERT INTO catalog (path, content_hash, title, frontmatter, updated_at)
+		 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
 		 ON CONFLICT(path) DO UPDATE SET
 		     content_hash = excluded.content_hash,
 		     title        = excluded.title,
+		     frontmatter  = excluded.frontmatter,
 		     updated_at   = CURRENT_TIMESTAMP`,
-		path, hash, title); err != nil {
+		path, hash, title, string(fmJSON)); err != nil {
 		return fmt.Errorf("upsert catalog for %s: %w", path, err)
 	}
 
