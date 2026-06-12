@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -44,6 +46,30 @@ type memoryArgs struct {
 
 type memoryResult struct {
 	Result string `json:"result"`
+}
+
+type listRecordsArgs struct {
+	Collection string   `json:"collection" jsonschema:"the collection name to list records from"`
+	Where      []string `json:"where,omitempty" jsonschema:"frontmatter filters as field:op:value, op is one of eq, ne, gt, gte, lt, lte, contains"`
+	Sort       string   `json:"sort,omitempty" jsonschema:"sort field (a frontmatter key, or path / updated_at), prefix with - for descending"`
+	Limit      int      `json:"limit,omitempty" jsonschema:"maximum number of records, 0 means no limit"`
+	Offset     int      `json:"offset,omitempty" jsonschema:"number of records to skip for pagination"`
+}
+
+type getRecordArgs struct {
+	Path string `json:"path" jsonschema:"vault-relative path to the record note, e.g. jobs/acme.md"`
+}
+
+type createRecordArgs struct {
+	Collection string         `json:"collection" jsonschema:"the collection to create the record in"`
+	Fields     map[string]any `json:"fields" jsonschema:"frontmatter columns for the record, validated against the collection schema"`
+	Body       string         `json:"body,omitempty" jsonschema:"markdown body of the record note"`
+}
+
+type patchRecordArgs struct {
+	Path   string         `json:"path" jsonschema:"vault-relative path to the record to patch"`
+	Fields map[string]any `json:"fields,omitempty" jsonschema:"frontmatter columns to merge, a null value deletes that key"`
+	Body   *string        `json:"body,omitempty" jsonschema:"new markdown body, omit to leave the body unchanged"`
 }
 
 // registerTools wires the Stardust tools over the core Service. The surface is
@@ -139,4 +165,66 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 		})
 		return nil, memoryResult{Result: out}, err
 	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "list_collections",
+		Description: "List the structured collections defined over the vault. A collection is a vault folder paired with a typed schema; each note in it is a record and its frontmatter holds the typed columns. Returns each collection's name, folder, description, schema fields, and live record count.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, []service.CollectionInfo, error) {
+		cols, err := svc.ListCollections(ctx)
+		return nil, cols, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "list_records",
+		Description: "List records (notes) in a collection, filtered by frontmatter predicates and ordered by a sort field. Use this to query structured data like a table: filter on typed columns, sort, and paginate. Returns each record's path, title, and frontmatter columns.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a listRecordsArgs) (*sdkmcp.CallToolResult, service.RecordList, error) {
+		preds, err := parsePredicates(a.Where)
+		if err != nil {
+			return nil, service.RecordList{}, err
+		}
+		list, err := svc.ListRecords(ctx, a.Collection, preds, a.Sort, a.Limit, a.Offset)
+		return nil, list, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "get_record",
+		Description: "Read a single record by its vault-relative path. Returns the record's path, title, frontmatter columns, and full markdown body.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a getRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
+		rec, err := svc.GetRecord(ctx, a.Path)
+		return nil, rec, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "create_record",
+		Description: "Create a record in a collection. Fields are validated against the collection schema, written as the note's frontmatter, and the note is filed under the collection's folder with a unique slugged filename. The index updates automatically. Returns the created record.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a createRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
+		rec, err := svc.CreateRecord(ctx, a.Collection, a.Fields, a.Body)
+		return nil, rec, err
+	})
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "patch_record",
+		Description: "Update a record by path: merge fields into its frontmatter (a null value deletes a key) and optionally replace its body. The merged frontmatter is validated against the owning collection's schema. The index updates automatically. Returns the updated record.",
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a patchRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
+		rec, err := svc.PatchRecord(ctx, a.Path, a.Fields, a.Body)
+		return nil, rec, err
+	})
+}
+
+// parsePredicates turns "field:op:value" strings into service predicates. Only
+// the first two colons separate the parts, so a value may itself contain colons.
+// An empty field or op is rejected.
+func parsePredicates(where []string) ([]service.Predicate, error) {
+	if len(where) == 0 {
+		return nil, nil
+	}
+	preds := make([]service.Predicate, 0, len(where))
+	for _, w := range where {
+		parts := strings.SplitN(w, ":", 3)
+		if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+			return nil, fmt.Errorf("invalid where clause %q: want field:op:value", w)
+		}
+		preds = append(preds, service.Predicate{Field: parts[0], Op: parts[1], Value: parts[2]})
+	}
+	return preds, nil
 }

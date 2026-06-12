@@ -76,3 +76,79 @@ func TestSDKAgainstAPI(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, b.Markdown, "## Task")
 }
+
+func TestSDKCollectionsAndRecords(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+
+	colDir := filepath.Join(root, ".stardust", "collections", "jobs")
+	require.NoError(t, os.MkdirAll(colDir, 0o755))
+	schema := "path = \"Jobs\"\n" +
+		"description = \"job applications\"\n" +
+		"[[fields]]\nname = \"company\"\ntype = \"string\"\nrequired = true\n" +
+		"[[fields]]\nname = \"status\"\ntype = \"enum\"\nenum = [\"applied\", \"interview\", \"offer\"]\n" +
+		"[[fields]]\nname = \"score\"\ntype = \"number\"\n"
+	require.NoError(t, os.WriteFile(filepath.Join(colDir, "config.toml"), []byte(schema), 0o644))
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(context.Background(), "")
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(api.New(svc))
+	defer srv.Close()
+
+	c := sdk.New(srv.URL)
+	ctx := context.Background()
+
+	cols, err := c.ListCollections(ctx)
+	require.NoError(t, err)
+	require.Len(t, cols, 1)
+	require.Equal(t, "jobs", cols[0].Name)
+	require.Equal(t, "Jobs", cols[0].Path)
+	require.Len(t, cols[0].Fields, 3)
+
+	one, err := c.GetCollection(ctx, "jobs")
+	require.NoError(t, err)
+	require.Equal(t, "jobs", one.Name)
+
+	acme, err := c.CreateRecord(ctx, "jobs",
+		map[string]any{"company": "Acme", "status": "applied", "score": 7}, "first lead")
+	require.NoError(t, err)
+	require.Equal(t, "Jobs/acme.md", acme.Path)
+	require.Contains(t, acme.Body, "first lead")
+
+	_, err = c.CreateRecord(ctx, "jobs",
+		map[string]any{"company": "Globex", "status": "interview", "score": 9}, "second lead")
+	require.NoError(t, err)
+
+	// Descending numeric sort.
+	list, err := c.ListRecords(ctx, "jobs", nil, "-score", 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, "Jobs", list.Folder)
+	require.Len(t, list.Records, 2)
+	require.Equal(t, float64(9), list.Records[0].Frontmatter["score"])
+
+	// Numeric predicate compares numerically.
+	list, err = c.ListRecords(ctx, "jobs", []sdk.Predicate{{Field: "score", Op: "gte", Value: "8"}}, "", 0, 0)
+	require.NoError(t, err)
+	require.Len(t, list.Records, 1)
+	require.Equal(t, "Globex", list.Records[0].Frontmatter["company"])
+
+	rec, err := c.GetRecord(ctx, "Jobs/acme.md")
+	require.NoError(t, err)
+	require.Equal(t, "applied", rec.Frontmatter["status"])
+	require.Contains(t, rec.Body, "first lead")
+
+	status := "offer"
+	patched, err := c.PatchRecord(ctx, "Jobs/acme.md", map[string]any{"status": status}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "offer", patched.Frontmatter["status"])
+
+	list, err = c.ListRecords(ctx, "jobs", []sdk.Predicate{{Field: "status", Op: "eq", Value: "offer"}}, "", 0, 0)
+	require.NoError(t, err)
+	require.Len(t, list.Records, 1)
+	require.Equal(t, "Acme", list.Records[0].Frontmatter["company"])
+}

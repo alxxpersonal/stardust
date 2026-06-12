@@ -83,6 +83,129 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Mount" }
+  /collections:
+    get:
+      summary: List configured collections with live record counts
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CollectionInfo" }
+  /collection:
+    get:
+      summary: Read a single collection by name
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionInfo" }
+        "400": { description: Missing name }
+        "404": { description: Not found }
+  /records:
+    get:
+      summary: List records in a collection, filtered and sorted
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema: { type: string }
+        - name: where
+          in: query
+          description: >
+            Frontmatter filter as field:op:value, repeatable. op is one of eq,
+            ne, gt, gte, lt, lte, contains. Filters combine with AND.
+          schema: { type: array, items: { type: string } }
+        - name: sort
+          in: query
+          description: >
+            Sort field (a frontmatter key, or path / updated_at), prefix with -
+            for descending.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Record list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecordList" }
+        "400": { description: Missing collection or malformed where }
+    post:
+      summary: Create a record in a collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection]
+              properties:
+                collection: { type: string }
+                fields: { type: object, additionalProperties: true }
+                body: { type: string }
+      responses:
+        "200":
+          description: Created record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        "400": { description: Missing collection or malformed body }
+  /record:
+    get:
+      summary: Read a single record by vault-relative path
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        "400": { description: Missing path }
+        "404": { description: Not found }
+    patch:
+      summary: Patch a record's frontmatter and/or body
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fields:
+                  type: object
+                  additionalProperties: true
+                  description: >
+                    Frontmatter columns to merge; a null value deletes that key.
+                body: { type: string }
+      responses:
+        "200":
+          description: Updated record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        "400": { description: Missing path or malformed body }
   /index:
     post:
       summary: Incrementally index the vault
@@ -204,3 +327,38 @@ components:
         skipped: { type: integer }
         deleted: { type: integer }
         vectors: { type: boolean }
+    Field:
+      type: object
+      properties:
+        name: { type: string }
+        type:
+          type: string
+          enum: [string, number, bool, date, enum, tags, ref]
+        required: { type: boolean }
+        enum: { type: array, items: { type: string } }
+        default: {}
+    CollectionInfo:
+      type: object
+      properties:
+        name: { type: string }
+        path: { type: string, description: vault-relative folder the records live in }
+        description: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/Field" }
+        records: { type: integer, description: live record count }
+    Record:
+      type: object
+      properties:
+        path: { type: string }
+        title: { type: string }
+        frontmatter: { type: object, additionalProperties: true }
+        body: { type: string }
+    RecordList:
+      type: object
+      properties:
+        collection: { type: string }
+        folder: { type: string }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/Record" }

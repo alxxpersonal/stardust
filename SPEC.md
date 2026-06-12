@@ -84,6 +84,34 @@ stardust/                         # the CLI repo - remote, global binary, NOT in
 
 Rule: **committed = convention/source (config, manifest, agent prompts, mounts). gitignored = derived cache (sqlite, graph, catalog).** The cache rebuilds from markdown; never sync a binary blob through cloud storage or git.
 
+### 4.1 Collections / records (structured views over the vault)
+
+A **collection** is a vault folder paired with a typed schema; a **record** is a markdown note in that folder, with its frontmatter holding the typed columns and its body holding content. This is the "vault as a database" view: folder = table, note = row, frontmatter = columns. Nothing new is stored - records are plain notes already in the vault and the index, so collections derive from markdown like everything else (no second source of truth).
+
+The schema is a committed descriptor at `.stardust/collections/<name>/config.toml`:
+
+```toml
+# .stardust/collections/jobs/config.toml
+path = "Jobs"                    # vault-relative folder the records live in
+description = "job applications"
+
+[[fields]]
+name = "company"
+type = "string"                  # string | number | bool | date | enum | tags | ref
+required = true
+
+[[fields]]
+name = "status"
+type = "enum"
+enum = ["applied", "interview", "offer", "rejected"]
+
+[[fields]]
+name = "score"
+type = "number"
+```
+
+Records are filtered with frontmatter predicates (`field op value`, op one of `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`) and sorted by a frontmatter field (or `path` / `updated_at`, with a leading `-` for descending). Numeric predicate values compare numerically, not as text. Writes are commit-free like the rest of the write-back layer: create/patch/archive write the note to disk via the path-confined memory store and reindex, leaving git to the commit-hook layer. The same operations are reachable from the API (`GET /collections`, `GET /collection`, `GET /records`, `GET /record`, `POST /records`, `PATCH /record`), the MCP server (`list_collections`, `list_records`, `get_record`, `create_record`, `patch_record`), and the SDK.
+
 ## 5. CLI surface
 
 - `stardust init` - scaffold `.stardust/` in any vault, wire `core.hooksPath`

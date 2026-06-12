@@ -62,13 +62,13 @@ curl  http://127.0.0.1:7777/status
 curl -X POST http://127.0.0.1:7777/index
 ```
 
-Routes: `GET /query`, `/note`, `/status`, `/graph`, `/bundle`, `/digest`, `/cron`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
+Routes: `GET /query`, `/note`, `/status`, `/graph`, `/bundle`, `/digest`, `/cron`, `/mounts`, `/collections`, `/collection`, `/records`, `/record`, `/healthz`; `POST /index`, `/rebuild`, `/archive`, `/cron/run`, `/records`; `PATCH /record`. Full spec in [docs/openapi.yaml](docs/openapi.yaml).
 
 Typed clients over the API live in [sdk/](sdk): a Go client (`sdk.New(url).Query(...)`) and a TypeScript client ([sdk/ts/stardust.ts](sdk/ts/stardust.ts), used by the Obsidian plugin).
 
 ## Claude Code (MCP)
 
-`stardust serve --mcp` runs an MCP server over stdio exposing `query`, `get_note`, `status`, and `graph` tools, so agents can search your vault. It resolves the vault from the working directory or `STARDUST_VAULT`. A ready-made Claude Code plugin lives in [plugin/claude/](plugin/claude):
+`stardust serve --mcp` runs an MCP server over stdio exposing `query`, `get_note`, `status`, `graph`, and the collections tools (`list_collections`, `list_records`, `get_record`, `create_record`, `patch_record`), so agents can search and edit your vault. It resolves the vault from the working directory or `STARDUST_VAULT`. A ready-made Claude Code plugin lives in [plugin/claude/](plugin/claude):
 
 ```sh
 claude plugin marketplace add ./plugin/claude
@@ -89,6 +89,43 @@ API_KEY = "..."
 ```
 
 A mount's search tool is called with `{ query, limit }`; results are read from a `hits` or `results` array (with `title` / `snippet` / `path` fields), or the raw text content. A failing mount is skipped, never failing the whole query. Also available over the API as `GET /query?mounts=true`.
+
+## Collections (vault as a database)
+
+A collection is a vault folder paired with a typed schema: folder = table, note = row, frontmatter = columns. Records are plain markdown notes already in the vault and the index, so a collection is just a structured view, not a second store. Declare one with a committed descriptor at `.stardust/collections/<name>/config.toml`:
+
+```toml
+# .stardust/collections/jobs/config.toml
+path = "Jobs"                    # vault-relative folder the records live in
+description = "job applications"
+
+[[fields]]
+name = "company"
+type = "string"                  # string | number | bool | date | enum | tags | ref
+required = true
+
+[[fields]]
+name = "status"
+type = "enum"
+enum = ["applied", "interview", "offer", "rejected"]
+
+[[fields]]
+name = "score"
+type = "number"
+```
+
+Query records with frontmatter predicates (`field:op:value`, op one of `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, repeatable and combined with AND) and a sort field (a frontmatter key, or `path` / `updated_at`, prefixed with `-` for descending). Numeric values compare numerically:
+
+```sh
+curl -X POST http://127.0.0.1:7777/records \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"jobs","fields":{"company":"Acme","status":"applied","score":7},"body":"first lead"}'
+curl 'http://127.0.0.1:7777/records?collection=jobs&where=status:eq:applied&sort=-score'
+curl -X PATCH 'http://127.0.0.1:7777/record?path=Jobs/acme.md' \
+  -H 'Content-Type: application/json' -d '{"fields":{"status":"interview"}}'
+```
+
+Create and patch validate fields against the schema (required fields, enum membership, basic types) and write the note via the path-confined memory store, then reindex - no git commit, matching the rest of the write-back layer. Reachable over the API (`/collections`, `/collection`, `/records`, `/record`), the MCP tools (`list_collections`, `list_records`, `get_record`, `create_record`, `patch_record`), and the SDK (`ListCollections`, `ListRecords`, `GetRecord`, `CreateRecord`, `PatchRecord`).
 
 ## Context bundles
 

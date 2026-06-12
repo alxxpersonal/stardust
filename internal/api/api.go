@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/alxxpersonal/stardust/internal/service"
@@ -35,10 +37,16 @@ func New(svc *service.Service) *Handler {
 	h.mux.HandleFunc("GET /digest", h.digest)
 	h.mux.HandleFunc("GET /cron", h.cronList)
 	h.mux.HandleFunc("GET /mounts", h.mounts)
+	h.mux.HandleFunc("GET /collections", h.collections)
+	h.mux.HandleFunc("GET /collection", h.collection)
+	h.mux.HandleFunc("GET /records", h.records)
+	h.mux.HandleFunc("GET /record", h.record)
 	h.mux.HandleFunc("POST /index", h.index)
 	h.mux.HandleFunc("POST /rebuild", h.rebuild)
 	h.mux.HandleFunc("POST /archive", h.archive)
 	h.mux.HandleFunc("POST /cron/run", h.cronRun)
+	h.mux.HandleFunc("POST /records", h.createRecord)
+	h.mux.HandleFunc("PATCH /record", h.patchRecord)
 	return h
 }
 
@@ -168,6 +176,122 @@ func (h *Handler) mounts(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, ms)
 }
 
+func (h *Handler) collections(w http.ResponseWriter, r *http.Request) {
+	cols, err := h.svc.ListCollections(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cols)
+}
+
+func (h *Handler) collection(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: name"))
+		return
+	}
+	info, err := h.svc.GetCollection(r.Context(), name)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
+}
+
+func (h *Handler) records(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("collection")
+	if name == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: collection"))
+		return
+	}
+	preds, err := parseWhere(r.URL.Query()["where"])
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	limit := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	offset := 0
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if n, err := strconv.Atoi(o); err == nil && n > 0 {
+			offset = n
+		}
+	}
+	list, err := h.svc.ListRecords(r.Context(), name, preds, r.URL.Query().Get("sort"), limit, offset)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *Handler) record(w http.ResponseWriter, r *http.Request) {
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: path"))
+		return
+	}
+	rec, err := h.svc.GetRecord(r.Context(), p)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rec)
+}
+
+func (h *Handler) createRecord(w http.ResponseWriter, r *http.Request) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var body struct {
+		Collection string         `json:"collection"`
+		Fields     map[string]any `json:"fields"`
+		Body       string         `json:"body"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	if body.Collection == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required body field: collection"))
+		return
+	}
+	rec, err := h.svc.CreateRecord(r.Context(), body.Collection, body.Fields, body.Body)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rec)
+}
+
+func (h *Handler) patchRecord(w http.ResponseWriter, r *http.Request) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: path"))
+		return
+	}
+	var body struct {
+		Fields map[string]any `json:"fields"`
+		Body   *string        `json:"body"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	rec, err := h.svc.PatchRecord(r.Context(), p, body.Fields, body.Body)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rec)
+}
+
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -215,6 +339,25 @@ func (h *Handler) cronRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Helpers ---
+
+// parseWhere turns repeated "field:op:value" query params into predicates. The
+// value may itself contain colons (only the first two colons are separators), so
+// "tag:contains:a:b" filters the "tag" field for the substring "a:b". An empty
+// field or op is rejected.
+func parseWhere(raw []string) ([]service.Predicate, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	preds := make([]service.Predicate, 0, len(raw))
+	for _, w := range raw {
+		parts := strings.SplitN(w, ":", 3)
+		if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+			return nil, fmt.Errorf("invalid where clause %q: want field:op:value", w)
+		}
+		preds = append(preds, service.Predicate{Field: parts[0], Op: parts[1], Value: parts[2]})
+	}
+	return preds, nil
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
