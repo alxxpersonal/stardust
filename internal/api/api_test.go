@@ -279,6 +279,20 @@ func TestAPI_RecordsLifecycle(t *testing.T) {
 	getJSON(t, srv.URL+"/records?collection=jobs&where=status:eq:offer", &list)
 	require.Len(t, list.Records, 1)
 	require.Equal(t, "Acme", list.Records[0].Frontmatter["company"])
+
+	// Delete the record: it drops from the collection and 404s on direct get.
+	delResp := postJSON(t, http.MethodDelete, srv.URL+"/record?path=Jobs/acme.md", "", nil)
+	require.Equal(t, http.StatusOK, delResp.StatusCode)
+	_ = delResp.Body.Close()
+
+	getJSON(t, srv.URL+"/records?collection=jobs", &list)
+	require.Len(t, list.Records, 1, "deleted record is gone")
+	require.Equal(t, "Globex", list.Records[0].Frontmatter["company"])
+
+	missing, mErr := http.Get(srv.URL + "/record?path=Jobs/acme.md") //nolint:gosec,noctx
+	require.NoError(t, mErr)
+	_ = missing.Body.Close()
+	require.Equal(t, http.StatusNotFound, missing.StatusCode)
 }
 
 func TestAPI_RecordsBadRequests(t *testing.T) {

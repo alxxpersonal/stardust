@@ -311,6 +311,12 @@ func (c *Client) PatchRecord(ctx context.Context, path string, fields map[string
 	return out, err
 }
 
+// DeleteRecord removes a record by vault path and prunes it from the index.
+func (c *Client) DeleteRecord(ctx context.Context, path string) error {
+	var out map[string]any
+	return c.do(ctx, http.MethodDelete, "/record", url.Values{"path": {path}}, &out)
+}
+
 func (c *Client) do(ctx context.Context, method, path string, q url.Values, out any) error {
 	u := c.baseURL + path
 	if len(q) > 0 {

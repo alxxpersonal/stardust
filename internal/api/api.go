@@ -47,6 +47,7 @@ func New(svc *service.Service) *Handler {
 	h.mux.HandleFunc("POST /cron/run", h.cronRun)
 	h.mux.HandleFunc("POST /records", h.createRecord)
 	h.mux.HandleFunc("PATCH /record", h.patchRecord)
+	h.mux.HandleFunc("DELETE /record", h.deleteRecord)
 	return h
 }
 
@@ -290,6 +291,21 @@ func (h *Handler) patchRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
+}
+
+func (h *Handler) deleteRecord(w http.ResponseWriter, r *http.Request) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("missing required query parameter: path"))
+		return
+	}
+	if err := h.svc.ArchiveRecord(r.Context(), p); err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"path": p, "status": "deleted"})
 }
 
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
