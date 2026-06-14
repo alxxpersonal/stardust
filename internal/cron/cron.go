@@ -21,14 +21,30 @@ type Trigger struct {
 	Paths    []string `toml:"paths"`    // path globs gating an "on" trigger
 }
 
+// DefaultCodexModel is used when a codex agent job names no model. The built-in
+// codex default (gpt-5.3-codex) is rejected on ChatGPT-auth accounts, so pin a
+// supported one. Mirrors exo-jobs.
+const DefaultCodexModel = "gpt-5.5"
+
 // Run declares what a job does. Exactly one kind applies.
 type Run struct {
-	Kind    string `toml:"kind"`    // agent | command | exec
-	Command string `toml:"command"` // a stardust subcommand (kind=command)
-	Exec    string `toml:"exec"`    // an external shell command (kind=exec)
-	Prompt  string `toml:"prompt"`  // prompt file relative to the job dir (kind=agent)
-	Model   string `toml:"model"`   // agent model (kind=agent)
-	Sandbox string `toml:"sandbox"` // agent sandbox mode (kind=agent)
+	Kind    string `toml:"kind"`             // agent | command | exec
+	Command string `toml:"command"`          // a stardust subcommand (kind=command)
+	Exec    string `toml:"exec"`             // an external shell command (kind=exec)
+	Prompt  string `toml:"prompt"`           // prompt file relative to the job dir (kind=agent)
+	Model   string `toml:"model"`            // agent model (kind=agent)
+	Sandbox string `toml:"sandbox"`          // agent sandbox mode (kind=agent)
+	Runner  string `toml:"runner,omitempty"` // agent backend: codex | claude (kind=agent)
+}
+
+// ResolvedRunner returns the agent backend for a kind=agent job: the explicit
+// Runner when set, else the legacy default (codex) so pre-runner job files keep
+// running as before.
+func (j Job) ResolvedRunner() string {
+	if j.Run.Runner != "" {
+		return j.Run.Runner
+	}
+	return "codex"
 }
 
 // Job is one loaded cron-job folder.
@@ -64,6 +80,37 @@ func Load(cronDir string) ([]Job, error) {
 	return jobs, nil
 }
 
+// LoadResilient reads every job under cronDir, sorted by name, skipping (rather
+// than failing on) any job dir that does not parse or validate. It returns the
+// good jobs plus the per-job errors so the scheduler can log them without one
+// malformed job stalling the whole tick. A missing dir yields no jobs.
+func LoadResilient(cronDir string) ([]Job, []error) {
+	entries, err := os.ReadDir(cronDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, []error{fmt.Errorf("read cron dir: %w", err)}
+	}
+	var (
+		jobs []Job
+		errs []error
+	)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		job, err := LoadJob(cronDir, e.Name())
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		jobs = append(jobs, job)
+	}
+	sort.Slice(jobs, func(i, j int) bool { return jobs[i].Name < jobs[j].Name })
+	return jobs, errs
+}
+
 // LoadJob reads and validates a single job by folder name.
 func LoadJob(cronDir, name string) (Job, error) {
 	dir := filepath.Join(cronDir, name)
@@ -96,6 +143,11 @@ func (j Job) validate() error {
 	case "agent":
 		if j.Run.Prompt == "" {
 			return fmt.Errorf("run.prompt is required for kind=agent")
+		}
+		switch j.Run.Runner {
+		case "", "codex", "claude":
+		default:
+			return fmt.Errorf("run.runner must be codex or claude, got %q", j.Run.Runner)
 		}
 	default:
 		return fmt.Errorf("run.kind must be agent, command, or exec, got %q", j.Run.Kind)

@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/cron"
@@ -234,4 +235,33 @@ func (s *Service) CronRun(ctx context.Context, name, stardustBin string, w io.Wr
 		return err
 	}
 	return job.Execute(ctx, stardustBin, s.Layout.Root, w)
+}
+
+// RunScheduler runs the cron scheduler loop until ctx is cancelled. It wakes on
+// each minute boundary, reloads the cron jobs (skipping malformed ones), and
+// fires those whose schedule matches the minute. Manual and event-triggered
+// jobs are ignored; overlapping runs of the same job are prevented. stardustBin
+// re-execs command-kind jobs; diagnostics and per-job errors go to w.
+func (s *Service) RunScheduler(ctx context.Context, stardustBin string, w io.Writer) {
+	sched := &cron.Scheduler{}
+	timer := time.NewTimer(time.Until(nextMinute(time.Now())))
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-timer.C:
+			jobs, errs := cron.LoadResilient(s.Layout.CronJobs())
+			for _, e := range errs {
+				fmt.Fprintf(w, "[stardust cron] load: %v\n", e)
+			}
+			sched.Tick(ctx, jobs, stardustBin, s.Layout.Root, now, w)
+			timer.Reset(time.Until(nextMinute(now)))
+		}
+	}
+}
+
+// nextMinute returns the next whole-minute boundary strictly after t.
+func nextMinute(t time.Time) time.Time {
+	return t.Truncate(time.Minute).Add(time.Minute)
 }

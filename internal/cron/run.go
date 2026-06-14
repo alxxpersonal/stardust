@@ -53,16 +53,40 @@ func (j Job) buildCommand(ctx context.Context, stardustBin string) (*exec.Cmd, e
 		if err != nil {
 			return nil, fmt.Errorf("read agent prompt: %w", err)
 		}
-		args := []string{"exec"}
-		if j.Run.Model != "" {
-			args = append(args, "-m", j.Run.Model)
+		if j.ResolvedRunner() == "claude" {
+			return j.buildClaudeCommand(ctx, string(prompt)), nil
 		}
-		if j.Run.Sandbox != "" {
-			args = append(args, "--sandbox", j.Run.Sandbox)
-		}
-		args = append(args, string(prompt))
-		return exec.CommandContext(ctx, "codex", args...), nil
+		return j.buildCodexCommand(ctx, string(prompt)), nil
 	default:
 		return nil, fmt.Errorf("unknown run kind %q", j.Run.Kind)
 	}
+}
+
+// buildCodexCommand runs the prompt as a codex agent. --ignore-user-config
+// skips the user's ~/.codex config (which may carry an unsupported service_tier
+// and auto-load MCP servers); the model defaults to a ChatGPT-account-supported
+// one when the job names none.
+func (j Job) buildCodexCommand(ctx context.Context, prompt string) *exec.Cmd {
+	model := j.Run.Model
+	if model == "" {
+		model = DefaultCodexModel
+	}
+	args := []string{"exec", "--skip-git-repo-check", "--ignore-user-config", "-m", model}
+	if j.Run.Sandbox != "" {
+		args = append(args, "--sandbox", j.Run.Sandbox)
+	}
+	args = append(args, prompt)
+	return exec.CommandContext(ctx, "codex", args...)
+}
+
+// buildClaudeCommand runs the prompt as an unattended claude agent. The daemon
+// has no TTY to approve tool permissions, so scheduled jobs run autonomously
+// (--permission-mode bypassPermissions); they are user-authored automations.
+func (j Job) buildClaudeCommand(ctx context.Context, prompt string) *exec.Cmd {
+	args := []string{"-p", "--permission-mode", "bypassPermissions"}
+	if j.Run.Model != "" {
+		args = append(args, "--model", j.Run.Model)
+	}
+	args = append(args, prompt)
+	return exec.CommandContext(ctx, "claude", args...)
 }

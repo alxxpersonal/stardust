@@ -63,6 +63,16 @@ func runAPI(cmd *cobra.Command, addr string) error {
 
 	sigCtx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Drive scheduled cron jobs for as long as the server runs. The scheduler
+	// stops when sigCtx is cancelled (SIGINT/SIGTERM). os.Executable re-execs
+	// command-kind jobs back through stardust.
+	if exe, exeErr := os.Executable(); exeErr == nil {
+		go svc.RunScheduler(sigCtx, exe, os.Stderr)
+	} else {
+		fmt.Fprintf(os.Stderr, "cron scheduler not started: %v\n", exeErr)
+	}
+
 	select {
 	case err := <-errCh:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
