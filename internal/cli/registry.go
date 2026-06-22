@@ -24,11 +24,42 @@ func newRegistryCmd() *cobra.Command {
 		Long: "Queries the docs collections (specs, plans, adr, research) and renders a\n" +
 			"grouped, status-aware markdown index. The output is regenerated, never\n" +
 			"hand-edited. Missing or empty collections render empty sections.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRegistry(cmd, output)
 		},
 	}
 	cmd.Flags().StringVar(&output, "output", "docs/INDEX.md", "registry output path, relative to the vault root")
+	cmd.AddCommand(newRegistryGovernsCmd())
+	return cmd
+}
+
+func newRegistryGovernsCmd() *cobra.Command {
+	var output string
+	cmd := &cobra.Command{
+		Use:   "governs <path>",
+		Short: "Show docs that govern a code path",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			svc, err := openService(ctx)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = svc.Close() }()
+
+			res, err := svc.GoverningDocs(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			if output == "json" {
+				return emitJSON(cmd.OutOrStdout(), res)
+			}
+			emitMarkdown(cmd.OutOrStdout(), res.Markdown, output)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&output, "output", "auto", "output mode: auto, md, json, plain")
 	return cmd
 }
 
