@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -55,12 +56,56 @@ func TestGoverningDocsMissingCollectionsIsEmpty(t *testing.T) {
 	require.Contains(t, res.Markdown, "No governing docs found")
 }
 
+func TestGoverningDocsMarksImplementedSpecStale(t *testing.T) {
+	ctx := context.Background()
+	root := governsVault(t)
+	writeGovernedCode(t, root, "internal/foo.go")
+	writeGovernedDoc(t, root, "docs/specs/2026-06-22-1000-implemented-spec.md", "Implemented Spec", "spec", "Implemented", "internal/*.go")
+	writeGovernedDoc(t, root, "docs/specs/2026-06-22-1100-draft-spec.md", "Draft Spec", "spec", "Draft", "internal/*.go")
+	gitInit(t, root)
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "internal", "foo.go"), []byte("package internal\n\nconst X = 1\n"), 0o644))
+	gitCommitAll(t, root, "change foo")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.GoverningDocs(ctx, "internal/foo.go")
+	require.NoError(t, err)
+
+	byTitle := map[string]service.GovernedDoc{}
+	for _, doc := range res.Docs {
+		byTitle[doc.Title] = doc
+	}
+	implemented := byTitle["Implemented Spec"]
+	require.True(t, implemented.Stale)
+	require.NotEmpty(t, implemented.DocCommit)
+	require.NotEmpty(t, implemented.LastCodeCommit)
+	require.Greater(t, implemented.ChangedCommits, 0)
+	require.False(t, byTitle["Draft Spec"].Stale)
+}
+
 func governsVault(t *testing.T) string {
 	t.Helper()
 	root := emptyVault(t)
 	writeGovernCollection(t, root, "specs", "docs/specs")
 	writeGovernCollection(t, root, "plans", "docs/plans")
 	return root
+}
+
+func gitCommitAll(t *testing.T, root, message string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"add", "-A"},
+		{"commit", "-m", message},
+	} {
+		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, string(out))
+	}
 }
 
 func writeGovernCollection(t *testing.T, root, name, path string) {

@@ -9,6 +9,7 @@ import (
 	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/doclinks"
+	"github.com/alxxpersonal/stardust/internal/gitx"
 )
 
 // GovernedDoc is a document whose governs patterns match a code path.
@@ -19,6 +20,11 @@ type GovernedDoc struct {
 	Status  string   `json:"status"`
 	Governs []string `json:"governs"`
 	Matched []string `json:"matched"`
+
+	DocCommit      string `json:"doc_commit"`
+	LastCodeCommit string `json:"last_code_commit"`
+	ChangedCommits int    `json:"changed_commits"`
+	Stale          bool   `json:"stale"`
 }
 
 // GoverningResult contains governing docs for one repo-relative path.
@@ -44,7 +50,7 @@ func (s *Service) GoverningDocs(ctx context.Context, path string) (GoverningResu
 			return GoverningResult{}, err
 		}
 		for _, record := range list.Records {
-			doc, ok, err := s.governingDoc(collection, record, clean)
+			doc, ok, err := s.governingDoc(ctx, collection, record, clean)
 			if err != nil {
 				return GoverningResult{}, err
 			}
@@ -64,7 +70,7 @@ func (s *Service) GoverningDocs(ctx context.Context, path string) (GoverningResu
 	return result, nil
 }
 
-func (s *Service) governingDoc(collection string, record Record, path string) (GovernedDoc, bool, error) {
+func (s *Service) governingDoc(ctx context.Context, collection string, record Record, path string) (GovernedDoc, bool, error) {
 	governs, err := convention.StringList(record.Frontmatter, "governs")
 	if err != nil {
 		return GovernedDoc{}, false, fmt.Errorf("doc %s: %w", record.Path, err)
@@ -85,14 +91,41 @@ func (s *Service) governingDoc(collection string, record Record, path string) (G
 	if len(matched) == 0 {
 		return GovernedDoc{}, false, nil
 	}
-	return GovernedDoc{
+	doc := GovernedDoc{
 		DocPath: record.Path,
 		Title:   record.Title,
 		Type:    docTypeForCollection(collection),
 		Status:  frontmatterString(record.Frontmatter, "status"),
 		Governs: governs,
 		Matched: matched,
-	}, true, nil
+	}
+	if err := s.annotateStaleness(ctx, &doc); err != nil {
+		return GovernedDoc{}, false, err
+	}
+	return doc, true, nil
+}
+
+func (s *Service) annotateStaleness(ctx context.Context, doc *GovernedDoc) error {
+	if doc.Status != "Implemented" {
+		return nil
+	}
+	docCommit, err := gitx.LastCommit(ctx, s.Layout.Root, doc.DocPath)
+	if err != nil {
+		return fmt.Errorf("last doc commit %s: %w", doc.DocPath, err)
+	}
+	doc.DocCommit = docCommit
+	lastCodeCommit, err := gitx.LastCommit(ctx, s.Layout.Root, doc.Matched...)
+	if err != nil {
+		return fmt.Errorf("last code commit for %s: %w", doc.DocPath, err)
+	}
+	doc.LastCodeCommit = lastCodeCommit
+	changed, err := gitx.CommitCountSince(ctx, s.Layout.Root, docCommit, doc.Matched...)
+	if err != nil {
+		return fmt.Errorf("changed commits for %s: %w", doc.DocPath, err)
+	}
+	doc.ChangedCommits = changed
+	doc.Stale = changed > 0
+	return nil
 }
 
 func renderGoverningMarkdown(result GoverningResult) string {
@@ -103,10 +136,14 @@ func renderGoverningMarkdown(result GoverningResult) string {
 		return b.String()
 	}
 	fmt.Fprintf(&b, "Path: `%s`\n\n", result.Path)
-	fmt.Fprintln(&b, "| Type | Title | Status | Doc | Matched |")
-	fmt.Fprintln(&b, "|---|---|---|---|---|")
+	fmt.Fprintln(&b, "| Type | Title | Status | Doc | Matched | Stale |")
+	fmt.Fprintln(&b, "|---|---|---|---|---|---|")
 	for _, doc := range result.Docs {
-		fmt.Fprintf(&b, "| %s | %s | %s | `%s` | `%s` |\n", doc.Type, doc.Title, doc.Status, doc.DocPath, strings.Join(doc.Matched, ", "))
+		stale := ""
+		if doc.Stale {
+			stale = "yes"
+		}
+		fmt.Fprintf(&b, "| %s | %s | %s | `%s` | `%s` | %s |\n", doc.Type, doc.Title, doc.Status, doc.DocPath, strings.Join(doc.Matched, ", "), stale)
 	}
 	return b.String()
 }

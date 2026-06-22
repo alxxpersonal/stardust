@@ -41,6 +41,43 @@ func HeadSHA(ctx context.Context, repoRoot string) (string, error) {
 	return run(ctx, repoRoot, "rev-parse", "HEAD")
 }
 
+// LastCommit returns the latest commit touching paths, or an empty string when
+// repoRoot is not a git repository or no commit matches.
+func LastCommit(ctx context.Context, repoRoot string, paths ...string) (string, error) {
+	if !IsRepo(ctx, repoRoot) {
+		return "", nil
+	}
+	args := []string{"log", "-1", "--format=%H", "--"}
+	args = append(args, paths...)
+	sha, err := run(ctx, repoRoot, args...)
+	if err != nil {
+		return "", fmt.Errorf("last commit: %w", err)
+	}
+	return sha, nil
+}
+
+// CommitCountSince counts commits since a commit that touched paths. Non-git
+// repos and empty since commits return zero.
+func CommitCountSince(ctx context.Context, repoRoot string, since string, paths ...string) (int, error) {
+	if since == "" || !IsRepo(ctx, repoRoot) {
+		return 0, nil
+	}
+	args := []string{"rev-list", "--count", since + "..HEAD", "--"}
+	args = append(args, paths...)
+	raw, err := run(ctx, repoRoot, args...)
+	if err != nil {
+		return 0, fmt.Errorf("commit count since %s: %w", since, err)
+	}
+	if raw == "" {
+		return 0, nil
+	}
+	var count int
+	if _, err := fmt.Sscanf(raw, "%d", &count); err != nil {
+		return 0, fmt.Errorf("parse commit count %q: %w", raw, err)
+	}
+	return count, nil
+}
+
 // Init initialises a git repository at repoRoot (which must already exist).
 func Init(ctx context.Context, repoRoot string) error {
 	_, err := run(ctx, repoRoot, "init")
