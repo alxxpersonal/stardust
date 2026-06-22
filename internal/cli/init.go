@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/config"
+	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/gitx"
 	"github.com/alxxpersonal/stardust/internal/hooks"
 	"github.com/alxxpersonal/stardust/internal/manifest"
@@ -92,84 +94,43 @@ func scaffoldVault(ctx context.Context, root, check string, docs bool) error {
 	return nil
 }
 
-// docsCollections holds the config.toml body for each docs collection the
-// registry renders. Each maps a docs subfolder, declares a required title
-// string, and a status enum with the convention's closed set. The order matches
-// the registry's fixed group order: specs, plans, adr, research.
-var docsCollections = []struct {
-	name string
-	body string
-}{
-	{
-		name: "specs",
-		body: "path = \"docs/specs\"\n" +
-			"description = \"technical specs\"\n\n" +
-			"[[fields]]\n" +
-			"name = \"title\"\n" +
-			"type = \"string\"\n" +
-			"required = true\n\n" +
-			"[[fields]]\n" +
-			"name = \"status\"\n" +
-			"type = \"enum\"\n" +
-			"enum = [\"Draft\", \"In Review\", \"Approved\", \"Implemented\", \"Superseded\"]\n",
-	},
-	{
-		name: "plans",
-		body: "path = \"docs/plans\"\n" +
-			"description = \"implementation plans\"\n\n" +
-			"[[fields]]\n" +
-			"name = \"title\"\n" +
-			"type = \"string\"\n" +
-			"required = true\n\n" +
-			"[[fields]]\n" +
-			"name = \"status\"\n" +
-			"type = \"enum\"\n" +
-			"enum = [\"Draft\", \"Active\", \"Done\", \"Abandoned\"]\n",
-	},
-	{
-		name: "adr",
-		body: "path = \"docs/adr\"\n" +
-			"description = \"architecture decision records\"\n\n" +
-			"[[fields]]\n" +
-			"name = \"title\"\n" +
-			"type = \"string\"\n" +
-			"required = true\n\n" +
-			"[[fields]]\n" +
-			"name = \"status\"\n" +
-			"type = \"enum\"\n" +
-			"enum = [\"Proposed\", \"Accepted\", \"Deferred\", \"Rejected\", \"Superseded\"]\n",
-	},
-	{
-		name: "research",
-		body: "path = \"docs/research\"\n" +
-			"description = \"research notes\"\n\n" +
-			"[[fields]]\n" +
-			"name = \"title\"\n" +
-			"type = \"string\"\n" +
-			"required = true\n\n" +
-			"[[fields]]\n" +
-			"name = \"status\"\n" +
-			"type = \"enum\"\n" +
-			"enum = [\"Active\", \"Archived\", \"Superseded\"]\n",
-	},
-}
-
 // writeDocsCollections writes the four docs collection configs under
 // collectionsDir. An existing config is left untouched so re-running init --docs
 // never clobbers a customised schema.
 func writeDocsCollections(collectionsDir string) error {
-	for _, c := range docsCollections {
-		dir := filepath.Join(collectionsDir, c.name)
+	for _, c := range convention.DefaultDocCollections() {
+		dir := filepath.Join(collectionsDir, c.Name)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create collection %s: %w", c.name, err)
+			return fmt.Errorf("create collection %s: %w", c.Name, err)
 		}
 		cfg := filepath.Join(dir, "config.toml")
 		if _, err := os.Stat(cfg); err == nil {
 			continue
 		}
-		if err := os.WriteFile(cfg, []byte(c.body), 0o644); err != nil {
-			return fmt.Errorf("write collection %s: %w", c.name, err)
+		if err := os.WriteFile(cfg, []byte(docCollectionConfig(c)), 0o644); err != nil {
+			return fmt.Errorf("write collection %s: %w", c.Name, err)
 		}
 	}
 	return nil
+}
+
+func docCollectionConfig(c convention.DocCollection) string {
+	return fmt.Sprintf("path = %q\n", c.Path) +
+		fmt.Sprintf("description = %q\n\n", c.Description) +
+		"[[fields]]\n" +
+		"name = \"title\"\n" +
+		"type = \"string\"\n" +
+		"required = true\n\n" +
+		"[[fields]]\n" +
+		"name = \"status\"\n" +
+		"type = \"enum\"\n" +
+		"enum = [" + quoteList(c.Statuses) + "]\n"
+}
+
+func quoteList(items []string) string {
+	quoted := make([]string, len(items))
+	for i, item := range items {
+		quoted[i] = fmt.Sprintf("%q", item)
+	}
+	return strings.Join(quoted, ", ")
 }
