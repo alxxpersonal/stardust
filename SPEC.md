@@ -26,7 +26,7 @@ It is explicitly NOT a database you sync. A prior attempt - a stateful custom gr
 
 ### L0 - Discoverability (BUILD FIRST, before any RAG)
 The core pain ("spawn an agent and it doesn't even know the vault exists") is tool-affordance, not retrieval quality. Three stacked mechanisms:
-- **Always-pinned manifest** (Letta/MemGPT "core memory"): a ~30-line high-signal block injected into every agent + subagent boot - what the vault is, where the index lives, the ONE search tool + when to use it, the most load-bearing conventions. A pinned block is structurally un-ignorable. Fixes ~80% of the felt problem alone. Keep it <50 lines (bloated context degrades reliability).
+- **Always-pinned manifest** (Letta/MemGPT "core memory"): a ~30-line high-signal block injected into every agent + subagent boot - what the vault is, where the index lives, the ONE search tool + when to use it, the most load-bearing conventions. A pinned block is structurally un-ignorable. Fixes ~80% of the felt problem alone. Keep it <50 lines (bloated context degrades reliability). `stardust registry` now refreshes this from live docs state: active plans, stale implemented docs, the docs registry path, and the search command.
 - **The v1 affordance is the CLI, NOT MCP.** An agent reaches Stardust by running `stardust query "..."` through its existing Bash tool (clean markdown out, via dual-mode), plus a generated `INDEX.md` it greps. The manifest just says "to search your context, run `stardust query`." This is MCP-FREE, works today with ANY shell-having agent (Claude Code, codex, cursor - not just MCP clients), needs no SDK/server/`.mcp.json`, and the research rates the index-first + grep pattern as reliable-or-better than a fancy MCP tool.
 - **MCP is DEFERRED to the mounts/superpower layer**, packaged as a Claude Code plugin (`stardust serve --mcp`). MCP's real payoff is the connector ecosystem (the mounts), which is a later feature - so MCP arrives WITH mounts, not in v1. When built: ONE MCP tool, sharp WHEN/WHEN-NOT description, git-committed `.mcp.json` (NOT resources - they don't auto-load).
 - **Hooks + subagent templates** reinforce the CLI path too: `SessionStart` guarantees awareness, and every spawned subagent uses a template that RE-declares the manifest + the `stardust query` instruction (subagents inherit neither skills nor the parent prompt - this is the actual bug). Reference for the eventual MCP plugin: `engraph` (github.com/devwhodevs/engraph).
@@ -67,8 +67,10 @@ stardust/                         # the CLI repo - remote, global binary, NOT in
 <vault>/.stardust/
   config.yaml          # embed model, paths, ignore globs            [committed]
   manifest.md          # the always-pinned agent context (L0 keystone) [committed]
+  sync.toml            # agent skill/source/target sync config       [committed]
   mcp.json             # points every agent at `stardust serve`       [committed]
   INDEX.md             # generated table-of-contents                  [committed]
+  collections/<name>/config.toml # docs/records collection schemas    [committed]
   hooks/               # versioned git hooks (core.hooksPath target)  [committed]
   mounts/<name>/config.yaml      # external source connectors (superpower L) [committed]
   cron-jobs/agents/
@@ -112,11 +114,22 @@ type = "number"
 
 Records are filtered with frontmatter predicates (`field op value`, op one of `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`) and sorted by a frontmatter field (or `path` / `updated_at`, with a leading `-` for descending). Numeric predicate values compare numerically, not as text. Writes are commit-free like the rest of the write-back layer: create/patch/archive write the note to disk via the path-confined memory store and reindex, leaving git to the commit-hook layer. The same operations are reachable from the API (`GET /collections`, `GET /collection`, `GET /records`, `GET /record`, `POST /records`, `PATCH /record`), the MCP server (`list_collections`, `list_records`, `get_record`, `create_record`, `patch_record`), and the SDK.
 
+### 4.2 Docs and agent infrastructure conventions
+
+Docs conventions are machine-readable YAML, not only prose. Specs, plans, ADRs, and research docs use closed status sets plus `related` links and `governs` globs. `stardust new spec|plan|adr <title>` writes those fields, places the file in the configured collection folder, and reindexes it. `stardust registry governs <path>` answers which docs govern a repo path by reading the existing docs collections and matching `governs` patterns. Implemented specs become stale warnings when governed code changed after the spec's last commit.
+
+Agent infrastructure is synchronized through `.stardust/sync.toml`. `stardust sync` discovers skills and agents, honors optional frontmatter `targets: [claude, codex, gemini]`, plans repo/global target changes, supports `--dry-run`, `--check`, and `--repair`, and refuses unmanaged conflicts. `stardust sync init --profile alxx` scaffolds the local migration profile; `stardust sync report` lists import-only and loose assets to adopt. Rules adapter sync is deferred: `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` need format-aware adapters, not blind symlinks.
+
 ## 5. CLI surface
 
 - `stardust init` - scaffold `.stardust/` in any vault, wire `core.hooksPath`
 - `stardust index [--since <sha>] [--background]` - incremental reindex (git-diff + content-hash)
 - `stardust query "..."` - hybrid + rerank retrieval (the backend for the MCP tool)
+- `stardust registry` - regenerate `docs/INDEX.md` and refresh `.stardust/manifest.md`
+- `stardust registry governs <path>` - show docs whose `governs` globs match a code path
+- `stardust new spec|plan|adr <title>` - scaffold convention docs with YAML frontmatter
+- `stardust check --strict` - validate links, frontmatter, docs conventions, `governs`, and agent `targets`
+- `stardust sync [--dry-run|--check|--repair]` - sync skills and agents into Claude, Codex, and Gemini target dirs
 - `stardust serve` - the MCP server agents connect to (discoverability)
 - `stardust graph` - build the derived link-graph
 - `stardust cron list | run <job>` - read `cron-jobs/agents/*/config.yaml`, fire `codex exec --sandbox read-only` with that job's `prompt.md`
@@ -235,6 +248,8 @@ Plus superpower-layer pieces: **mounts / context-mesh** (`internal/mounts` + `in
 And **write-back / memory** (`internal/memory` six-verb tool + `service.Remember` dedup-capture; `stardust remember`, MCP `remember` + `memory` tools) - agents co-author notes back into the vault, path-confined and mutex-serialized, with the index re-derived after each write.
 
 And **temporal / ambient** (`internal/temporal`, `service.Digest`, `stardust digest` + API `/digest` + MCP `digest` tool) - git-as-event-stream digests grouped by area with surfaced commitments (TODO, "I'll do X"); plus example cron-jobs (`docs/examples/cron-jobs/` morning-digest + librarian) wiring the ambient/librarian pattern over the existing scheduler.
+
+And **agent infrastructure governance** (`internal/agentsync`, `internal/convention`, `internal/doclinks`, and `service.GoverningDocs`) - skills and agents sync across Claude, Codex, and Gemini; docs declare `governs` globs; `registry governs` answers code-to-doc ownership; `check --strict` lints docs, `targets`, stale implemented specs, and forbidden dashes; and `registry` refreshes the pinned manifest from active docs state.
 
 And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript client `sdk/ts/stardust.ts`) over the HTTP API; and the **Obsidian plugin** (`plugin/obsidian/`, TypeScript over the SDK) - a search panel inside Obsidian backed by the daemon, all logic in the daemon.
 
