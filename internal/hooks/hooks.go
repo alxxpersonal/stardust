@@ -14,6 +14,8 @@ import (
 const postCommit = `#!/bin/sh
 # stardust: index changed notes after each commit, non-blocking, never fail the commit
 command -v stardust >/dev/null 2>&1 && stardust index --since HEAD~1 --background >/dev/null 2>&1 || true
+# stardust: regenerate the grouped docs registry, non-blocking, never fail the commit
+command -v stardust >/dev/null 2>&1 && stardust registry >/dev/null 2>&1 || true
 `
 
 const postMerge = `#!/bin/sh
