@@ -62,6 +62,9 @@ func TestRegistryCmd(t *testing.T) {
 	require.Contains(t, got, "## Specs")
 	require.Contains(t, got, "| Title | Status | Doc | Date |")
 	require.Contains(t, got, "| First Spec | Approved | docs/specs/2026-06-22-2238-first-spec.md | 2026-06-22 |")
+	manifestData, err := os.ReadFile(config.Layout{Root: root}.Manifest())
+	require.NoError(t, err)
+	require.Contains(t, string(manifestData), "docs/INDEX.md")
 
 	// Idempotent: a second run produces byte-identical output.
 	cmd2 := newRegistryCmd()

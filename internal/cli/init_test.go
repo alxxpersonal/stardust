@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/alxxpersonal/stardust/internal/config"
 )
 
 // TestInitDocsScaffold runs `init --docs` in a temp vault and asserts the four
@@ -23,6 +25,8 @@ func TestInitDocsScaffold(t *testing.T) {
 		_, err := os.Stat(cfg)
 		require.NoErrorf(t, err, "expected config for collection %s", name)
 	}
+	_, err := os.Stat(config.Layout{Root: root}.Manifest())
+	require.NoError(t, err)
 }
 
 // TestInitNoDocs runs a plain `init` and asserts no docs collections are written.

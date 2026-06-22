@@ -86,6 +86,9 @@ func runRegistry(cmd *cobra.Command, output string) error {
 	if err := manifest.WriteRegistry(out, groups); err != nil {
 		return err
 	}
+	if err := svc.RefreshManifest(ctx); err != nil {
+		return err
+	}
 	fmt.Fprintln(cmd.OutOrStderr(), "wrote registry", out)
 	return nil
 }
