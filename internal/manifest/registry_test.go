@@ -66,6 +66,26 @@ func TestRenderRegistryADRTable(t *testing.T) {
 	require.Contains(t, out, "| 0001 | Adopt collections | Accepted | adr/0001-adopt-collections.md |")
 }
 
+func TestRenderRegistryNormalizesHeadings(t *testing.T) {
+	// The service passes lowercase collection slugs; headings must still render
+	// as the spec's fixed labels (Specs, Plans, ADRs, Research).
+	groups := []RegistryGroup{
+		{Name: "specs"},
+		{Name: "plans"},
+		{Name: "adr"},
+		{Name: "research"},
+	}
+
+	out := renderRegistry(groups)
+
+	require.Contains(t, out, "## Specs")
+	require.Contains(t, out, "## Plans")
+	require.Contains(t, out, "## ADRs")
+	require.Contains(t, out, "## Research")
+	require.NotContains(t, out, "## specs")
+	require.NotContains(t, out, "## adr\n")
+}
+
 func TestWriteRegistry(t *testing.T) {
 	groups := []RegistryGroup{
 		{

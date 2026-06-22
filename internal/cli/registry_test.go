@@ -57,7 +57,7 @@ func TestRegistryCmd(t *testing.T) {
 	got := string(data)
 
 	require.Contains(t, got, "# Docs Index")
-	require.Contains(t, got, "## specs")
+	require.Contains(t, got, "## Specs")
 	require.Contains(t, got, "| Title | Status | Doc | Date |")
 	require.Contains(t, got, "| First Spec | Approved | docs/specs/2026-06-22-2238-first-spec.md | 2026-06-22 |")
 
