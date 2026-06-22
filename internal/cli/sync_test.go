@@ -29,6 +29,7 @@ func TestSyncDryRunCmdPrintsPlanAndCreatesNothing(t *testing.T) {
 func TestSyncCheckCmdFailsOnDrift(t *testing.T) {
 	root := syncTestVault(t)
 	t.Setenv("STARDUST_VAULT", root)
+	var out bytes.Buffer
 	target := filepath.Join(root, ".claude", "skills", "foo")
 	other := filepath.Join(root, "other")
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
@@ -36,8 +37,29 @@ func TestSyncCheckCmdFailsOnDrift(t *testing.T) {
 	require.NoError(t, os.Symlink(other, target))
 
 	cmd := newRootCmd()
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"sync", "--check", "--scope", "repo", "--tool", "claude", "--output", "plain"})
 	require.Error(t, cmd.Execute())
+}
+
+func TestSyncInitAlxxDryRunPrintsConfig(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	t.Setenv("STARDUST_VAULT", root)
+	t.Chdir(root)
+	var out bytes.Buffer
+
+	cmd := newRootCmd()
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"sync", "init", "--profile", "alxx", "--canonical", "~/Code/Self/forge-private", "--dry-run"})
+	require.NoError(t, cmd.Execute())
+
+	require.Contains(t, out.String(), "forge-private/skills")
+	require.Contains(t, out.String(), "import_only = true")
+	_, err := os.Stat(filepath.Join(root, ".stardust", "sync.toml"))
+	require.True(t, os.IsNotExist(err), "dry-run must not write sync config")
 }
 
 func syncTestVault(t *testing.T) string {

@@ -83,9 +83,6 @@ func ParseTargets(frontmatter map[string]any, defaults []Tool) ([]Tool, error) {
 }
 
 func discoverSource(src Source, defaults []Tool) ([]Item, error) {
-	if src.ImportOnly {
-		return nil, nil
-	}
 	if _, err := os.Stat(src.Path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

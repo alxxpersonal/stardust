@@ -48,6 +48,9 @@ func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
 			continue
 		}
 		for _, item := range items {
+			if item.Source.ImportOnly {
+				continue
+			}
 			if !itemTargetsTool(item, target.Tool) {
 				continue
 			}

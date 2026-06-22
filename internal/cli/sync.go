@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -64,6 +66,101 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.Check, "check", false, "exit non-zero when sync targets are missing or drifted")
 	cmd.Flags().BoolVar(&opts.Repair, "repair", false, "repair drifted stardust-managed targets")
 	cmd.Flags().StringVar(&output, "output", "auto", "output mode: auto, md, json, plain")
+	cmd.AddCommand(newSyncInitCmd(), newSyncReportCmd())
+	return cmd
+}
+
+func newSyncInitCmd() *cobra.Command {
+	var profile string
+	var canonical string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Scaffold .stardust/sync.toml",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			vc, err := resolveVault()
+			if err != nil {
+				return err
+			}
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home dir: %w", err)
+			}
+			cfg := agentsync.DefaultConfig(home, vc.Layout.Root)
+			switch profile {
+			case "", "default":
+			case "alxx":
+				cfg = agentsync.AlxxMigrationConfig(home, vc.Layout.Root)
+			default:
+				return fmt.Errorf("unsupported sync profile %q", profile)
+			}
+			if canonical != "" {
+				applyCanonicalPath(&cfg, expandSyncPath(canonical, home, vc.Layout.Root))
+			}
+			b, err := agentsync.MarshalConfig(cfg)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				fmt.Fprint(cmd.OutOrStdout(), string(b))
+				return nil
+			}
+			if _, err := os.Stat(vc.Layout.SyncConfig()); err == nil {
+				return fmt.Errorf("sync config already exists: %s", vc.Layout.SyncConfig())
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("stat sync config %s: %w", vc.Layout.SyncConfig(), err)
+			}
+			if err := agentsync.SaveConfig(vc.Layout.SyncConfig(), cfg); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "wrote sync config", vc.Layout.SyncConfig())
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&profile, "profile", "default", "profile: default, alxx")
+	cmd.Flags().StringVar(&canonical, "canonical", "", "canonical agent infrastructure root")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print sync.toml without writing")
+	return cmd
+}
+
+func newSyncReportCmd() *cobra.Command {
+	var configPath string
+	var output string
+	cmd := &cobra.Command{
+		Use:   "report",
+		Short: "Report adoptable agent assets from migration sources",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			vc, err := resolveVault()
+			if err != nil {
+				return err
+			}
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home dir: %w", err)
+			}
+			if configPath == "" {
+				configPath = vc.Layout.SyncConfig()
+			} else if !filepath.IsAbs(configPath) {
+				configPath = filepath.Join(vc.Layout.Root, configPath)
+			}
+			cfg, err := agentsync.LoadConfig(configPath, home, vc.Layout.Root)
+			if err != nil {
+				return err
+			}
+			items, err := agentsync.Discover(cfg)
+			if err != nil {
+				return err
+			}
+			report := agentsync.BuildMigrationReport(cfg, items)
+			if output == "json" {
+				return emitJSON(cmd.OutOrStdout(), report)
+			}
+			emitMarkdown(cmd.OutOrStdout(), report.Markdown(), output)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "sync config path, defaults to .stardust/sync.toml")
+	cmd.Flags().StringVar(&output, "output", "auto", "output mode: auto, md, json, plain")
 	return cmd
 }
 
@@ -98,4 +195,32 @@ func parseSyncTools(raw []string) ([]agentsync.Tool, error) {
 		}
 	}
 	return out, nil
+}
+
+func applyCanonicalPath(cfg *agentsync.Config, canonical string) {
+	for i := range cfg.Sources {
+		switch cfg.Sources[i].Name {
+		case "canonical-skills":
+			cfg.Sources[i].Path = filepath.Join(canonical, "skills")
+		case "canonical-agents":
+			cfg.Sources[i].Path = filepath.Join(canonical, "agents")
+		}
+	}
+}
+
+func expandSyncPath(path, home, root string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(root, path)
 }

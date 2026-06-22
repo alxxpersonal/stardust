@@ -76,6 +76,22 @@ func DefaultConfig(home, root string) Config {
 	}
 }
 
+// AlxxMigrationConfig returns the opinionated migration layout for alxx's
+// canonical forge-private agent infrastructure source.
+func AlxxMigrationConfig(home, root string) Config {
+	canonical := filepath.Join(home, "Code", "Self", "forge-private")
+	cfg := DefaultConfig(home, root)
+	cfg.Sources = []Source{
+		{Name: "canonical-skills", Path: filepath.Join(canonical, "skills"), Kind: "skill", Priority: 0},
+		{Name: "canonical-agents", Path: filepath.Join(canonical, "agents"), Kind: "agent", Priority: 0},
+		{Name: "forge-skills", Path: filepath.Join(home, "Code", "Self", "forge", "skills"), Kind: "skill", Priority: 20, ImportOnly: true},
+		{Name: "shared-agent-skills", Path: filepath.Join(home, ".agents", "skills"), Kind: "skill", Priority: 30, ImportOnly: true},
+		{Name: "claude-global-skills", Path: filepath.Join(home, ".claude", "skills"), Kind: "skill", Priority: 40, ImportOnly: true},
+		{Name: "claude-global-agents", Path: filepath.Join(home, ".claude", "agents"), Kind: "agent", Priority: 40, ImportOnly: true},
+	}
+	return cfg
+}
+
 // LoadConfig reads sync.toml, expands paths, and validates tool and scope names.
 func LoadConfig(path, home, root string) (Config, error) {
 	b, err := os.ReadFile(path)
@@ -96,6 +112,30 @@ func LoadConfig(path, home, root string) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// MarshalConfig encodes cfg as sync.toml.
+func MarshalConfig(cfg Config) ([]byte, error) {
+	b, err := toml.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal sync config: %w", err)
+	}
+	return b, nil
+}
+
+// SaveConfig writes cfg to path as TOML.
+func SaveConfig(path string, cfg Config) error {
+	b, err := MarshalConfig(cfg)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create sync config dir: %w", err)
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		return fmt.Errorf("write sync config %s: %w", path, err)
+	}
+	return nil
 }
 
 func normalizeConfig(cfg *Config, home, root string) error {
