@@ -1,6 +1,9 @@
 package convention
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestDocStatusAllowed(t *testing.T) {
 	tests := []struct {
@@ -64,13 +67,5 @@ func TestStringListRejectsNonStringItems(t *testing.T) {
 }
 
 func sameStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return reflect.DeepEqual(a, b)
 }
