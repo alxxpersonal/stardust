@@ -75,6 +75,9 @@ func (l Layout) Dir() string { return filepath.Join(l.Root, DirName) }
 // Config returns the config.toml path.
 func (l Layout) Config() string { return filepath.Join(l.Dir(), "config.toml") }
 
+// SyncConfig returns the agent sync config path.
+func (l Layout) SyncConfig() string { return filepath.Join(l.Dir(), "sync.toml") }
+
 // Manifest returns the pinned agent-manifest path.
 func (l Layout) Manifest() string { return filepath.Join(l.Dir(), "manifest.md") }
 
