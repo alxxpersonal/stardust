@@ -10,11 +10,12 @@ import (
 
 // Options controls sync planning and execution.
 type Options struct {
-	Scope  Scope
-	Tools  []Tool
-	DryRun bool
-	Check  bool
-	Repair bool
+	ConfigPath string
+	Scope      Scope
+	Tools      []Tool
+	DryRun     bool
+	Check      bool
+	Repair     bool
 }
 
 // Action describes one planned sync operation.
@@ -36,11 +37,12 @@ type Plan struct {
 	Missing   int      `json:"missing"`
 	Drift     int      `json:"drift"`
 	Conflicts int      `json:"conflicts"`
+	Repair    bool     `json:"repair"`
 }
 
 // BuildPlan inspects target paths and returns the actions required to sync items.
 func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
-	var plan Plan
+	plan := Plan{Repair: opts.Repair}
 	for _, target := range cfg.Targets {
 		if !scopeAllowed(target.Scope, opts.Scope) || !toolAllowed(target.Tool, opts.Tools) {
 			continue
