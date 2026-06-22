@@ -1,0 +1,12 @@
+path = "docs/adr"
+description = "architecture decision records"
+
+[[fields]]
+name = "title"
+type = "string"
+required = true
+
+[[fields]]
+name = "status"
+type = "enum"
+enum = ["Proposed", "Accepted", "Deferred", "Rejected", "Superseded"]

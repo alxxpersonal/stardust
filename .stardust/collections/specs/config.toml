@@ -1,0 +1,12 @@
+path = "docs/specs"
+description = "technical specs"
+
+[[fields]]
+name = "title"
+type = "string"
+required = true
+
+[[fields]]
+name = "status"
+type = "enum"
+enum = ["Draft", "In Review", "Approved", "Implemented", "Superseded"]

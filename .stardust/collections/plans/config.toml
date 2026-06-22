@@ -1,0 +1,12 @@
+path = "docs/plans"
+description = "implementation plans"
+
+[[fields]]
+name = "title"
+type = "string"
+required = true
+
+[[fields]]
+name = "status"
+type = "enum"
+enum = ["Draft", "Active", "Done", "Abandoned"]
