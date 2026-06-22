@@ -14,7 +14,7 @@ import (
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 // Serve runs the Stardust MCP server over stdio until the client disconnects or
 // ctx is cancelled. A clean disconnect (EOF) or cancellation is not an error.

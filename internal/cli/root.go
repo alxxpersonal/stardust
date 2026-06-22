@@ -15,7 +15,7 @@ import (
 )
 
 // version is the build version, overridable via -ldflags at build time.
-var version = "0.1.0-dev"
+var version = "0.2.0-dev"
 
 // Execute builds the root command and runs it, exiting non-zero on error.
 func Execute() {

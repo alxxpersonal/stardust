@@ -85,7 +85,7 @@ func (m Mount) Search(ctx context.Context, query string, limit int) ([]Hit, erro
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "stardust", Version: "0.1.0"}, nil)
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "stardust", Version: "0.2.0"}, nil)
 	session, err := client.Connect(ctx, &sdkmcp.CommandTransport{Command: cmd}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("connect mount %s: %w", m.Name, err)
