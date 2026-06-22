@@ -5,10 +5,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/gitx"
+	"github.com/alxxpersonal/stardust/internal/service"
 )
 
 // newNewCmd scaffolds a fresh vault.
@@ -26,6 +28,45 @@ func newNewCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&template, "template", "", "directory of starter files to copy into the new vault")
 	cmd.Flags().StringVar(&check, "check", "warn", "pre-commit vault check: off, warn, strict")
+	cmd.AddCommand(newDocCmd("spec"), newDocCmd("plan"), newDocCmd("adr"))
+	return cmd
+}
+
+func newDocCmd(kind string) *cobra.Command {
+	var status string
+	var related []string
+	var governs []string
+	cmd := &cobra.Command{
+		Use:   kind + " <title>",
+		Short: "Create a new " + kind + " doc",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			svc, err := openService(ctx)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = svc.Close() }()
+
+			res, err := svc.NewDoc(ctx, service.NewDocOptions{
+				Kind:    kind,
+				Title:   strings.TrimSpace(args[0]),
+				Status:  status,
+				Related: related,
+				Governs: governs,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), res.Path)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&status, "status", "", "doc status")
+	cmd.Flags().StringArrayVar(&related, "related", nil, "related doc path")
+	if kind == "spec" {
+		cmd.Flags().StringArrayVar(&governs, "governs", nil, "repo-relative governed path glob")
+	}
 	return cmd
 }
 
