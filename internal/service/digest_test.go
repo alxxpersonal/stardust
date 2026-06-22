@@ -16,11 +16,12 @@ import (
 func gitInit(t *testing.T, root string) {
 	t.Helper()
 	for _, args := range [][]string{
-		{"init"}, {"config", "user.email", "t@t"}, {"config", "user.name", "t"},
+		{"init"}, {"config", "user.email", "t@t"}, {"config", "user.name", "t"}, {"config", "commit.gpgsign", "false"},
 		{"add", "-A"}, {"commit", "-m", "init"},
 	} {
 		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
-		require.NoError(t, cmd.Run(), "git %v", args)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, string(out))
 	}
 }
 
