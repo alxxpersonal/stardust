@@ -12,8 +12,8 @@ func newCheckCmd() *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
 		Use:   "check",
-		Short: "Validate vault integrity (broken links, frontmatter, orphans, duplicate names)",
-		Long:  "Reports broken wikilinks and malformed frontmatter (errors), plus orphans,\nmissing titles, and duplicate note names (warnings). With --strict it exits\nnon-zero when there are errors, so a pre-commit hook can gate commits on it.",
+		Short: "Validate vault integrity and docs conventions",
+		Long:  "Reports broken wikilinks, malformed frontmatter, convention errors, and agent target issues.\nWith --strict it exits non-zero when there are errors, so a pre-commit hook can gate commits on it.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			svc, err := openService(ctx)
@@ -39,7 +39,7 @@ func newCheckCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&strict, "strict", false, "exit non-zero if there are errors (e.g. broken links)")
+	cmd.Flags().BoolVar(&strict, "strict", false, "exit non-zero if there are errors")
 	cmd.Flags().StringVar(&output, "output", "auto", "output mode: auto, md, json, plain")
 	return cmd
 }

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/graph"
 	"github.com/alxxpersonal/stardust/internal/vault"
 )
@@ -75,6 +76,17 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 		}
 	}
 
+	docIssues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	issues = append(issues, mapConventionIssues(docIssues)...)
+	skillIssues, err := convention.CheckSkills(s.Layout.Root)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	issues = append(issues, mapConventionIssues(skillIssues)...)
+
 	sort.SliceStable(issues, func(i, j int) bool {
 		if issues[i].Severity != issues[j].Severity {
 			return issues[i].Severity == "error"
@@ -92,6 +104,14 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 	}
 	res.Markdown = renderCheck(res)
 	return res, nil
+}
+
+func mapConventionIssues(in []convention.ConventionIssue) []Issue {
+	out := make([]Issue, 0, len(in))
+	for _, issue := range in {
+		out = append(out, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
+	}
+	return out
 }
 
 func renderCheck(res CheckResult) string {
