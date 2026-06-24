@@ -26,7 +26,7 @@ func fixVault(t *testing.T) string {
 func TestCheckFixReplacesForbiddenDashes(t *testing.T) {
 	root := fixVault(t)
 	rel := filepath.Join("docs", "specs", "2026-06-22-1000-dashy.md")
-	body := "---\ntitle: Dashy\ntype: spec\nstatus: Draft\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Dashy\n\none — two – three — four\n"
+	body := "---\ntitle: Dashy\ntype: spec\nstatus: Draft\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Dashy\n\none \u2014 two \u2013 three \u2014 four\n"
 	require.NoError(t, os.WriteFile(filepath.Join(root, rel), []byte(body), 0o644))
 
 	svc, err := service.Open(context.Background(), root)
@@ -39,8 +39,8 @@ func TestCheckFixReplacesForbiddenDashes(t *testing.T) {
 
 	fixed, err := os.ReadFile(filepath.Join(root, rel))
 	require.NoError(t, err)
-	require.NotContains(t, string(fixed), "—")
-	require.NotContains(t, string(fixed), "–")
+	require.NotContains(t, string(fixed), "\u2014")
+	require.NotContains(t, string(fixed), "\u2013")
 	require.Contains(t, string(fixed), "one - two - three - four")
 
 	// A re-check should no longer report a forbidden-dash error.

@@ -52,7 +52,7 @@ func TestCheckFixThenStrictPasses(t *testing.T) {
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	rel := filepath.Join("docs", "specs", "2026-06-22-1000-dashy.md")
-	require.NoError(t, os.WriteFile(filepath.Join(root, rel), []byte("---\ntitle: Dashy\ntype: spec\nstatus: Draft\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Dashy\n\nfoo — bar\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, rel), []byte("---\ntitle: Dashy\ntype: spec\nstatus: Draft\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Dashy\n\nfoo \u2014 bar\n"), 0o644))
 	var out bytes.Buffer
 
 	cmd := newRootCmd()
@@ -63,5 +63,5 @@ func TestCheckFixThenStrictPasses(t *testing.T) {
 
 	fixed, err := os.ReadFile(filepath.Join(root, rel))
 	require.NoError(t, err)
-	require.NotContains(t, string(fixed), "—")
+	require.NotContains(t, string(fixed), "\u2014")
 }

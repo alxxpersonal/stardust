@@ -103,7 +103,7 @@ func (s *Service) fixDashes(mem *memory.Store, rel string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	replaced := strings.NewReplacer("—", "-", "–", "-").Replace(content)
+	replaced := strings.NewReplacer("\u2014", "-", "\u2013", "-").Replace(content)
 	if replaced == content {
 		return false, nil
 	}
