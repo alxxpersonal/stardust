@@ -179,6 +179,13 @@ func checkStale(root, rel string, matched []string) []ConventionIssue {
 	return []ConventionIssue{{Severity: "warn", Kind: "stale-governed-doc", Path: rel, Detail: fmt.Sprintf("%d governed code commit(s) since doc update", count)}}
 }
 
+// DocTypeForPath returns the convention doc type ("spec", "plan", "adr",
+// "research") for a vault-relative path under docs/, and false when the path is
+// not a governed doc folder.
+func DocTypeForPath(rel string) (string, bool) {
+	return docTypeForPath(rel)
+}
+
 func docTypeForPath(rel string) (string, bool) {
 	rel = filepath.ToSlash(rel)
 	switch {
