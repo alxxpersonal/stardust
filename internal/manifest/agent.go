@@ -13,7 +13,17 @@ type AgentManifestInput struct {
 	RegistryPath string
 	IndexPath    string
 	ActivePlans  []RegistryRecord
-	StaleDocs    []RegistryRecord
+	StaleDocs    []StaleDoc
+}
+
+// StaleDoc is one stale implemented doc in the boot manifest, carrying enough
+// drift detail for an agent to act on it: how many commits the governed code
+// moved since the doc, and which files moved.
+type StaleDoc struct {
+	Title          string
+	Path           string
+	ChangedCommits int
+	Matched        []string
 }
 
 // WriteAgentManifest writes the dynamic agent boot manifest.
@@ -52,7 +62,7 @@ func renderAgentManifest(input AgentManifestInput) string {
 		b.WriteString("- None.\n")
 	} else {
 		for _, doc := range input.StaleDocs {
-			fmt.Fprintf(&b, "- %s `%s`\n", doc.Title, doc.Path)
+			fmt.Fprintf(&b, "- %s stale: %s to %s since doc `%s`\n", doc.Title, commitCount(doc.ChangedCommits), matchedSummary(doc.Matched), doc.Path)
 		}
 	}
 
@@ -62,4 +72,38 @@ func renderAgentManifest(input AgentManifestInput) string {
 	b.WriteString("- Skills and agents may route with targets: claude, codex, gemini.\n")
 	b.WriteString("- Run `stardust check --strict` before committing convention docs.\n")
 	return b.String()
+}
+
+// commitCount renders the changed-commit count with a singular or plural noun,
+// e.g. "1 commit" or "3 commits".
+func commitCount(n int) string {
+	if n == 1 {
+		return "1 commit"
+	}
+	return fmt.Sprintf("%d commits", n)
+}
+
+// matchedSummary renders the moved code files for a stale doc. It caps the
+// rendered set at the first three paths and appends a "+N more" suffix so the
+// manifest stays within its line budget regardless of how broad the glob is.
+func matchedSummary(matched []string) string {
+	if len(matched) == 0 {
+		return "governed code"
+	}
+	const cap = 3
+	shown := matched
+	extra := 0
+	if len(matched) > cap {
+		shown = matched[:cap]
+		extra = len(matched) - cap
+	}
+	quoted := make([]string, len(shown))
+	for i, m := range shown {
+		quoted[i] = "`" + m + "`"
+	}
+	out := strings.Join(quoted, ", ")
+	if extra > 0 {
+		out = fmt.Sprintf("%s +%d more", out, extra)
+	}
+	return out
 }

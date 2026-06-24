@@ -4,13 +4,16 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/manifest"
 )
 
 // RefreshManifest regenerates the pinned agent boot manifest from docs state.
-func (s *Service) RefreshManifest(_ context.Context) error {
+func (s *Service) RefreshManifest(ctx context.Context) error {
 	groups, err := s.Registry([]string{"specs", "plans", "adr", "research"})
+	if err != nil {
+		return err
+	}
+	stale, err := s.staleDocRecords(ctx, 5)
 	if err != nil {
 		return err
 	}
@@ -19,7 +22,7 @@ func (s *Service) RefreshManifest(_ context.Context) error {
 		RegistryPath: "docs/INDEX.md",
 		IndexPath:    ".stardust/INDEX.md",
 		ActivePlans:  activePlanRecords(groups, 5),
-		StaleDocs:    staleDocRecords(s.Layout.Root, s.Config.Ignore, groups, 5),
+		StaleDocs:    stale,
 	}
 	return manifest.WriteAgentManifest(s.Layout.Manifest(), input)
 }
@@ -42,30 +45,26 @@ func activePlanRecords(groups []manifest.RegistryGroup, limit int) []manifest.Re
 	return out
 }
 
-func staleDocRecords(root string, ignore []string, groups []manifest.RegistryGroup, limit int) []manifest.RegistryRecord {
-	issues, err := convention.CheckDocs(root, ignore)
+// staleDocRecords sources the boot manifest's stale-doc rows from the registry
+// stale query (the same StaleDocs scan that backs `registry stale`) instead of
+// re-deriving a bare count via CheckDocs. This keeps the rich drift detail
+// (changed-commit count and the moved files) that the manifest renders.
+func (s *Service) staleDocRecords(ctx context.Context, limit int) ([]manifest.StaleDoc, error) {
+	res, err := s.StaleDocs(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	byPath := map[string]manifest.RegistryRecord{}
-	for _, group := range groups {
-		for _, record := range group.Records {
-			byPath[record.Path] = record
-		}
-	}
-	var out []manifest.RegistryRecord
-	for _, issue := range issues {
-		if issue.Kind != "stale-governed-doc" {
-			continue
-		}
-		record, ok := byPath[issue.Path]
-		if !ok {
-			continue
-		}
-		out = append(out, record)
+	var out []manifest.StaleDoc
+	for _, doc := range res.Docs {
+		out = append(out, manifest.StaleDoc{
+			Title:          doc.Title,
+			Path:           doc.DocPath,
+			ChangedCommits: doc.ChangedCommits,
+			Matched:        doc.Matched,
+		})
 		if len(out) == limit {
-			return out
+			break
 		}
 	}
-	return out
+	return out, nil
 }

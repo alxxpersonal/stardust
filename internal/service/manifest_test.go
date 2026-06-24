@@ -32,3 +32,29 @@ func TestRefreshManifestWritesAgentManifest(t *testing.T) {
 	require.Contains(t, string(data), "Agent Infra Plan")
 	require.Contains(t, string(data), "docs/INDEX.md")
 }
+
+func TestRefreshManifestRendersRichStaleDrift(t *testing.T) {
+	ctx := context.Background()
+	root := governsVault(t)
+	writeGovernedCode(t, root, "internal/foo.go")
+	writeGovernedDoc(t, root, "docs/specs/2026-06-22-1000-implemented-spec.md", "Implemented Spec", "spec", "Implemented", "internal/*.go")
+	gitInit(t, root)
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "internal", "foo.go"), []byte("package internal\n\nconst X = 1\n"), 0o644))
+	gitCommitAll(t, root, "change foo")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	require.NoError(t, svc.RefreshManifest(ctx))
+	data, err := os.ReadFile(config.Layout{Root: root}.Manifest())
+	require.NoError(t, err)
+	got := string(data)
+
+	require.Contains(t, got, "Implemented Spec")
+	require.Contains(t, got, "internal/foo.go")
+	require.Contains(t, got, "commit")
+}
