@@ -31,6 +31,44 @@ func newRegistryCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&output, "output", "docs/INDEX.md", "registry output path, relative to the vault root")
 	cmd.AddCommand(newRegistryGovernsCmd())
+	cmd.AddCommand(newRegistryStaleCmd())
+	return cmd
+}
+
+func newRegistryStaleCmd() *cobra.Command {
+	var output string
+	var exitCode bool
+	cmd := &cobra.Command{
+		Use:   "stale",
+		Short: "List docs whose governed code changed after the doc",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
+			svc, err := openService(ctx)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = svc.Close() }()
+
+			res, err := svc.StaleDocs(ctx)
+			if err != nil {
+				return err
+			}
+			if output == "json" {
+				if err := emitJSON(cmd.OutOrStdout(), res); err != nil {
+					return err
+				}
+			} else {
+				emitMarkdown(cmd.OutOrStdout(), res.Markdown, output)
+			}
+			if exitCode && len(res.Docs) > 0 {
+				return fmt.Errorf("%d stale docs", len(res.Docs))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&output, "output", "auto", "output mode: auto, md, json, plain")
+	cmd.Flags().BoolVar(&exitCode, "exit-code", false, "exit non-zero when any doc is stale")
 	return cmd
 }
 
