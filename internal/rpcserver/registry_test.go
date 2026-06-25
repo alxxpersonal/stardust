@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/creachadair/jrpc2/server"
@@ -74,4 +75,31 @@ func TestRegistryRecordCreate(t *testing.T) {
 	require.Equal(t, "jobs/acme.md", rec.Path)
 	require.Equal(t, "open", rec.Frontmatter["status"])
 	require.Contains(t, rec.Body, "first body")
+}
+
+// TestRegistryMethodSet pins the registry's method set. NewRegistry MUST expose
+// exactly the canonical slash names for the record seam, no more and no fewer.
+// A removed, renamed, or silently added method fails this test.
+func TestRegistryMethodSet(t *testing.T) {
+	svc, err := service.Open(context.Background(), jobsVault(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+
+	want := []string{
+		"record/create",
+		"record/delete",
+		"record/get",
+		"record/list",
+		"record/patch",
+		"status",
+	}
+
+	reg := rpcserver.NewRegistry(svc)
+	got := make([]string, 0, len(reg))
+	for name := range reg {
+		got = append(got, name)
+	}
+	sort.Strings(got)
+
+	require.Equal(t, want, got)
 }
