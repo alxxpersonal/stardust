@@ -78,14 +78,28 @@ func TestRegistryRecordCreate(t *testing.T) {
 }
 
 // TestRegistryMethodSet pins the registry's method set. NewRegistry MUST expose
-// exactly the canonical slash names for the record seam, no more and no fewer.
-// A removed, renamed, or silently added method fails this test.
+// exactly the canonical slash names for the full operation set, no more and no
+// fewer. A removed, renamed, or silently added method fails this test.
 func TestRegistryMethodSet(t *testing.T) {
 	svc, err := service.Open(context.Background(), jobsVault(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = svc.Close() })
 
 	want := []string{
+		"archive",
+		"bundle",
+		"check",
+		"collection/get",
+		"collection/list",
+		"cron/list",
+		"cron/run",
+		"digest",
+		"graph",
+		"index/rebuild",
+		"index/run",
+		"mount/list",
+		"note/get",
+		"query",
 		"record/create",
 		"record/delete",
 		"record/get",
