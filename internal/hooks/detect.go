@@ -24,7 +24,10 @@ const ownedHooksRel = ".stardust/hooks"
 
 // composeEvents are the git hook files detect probes when core.hooksPath is
 // unset: an existing, non-empty one means another chain already owns .git/hooks.
-var composeEvents = []string{"post-commit", "post-merge"}
+// pre-commit is included so a repo whose only hook is a linter or changelog
+// pre-commit (a common setup, e.g. git-cliff or lint-staged) composes instead
+// of being seized.
+var composeEvents = []string{"pre-commit", "post-commit", "post-merge", "post-rewrite"}
 
 // detect resolves how stardust should install hooks in root. It returns the
 // install mode (owned or compose) and the absolute target directory the hooks go
@@ -33,8 +36,9 @@ var composeEvents = []string{"post-commit", "post-merge"}
 //   - core.hooksPath == .stardust/hooks: owned (idempotent re-run).
 //   - core.hooksPath set to anything else (husky .husky, custom): compose into
 //     that dir.
-//   - core.hooksPath unset but an existing, non-empty .git/hooks/post-commit or
-//     post-merge: compose into .git/hooks.
+//   - core.hooksPath unset but an existing, non-empty .git/hooks hook
+//     (pre-commit, post-commit, post-merge, or post-rewrite): compose into
+//     .git/hooks.
 //   - core.hooksPath unset, no existing hooks: owned (current behavior).
 func detect(root string) (mode, targetDir string, err error) {
 	hooksPath, err := gitHooksPath(root)

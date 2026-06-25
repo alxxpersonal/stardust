@@ -66,6 +66,14 @@ func TestDetect(t *testing.T) {
 			wantTarget: ".git/hooks",
 		},
 		{
+			name: "unset with an existing pre-commit hook is compose into git hooks",
+			setup: func(t *testing.T, root string) {
+				writeHook(t, root, "pre-commit", "#!/bin/sh\nnpx lint-staged\n")
+			},
+			wantMode:   "compose",
+			wantTarget: ".git/hooks",
+		},
+		{
 			name:       "unset with no existing hooks is owned",
 			setup:      func(t *testing.T, root string) {},
 			wantMode:   "owned",
