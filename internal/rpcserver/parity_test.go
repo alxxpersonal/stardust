@@ -52,7 +52,7 @@ func stdioClient(t *testing.T, svc *service.Service) *jrpc2.Client {
 	serverCh := channel.Line(sr, sw)
 	clientCh := channel.Line(cr, cw)
 
-	srv := jrpc2.NewServer(rpcserver.NewRegistry(svc), nil).Start(serverCh)
+	srv := jrpc2.NewServer(rpcserver.NewRegistry(svc), rpcserver.ServerOptions()).Start(serverCh)
 	client := jrpc2.NewClient(clientCh, nil)
 	t.Cleanup(func() {
 		_ = client.Close()

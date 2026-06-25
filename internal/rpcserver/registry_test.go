@@ -56,7 +56,8 @@ func localFromRegistry(t *testing.T, root string) server.Local {
 	svc, err := service.Open(context.Background(), root)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = svc.Close() })
-	return server.NewLocal(rpcserver.NewRegistry(svc), nil)
+	opts := &server.LocalOptions{Server: rpcserver.ServerOptions()}
+	return server.NewLocal(rpcserver.NewRegistry(svc), opts)
 }
 
 func TestRegistryRecordCreate(t *testing.T) {
@@ -78,8 +79,9 @@ func TestRegistryRecordCreate(t *testing.T) {
 }
 
 // TestRegistryMethodSet pins the registry's method set. NewRegistry MUST expose
-// exactly the canonical slash names for the full operation set, no more and no
-// fewer. A removed, renamed, or silently added method fails this test.
+// exactly the canonical slash names for the full operation set plus the reserved
+// rpc.discover method, no more and no fewer. A removed, renamed, or silently added
+// method fails this test. The full set totals twenty-one methods.
 func TestRegistryMethodSet(t *testing.T) {
 	svc, err := service.Open(context.Background(), jobsVault(t))
 	require.NoError(t, err)
@@ -105,6 +107,7 @@ func TestRegistryMethodSet(t *testing.T) {
 		"record/get",
 		"record/list",
 		"record/patch",
+		"rpc.discover",
 		"status",
 	}
 
@@ -116,4 +119,41 @@ func TestRegistryMethodSet(t *testing.T) {
 	sort.Strings(got)
 
 	require.Equal(t, want, got)
+	require.Len(t, got, 21)
+}
+
+// TestRegistryDiscover pins rpc.discover. Calling it returns an OpenRPC document
+// whose method list names every method the registry exposes, including
+// rpc.discover itself, with a non-empty one-line summary per method. A method
+// added to or removed from the registry without updating the document's source
+// fails this test.
+func TestRegistryDiscover(t *testing.T) {
+	ctx := context.Background()
+	svc, err := service.Open(ctx, jobsVault(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+
+	reg := rpcserver.NewRegistry(svc)
+	loc := localFromRegistry(t, jobsVault(t))
+	defer func() { _ = loc.Close() }()
+
+	var doc rpc.OpenRPCDoc
+	require.NoError(t, loc.Client.CallResult(ctx, "rpc.discover", nil, &doc))
+
+	require.Equal(t, rpc.OpenRPCVersion, doc.OpenRPC)
+	require.Equal(t, rpc.ContractVersion, doc.Info.Version)
+
+	docNames := make([]string, 0, len(doc.Methods))
+	for _, m := range doc.Methods {
+		require.NotEmpty(t, m.Summary, "method %q must carry a summary", m.Name)
+		docNames = append(docNames, m.Name)
+	}
+	sort.Strings(docNames)
+
+	regNames := reg.Names()
+	sort.Strings(regNames)
+
+	require.Equal(t, regNames, docNames, "discover document must list exactly the registry methods")
+	require.Len(t, doc.Methods, 21)
+	require.Contains(t, docNames, "rpc.discover")
 }

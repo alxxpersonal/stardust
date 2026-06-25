@@ -10,6 +10,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/handler"
 
 	"github.com/alxxpersonal/stardust/internal/cron"
@@ -17,11 +18,23 @@ import (
 	"github.com/alxxpersonal/stardust/rpc"
 )
 
+// ServerOptions returns the canonical jrpc2 server options every transport mounts
+// this registry with. DisableBuiltin lets the registry own the reserved rpc.*
+// namespace so the rpc.discover method is dispatched to our handler rather than
+// jrpc2's built-in introspection methods. A nil return would re-reserve rpc.* and
+// shadow rpc.discover, so every mount (stdio, jhttp bridge, in-memory local) MUST
+// pass this.
+func ServerOptions() *jrpc2.ServerOptions {
+	return &jrpc2.ServerOptions{DisableBuiltin: true}
+}
+
 // NewRegistry builds the handler.Map of canonical slash method names to typed
 // handlers over svc. The same map backs every transport (stdio, HTTP, MCP) so
-// the surfaces stay at structural parity.
+// the surfaces stay at structural parity. Alongside the twenty operation methods
+// it registers the reserved rpc.discover method, whose result is an OpenRPC
+// document built from this registry's own method set.
 func NewRegistry(svc *service.Service) handler.Map {
-	return handler.Map{
+	reg := handler.Map{
 		"status":          handler.New(statusHandler(svc)),
 		"record/create":   handler.New(createRecordHandler(svc)),
 		"record/get":      handler.New(getRecordHandler(svc)),
@@ -42,6 +55,26 @@ func NewRegistry(svc *service.Service) handler.Map {
 		"archive":         handler.New(archiveHandler(svc)),
 		"cron/list":       handler.New(listCronHandler(svc)),
 		"cron/run":        handler.New(runCronHandler(svc)),
+	}
+
+	// rpc.discover is the OpenRPC discovery method (the 21st). Its document lists
+	// the full method set, including rpc.discover itself, so the runtime document
+	// names every callable method. handler.Map.Names is sorted; appending the
+	// discover name keeps the built document stable regardless of map order.
+	names := append(reg.Names(), "rpc.discover")
+	reg["rpc.discover"] = handler.New(discoverHandler(names))
+	return reg
+}
+
+// --- rpc.discover ---
+
+// discoverHandler returns the OpenRPC discovery document for the registry's
+// method set. The names are captured at registry-construction time, so the
+// document always matches the methods this server exposes. The method takes no
+// params.
+func discoverHandler(names []string) func(context.Context) (rpc.OpenRPCDoc, error) {
+	return func(_ context.Context) (rpc.OpenRPCDoc, error) {
+		return rpc.BuildOpenRPC(names), nil
 	}
 }
 

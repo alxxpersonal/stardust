@@ -1,0 +1,93 @@
+{
+  "openrpc": "1.2.6",
+  "info": {
+    "title": "Stardust JSON-RPC contract",
+    "version": "1"
+  },
+  "methods": [
+    {
+      "name": "archive",
+      "summary": "Snapshot the vault's git history into a destination."
+    },
+    {
+      "name": "bundle",
+      "summary": "Assemble a token-budgeted context bundle for a task."
+    },
+    {
+      "name": "check",
+      "summary": "Run the vault integrity check."
+    },
+    {
+      "name": "collection/get",
+      "summary": "Read a single collection by name."
+    },
+    {
+      "name": "collection/list",
+      "summary": "List every configured collection with a live record count."
+    },
+    {
+      "name": "cron/list",
+      "summary": "List the configured cron jobs."
+    },
+    {
+      "name": "cron/run",
+      "summary": "Run a cron job by name and return its buffered output."
+    },
+    {
+      "name": "digest",
+      "summary": "Summarize vault activity since a commit cursor."
+    },
+    {
+      "name": "graph",
+      "summary": "Derive the link graph and summarize it."
+    },
+    {
+      "name": "index/rebuild",
+      "summary": "Clear the derived cache and reindex from scratch."
+    },
+    {
+      "name": "index/run",
+      "summary": "Incrementally index the vault."
+    },
+    {
+      "name": "mount/list",
+      "summary": "List the configured mounts."
+    },
+    {
+      "name": "note/get",
+      "summary": "Read the parsed note at a vault-relative path."
+    },
+    {
+      "name": "query",
+      "summary": "Run hybrid retrieval and return the ranked hits."
+    },
+    {
+      "name": "record/create",
+      "summary": "Create a record in a collection from validated fields and a markdown body."
+    },
+    {
+      "name": "record/delete",
+      "summary": "Archive a record by path and report the terminal status."
+    },
+    {
+      "name": "record/get",
+      "summary": "Read a single record by its vault-relative path."
+    },
+    {
+      "name": "record/list",
+      "summary": "List records in a collection, filtered and ordered."
+    },
+    {
+      "name": "record/patch",
+      "summary": "Merge fields into a record's frontmatter and optionally replace its body."
+    },
+    {
+      "name": "rpc.discover",
+      "summary": "Return this OpenRPC discovery document."
+    },
+    {
+      "name": "status",
+      "summary": "Report index health."
+    }
+  ]
+}

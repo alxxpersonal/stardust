@@ -33,7 +33,7 @@ type Handler struct {
 // REST is retired in a later pass (ADR 0004).
 func New(svc *service.Service) *Handler {
 	h := &Handler{svc: svc, mux: http.NewServeMux()}
-	bridge := jhttp.NewBridge(rpcserver.NewRegistry(svc), nil)
+	bridge := jhttp.NewBridge(rpcserver.NewRegistry(svc), &jhttp.BridgeOptions{Server: rpcserver.ServerOptions()})
 	h.mux.Handle("/rpc", bridge)
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("GET /query", h.query)

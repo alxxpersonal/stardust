@@ -25,7 +25,8 @@ type router struct {
 // newRouter builds a router over an in-process jrpc2 client connected to the
 // registry assembled from svc. The caller closes it via close.
 func newRouter(svc *service.Service) *router {
-	return &router{local: server.NewLocal(rpcserver.NewRegistry(svc), nil)}
+	opts := &server.LocalOptions{Server: rpcserver.ServerOptions()}
+	return &router{local: server.NewLocal(rpcserver.NewRegistry(svc), opts)}
 }
 
 // close tears down the in-memory jrpc2 client/server pair.
