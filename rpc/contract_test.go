@@ -151,3 +151,207 @@ func TestDeleteResultWireShape(t *testing.T) {
 	roundTrip(t, res)
 	assertFields(t, res, []string{"path", "status"})
 }
+
+// --- full operation set ---
+
+func TestQueryParamsWireShape(t *testing.T) {
+	p := QueryParams{Query: "json-rpc transport", Limit: 10}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"query", "limit"})
+}
+
+func TestHitWireShape(t *testing.T) {
+	h := Hit{Path: "notes/a.md", Title: "A", Heading: "Intro", Snippet: "...", Score: 1.5}
+	roundTrip(t, h)
+	assertFields(t, h, []string{"path", "title", "heading", "snippet", "score"})
+}
+
+func TestQueryResultWireShape(t *testing.T) {
+	res := QueryResult{
+		Query: "q",
+		Mode:  "hybrid + rerank",
+		Hits:  []Hit{{Path: "p", Title: "t", Heading: "h", Snippet: "s", Score: 0.9}},
+	}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"query", "mode", "hits"})
+}
+
+func TestBundleParamsWireShape(t *testing.T) {
+	p := BundleParams{Task: "ship the contract", Budget: 4000}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"task", "budget"})
+}
+
+func TestBundleItemWireShape(t *testing.T) {
+	it := BundleItem{Path: "notes/a.md", Title: "A", Snippet: "...", Score: 2.1}
+	roundTrip(t, it)
+	assertFields(t, it, []string{"path", "title", "snippet", "score"})
+}
+
+func TestBundleResultWireShape(t *testing.T) {
+	res := BundleResult{
+		Task:     "t",
+		Items:    []BundleItem{{Path: "p", Title: "ti", Snippet: "s", Score: 1.0}},
+		Markdown: "# bundle",
+		Tokens:   42,
+	}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"task", "items", "markdown", "tokens_estimate"})
+}
+
+func TestBrokenLinkWireShape(t *testing.T) {
+	bl := BrokenLink{From: "notes/a.md", Target: "missing"}
+	roundTrip(t, bl)
+	assertFields(t, bl, []string{"from", "target"})
+}
+
+func TestPageRankEntryWireShape(t *testing.T) {
+	pr := PageRankEntry{Path: "notes/a.md", Title: "A", Score: 0.25}
+	roundTrip(t, pr)
+	assertFields(t, pr, []string{"path", "title", "score"})
+}
+
+func TestGraphResultWireShape(t *testing.T) {
+	res := GraphResult{
+		Notes:    3,
+		Links:    4,
+		Orphans:  []string{"notes/x.md"},
+		Broken:   []BrokenLink{{From: "a", Target: "b"}},
+		PageRank: []PageRankEntry{{Path: "p", Title: "t", Score: 0.5}},
+	}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"notes", "links", "orphans", "broken", "pagerank"})
+}
+
+func TestDigestParamsWireShape(t *testing.T) {
+	p := DigestParams{Since: "abc123", Advance: true}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"since", "advance"})
+}
+
+func TestDigestResultWireShape(t *testing.T) {
+	res := DigestResult{Since: "abc", Head: "def", Changed: 5, Markdown: "# digest"}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"since", "head", "changed", "markdown"})
+}
+
+func TestIssueWireShape(t *testing.T) {
+	is := Issue{Severity: "error", Kind: "broken-link", Path: "notes/a.md", Detail: "[[x]] resolves to no note"}
+	roundTrip(t, is)
+	assertFields(t, is, []string{"severity", "kind", "path", "detail"})
+}
+
+func TestCheckResultWireShape(t *testing.T) {
+	res := CheckResult{
+		Issues:   []Issue{{Severity: "warn", Kind: "orphan", Path: "p", Detail: "no links"}},
+		Errors:   1,
+		Warnings: 2,
+		Markdown: "# check",
+	}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"issues", "errors", "warnings", "markdown"})
+}
+
+func TestNoteParamsWireShape(t *testing.T) {
+	p := NoteParams{Path: "notes/a.md"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"path"})
+}
+
+func TestLinkTargetWireShape(t *testing.T) {
+	lt := LinkTarget{Link: "some note", Path: "notes/some-note.md"}
+	roundTrip(t, lt)
+	assertFields(t, lt, []string{"link", "path"})
+}
+
+func TestNoteWireShape(t *testing.T) {
+	n := Note{
+		Path:        "notes/a.md",
+		Title:       "A",
+		Tags:        []string{"x"},
+		Links:       []string{"b"},
+		LinkTargets: []LinkTarget{{Link: "b", Path: "notes/b.md"}},
+		Frontmatter: map[string]any{"status": "active"},
+		Body:        "hello",
+	}
+	roundTrip(t, n)
+	assertFields(t, n, []string{"path", "title", "tags", "links", "link_targets", "frontmatter", "body"})
+}
+
+func TestFieldWireShape(t *testing.T) {
+	f := Field{Name: "status", Type: "enum", Required: true, Enum: []string{"active", "done"}, Default: "active"}
+	roundTrip(t, f)
+	assertFields(t, f, []string{"name", "type", "required", "enum", "default"})
+}
+
+func TestCollectionWireShape(t *testing.T) {
+	c := Collection{
+		Name:        "tasks",
+		Path:        "20-Active/Tasks",
+		Description: "open work",
+		Fields:      []Field{{Name: "status", Type: "string"}},
+		Records:     7,
+	}
+	roundTrip(t, c)
+	assertFields(t, c, []string{"name", "path", "description", "fields", "records"})
+}
+
+func TestCollectionParamsWireShape(t *testing.T) {
+	p := CollectionParams{Name: "tasks"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"name"})
+}
+
+func TestMountWireShape(t *testing.T) {
+	m := Mount{Name: "obsidian", Kind: "mcp", Target: "/usr/bin/foo", Args: []string{"--stdio"}, Tool: "search"}
+	roundTrip(t, m)
+	assertFields(t, m, []string{"name", "kind", "target", "args", "tool"})
+}
+
+func TestIndexParamsWireShape(t *testing.T) {
+	p := IndexParams{Since: "abc123"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"since"})
+}
+
+func TestIndexStatsWireShape(t *testing.T) {
+	res := IndexStats{Indexed: 3, Skipped: 1, Deleted: 0, Vectors: true}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"indexed", "skipped", "deleted", "vectors"})
+}
+
+func TestArchiveParamsWireShape(t *testing.T) {
+	p := ArchiveParams{Dest: ".stardust/archives"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"dest"})
+}
+
+func TestArchiveResultWireShape(t *testing.T) {
+	res := ArchiveResult{Path: ".stardust/archives/2026-06-25.bundle"}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"path"})
+}
+
+func TestCronJobWireShape(t *testing.T) {
+	job := CronJob{
+		Name:     "nightly-index",
+		Schedule: "0 3 * * *",
+		On:       "commit",
+		Kind:     "command",
+		Command:  "index",
+	}
+	roundTrip(t, job)
+	assertFields(t, job, []string{"name", "schedule", "on", "kind", "command"})
+}
+
+func TestCronRunParamsWireShape(t *testing.T) {
+	p := CronRunParams{Name: "nightly-index"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"name"})
+}
+
+func TestCronRunResultWireShape(t *testing.T) {
+	res := CronRunResult{Output: "indexed 12 notes\n"}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"output"})
+}
