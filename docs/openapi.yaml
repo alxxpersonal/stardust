@@ -1,12 +1,17 @@
+# SUPERSEDED: the REST surface this document describes was retired (ADR 0004).
+# The sole programmatic surface is now the typed JSON-RPC contract at POST /rpc,
+# described by docs/openrpc.json. Only GET /healthz and POST /rpc remain mounted;
+# every other path below returns 404. This file is kept for historical reference.
 openapi: 3.0.3
 info:
   title: Stardust API
   version: "0.1.0"
   description: >
-    HTTP/JSON API over the Stardust core. Every route maps to a core operation
-    also reachable from the CLI and the MCP server. Bind to localhost; this API
-    has no authentication and is intended for local/NAS use behind your own trust
-    boundary.
+    SUPERSEDED by the JSON-RPC contract (POST /rpc, docs/openrpc.json) per ADR
+    0004. HTTP/JSON REST API over the Stardust core, now retired: only GET
+    /healthz and POST /rpc remain mounted. Kept for historical reference. Bind to
+    localhost; this API has no authentication and is intended for local/NAS use
+    behind your own trust boundary.
 servers:
   - url: http://127.0.0.1:7777
 paths:
