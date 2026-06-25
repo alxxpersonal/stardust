@@ -74,7 +74,13 @@ type patchRecordArgs struct {
 
 // registerTools wires the Stardust tools over the core Service. The surface is
 // small and the descriptions are specific so the client invokes them reliably.
-func registerTools(server *sdkmcp.Server, svc *service.Service) {
+// The record seam tools (status, get_record, create_record, patch_record) are
+// registered through r so they resolve over the shared jrpc2 registry; the
+// remaining tools call the service directly until their operations join the
+// registry. Tool names and schemas are unchanged across the split.
+func registerTools(server *sdkmcp.Server, svc *service.Service, r *router) {
+	registerRegistryTools(server, r)
+
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "query",
 		Description: "Search the user's markdown vault with hybrid keyword + semantic retrieval. Use this whenever you need context from their notes before answering, or to check whether a note on a topic exists. Do NOT assume a note is absent without searching. Returns ranked notes with snippets.",
@@ -105,14 +111,6 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 		}
 		res, err := svc.Bundle(ctx, a.Task, budget)
 		return nil, res, err
-	})
-
-	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "status",
-		Description: "Report the vault index status: note and chunk counts, last indexed commit, embedding model, and whether semantic search and reranking are active.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, service.Status, error) {
-		st, err := svc.Status(ctx)
-		return nil, st, err
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
@@ -186,29 +184,6 @@ func registerTools(server *sdkmcp.Server, svc *service.Service) {
 		return nil, list, err
 	})
 
-	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "get_record",
-		Description: "Read a single record by its vault-relative path. Returns the record's path, title, frontmatter columns, and full markdown body.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a getRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
-		rec, err := svc.GetRecord(ctx, a.Path)
-		return nil, rec, err
-	})
-
-	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "create_record",
-		Description: "Create a record in a collection. Fields are validated against the collection schema, written as the note's frontmatter, and the note is filed under the collection's folder with a unique slugged filename. The index updates automatically. Returns the created record.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a createRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
-		rec, err := svc.CreateRecord(ctx, a.Collection, a.Fields, a.Body)
-		return nil, rec, err
-	})
-
-	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "patch_record",
-		Description: "Update a record by path: merge fields into its frontmatter (a null value deletes a key) and optionally replace its body. The merged frontmatter is validated against the owning collection's schema. The index updates automatically. Returns the updated record.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, a patchRecordArgs) (*sdkmcp.CallToolResult, service.Record, error) {
-		rec, err := svc.PatchRecord(ctx, a.Path, a.Fields, a.Body)
-		return nil, rec, err
-	})
 }
 
 // parsePredicates turns "field:op:value" strings into service predicates. Only

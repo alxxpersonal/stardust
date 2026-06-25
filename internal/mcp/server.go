@@ -20,7 +20,9 @@ const version = "0.2.0"
 // ctx is cancelled. A clean disconnect (EOF) or cancellation is not an error.
 func Serve(ctx context.Context, svc *service.Service) error {
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "stardust", Version: version}, nil)
-	registerTools(server, svc)
+	r := newRouter(svc)
+	defer func() { _ = r.close() }()
+	registerTools(server, svc, r)
 	if err := server.Run(ctx, &sdkmcp.StdioTransport{}); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 			return nil
