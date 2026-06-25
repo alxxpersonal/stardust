@@ -182,5 +182,30 @@ Docs setup: `stardust init --docs` is run in the exo-jobs repo to add `.stardust
 - `internal/api/api.go`, `sdk/client.go`, `internal/service`
 - exo-jobs `cli/src/internal/store/store.go`, `cli/src/go.mod`
 - JSON-RPC 2.0 specification
-- ADRs 0001 to 0005
+- ADRs 0001 to 0006
 </details>
+
+## Amendments
+
+### 2026-06-25: full-routes scope
+
+The initial build was seam-first: the registry covered the six record-seam methods (record/create, record/get, record/list, record/patch, record/delete, status), which is exactly what exo-jobs consumes. This amendment expands the move to the FULL operation set so REST can be retired entirely. The remaining methods and their service signatures (confirmed in source):
+
+| Method | Service call |
+|---|---|
+| query | Query(ctx, query, limit) |
+| bundle | Bundle(ctx, task, budgetTokens) |
+| graph | Graph(ctx) |
+| digest | Digest(ctx, since, advance) |
+| check | Check(ctx) |
+| note/get | GetNote(ctx, path) |
+| collection/list | ListCollections(ctx) |
+| collection/get | GetCollection(ctx, name) |
+| mount/list | Mounts() |
+| index/run | Index(ctx, since) |
+| index/rebuild | Rebuild(ctx) |
+| archive | Archive(ctx, dest) |
+| cron/list | CronList() |
+| cron/run | CronRun(ctx, name, stardustBin, w io.Writer) |
+
+Note: cron/run streams its output to an io.Writer. As a JSON-RPC method it MUST buffer the run output into a string result (a streaming notification variant is a later option); it is the one non-trivial mapping. Plan Phase F adds these methods; Phase C then retires all twenty-one REST routes plus the old sdk, and publishes the full OpenRPC document.

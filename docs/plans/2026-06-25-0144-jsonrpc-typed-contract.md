@@ -122,8 +122,9 @@ The executor MUST mirror these tasks into the harness todo tool, keep exactly on
 - Modify: `internal/api/api.go`, `docs/openapi.yaml`
 
 - [ ] Confirm no caller (exo-jobs, the Obsidian plugin, scripts) depends on the retired REST routes.
-- [ ] Delete the REST `HandleFunc` registrations whose operations now live in the registry; keep `GET /healthz` and `POST /rpc`.
-- [ ] Generate an OpenRPC document (`docs/openrpc.json`) and add an `rpc.discover` method to the registry; mark `docs/openapi.yaml` superseded with a header note pointing at the spec, do not delete it.
+- [ ] Delete ALL twenty-one REST `HandleFunc` registrations (every operation lives in the registry after Phase F); keep only `GET /healthz` and `POST /rpc`.
+- [ ] Remove the old `sdk/client.go` (superseded by `rpc/client.go`) once no caller imports it; repoint any internal CLI use to the typed client.
+- [ ] Generate an OpenRPC document (`docs/openrpc.json`) covering all methods and add an `rpc.discover` method to the registry; mark `docs/openapi.yaml` superseded with a header note pointing at the spec, do not delete it.
 - [ ] `go build ./...`, `go test ./...`, `make lint` green; `grep` finds no retired routes.
 - [ ] Commit `refactor(api): retire rest handlers superseded by the jsonrpc registry`.
 
@@ -188,6 +189,46 @@ A suite that PINS the contract so any later change that breaks the wire shape, t
 - [ ] Assert the generated OpenRPC document (`docs/openrpc.json`) lists exactly the registry's methods; doc drift MUST fail. (Runs once `rpc.discover` and the OpenRPC doc land in Phase C.)
 - [ ] Run; loop to green.
 - [ ] Gate, commit `test(rpcserver): pin openrpc document against the registry`.
+
+## Phase F - full operation set (all routes)
+
+Expand the registry from the six record-seam methods to the full operation set so REST can be retired entirely (Phase C). Each method maps a service signature confirmed in source (see the spec amendment). Additive; REST stays live until Phase C.
+
+### Task F1: contract types for the remaining operations
+
+- Modify: `rpc/contract.go`
+- Test: `rpc/contract_test.go` (extend)
+
+- [ ] Add typed Params/Result for query, bundle, graph, digest, check, note/get, collection/list, collection/get, mount/list, index/run, index/rebuild, archive, cron/list, cron/run. Field names confirmed against the service result types (QueryResult, BundleResult, GraphReport, DigestResult, CheckResult, Note, CollectionInfo, MountInfo, IndexStats).
+- [ ] go build + go test green.
+- [ ] Commit `feat(rpc): add contract types for the full operation set`.
+
+### Task F2: register the remaining handlers
+
+- Modify: `internal/rpcserver/registry.go`
+- Test: `internal/rpcserver/registry_test.go` (extend completeness to all 21)
+
+- [ ] Add a handler per method to NewRegistry, each calling the confirmed service method. For cron/run, buffer the io.Writer output into the typed result string.
+- [ ] Update the registry-completeness pin (Task E2) to assert ALL twenty-one methods are present.
+- [ ] go test green.
+- [ ] Commit `feat(rpcserver): register the full operation set`.
+
+### Task F3: extend the typed client
+
+- Modify: `rpc/client.go`
+- Test: `rpc/client_test.go`
+
+- [ ] Add typed Client methods for the remaining operations.
+- [ ] go test green.
+- [ ] Commit `feat(rpc): add client methods for the full operation set`.
+
+### Task F4: extend the golden + parity pins
+
+- Modify: `rpc/golden_test.go`, `rpc/testdata/`, `internal/rpcserver/parity_test.go`
+
+- [ ] Add golden wire-shape files and stdio/http parity cases for the new methods.
+- [ ] go test green.
+- [ ] Commit `test(rpc): pin the full operation set`.
 
 ## Verification
 
