@@ -11,7 +11,8 @@ import (
 
 func TestNewDocSpecCmdCreatesDoc(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", true))
+	_, err := scaffoldVault(t.Context(), root, "off", true)
+	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	t.Chdir(root)
 	var out bytes.Buffer

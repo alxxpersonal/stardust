@@ -11,7 +11,8 @@ import (
 
 func TestCheckStrictFailsForConventionErrors(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "specs", "bad-name.md"), []byte("---\ntitle: Bad\ntype: spec\nstatus: Weird\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Bad\n"), 0o644))
@@ -27,7 +28,8 @@ func TestCheckStrictFailsForConventionErrors(t *testing.T) {
 
 func TestCheckFixRewritesBadType(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	rel := filepath.Join("docs", "specs", "2026-06-22-1000-bad-type.md")
@@ -48,7 +50,8 @@ func TestCheckFixRewritesBadType(t *testing.T) {
 
 func TestCheckFixThenStrictPasses(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	rel := filepath.Join("docs", "specs", "2026-06-22-1000-dashy.md")

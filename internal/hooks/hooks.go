@@ -45,6 +45,19 @@ const (
 	preCommitStrict = shebang + preCommitStrictBody
 )
 
+// Result reports which path Install took so callers can tell the user. Mode is
+// "owned" or "compose". Target is the hook directory stardust wrote into,
+// relative to the repo root (".stardust/hooks" in owned mode, the existing
+// chain's dir such as ".husky" or ".git/hooks" in compose mode).
+type Result struct {
+	Mode   string
+	Target string
+}
+
+// Composed reports whether Install appended to an existing chain rather than
+// taking ownership of core.hooksPath.
+func (r Result) Composed() bool { return r.Mode == modeCompose }
+
 // Install wires stardust's index hooks and the optional pre-commit check gate
 // (mode "off" | "warn" | "strict"). It detects an existing hook chain first:
 //
@@ -54,16 +67,33 @@ const (
 //     a sentinel block into the existing chain's hook files and leave
 //     core.hooksPath untouched.
 //
-// Both modes are idempotent.
-func Install(ctx context.Context, root, hooksDir, check string) error {
+// Both modes are idempotent. The returned Result names the path taken.
+func Install(ctx context.Context, root, hooksDir, check string) (Result, error) {
 	mode, targetDir, err := detect(root)
 	if err != nil {
-		return fmt.Errorf("detect hook chain: %w", err)
+		return Result{}, fmt.Errorf("detect hook chain: %w", err)
 	}
+	res := Result{Mode: mode, Target: relTarget(root, targetDir)}
 	if mode == modeCompose {
-		return composeInstall(targetDir, check)
+		if err := composeInstall(targetDir, check); err != nil {
+			return Result{}, err
+		}
+		return res, nil
 	}
-	return ownedInstall(ctx, root, hooksDir, check)
+	if err := ownedInstall(ctx, root, hooksDir, check); err != nil {
+		return Result{}, err
+	}
+	return res, nil
+}
+
+// relTarget renders targetDir relative to root for display, falling back to the
+// absolute path when the two share no common base.
+func relTarget(root, targetDir string) string {
+	rel, err := filepath.Rel(root, targetDir)
+	if err != nil {
+		return targetDir
+	}
+	return rel
 }
 
 // ownedInstall writes stardust's standalone hook scripts into hooksDir and points

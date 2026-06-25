@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -28,10 +27,15 @@ func newHooksCmd() *cobra.Command {
 			if !gitx.IsRepo(cmd.Context(), vc.Layout.Root) {
 				return fmt.Errorf("hooks: %s is not a git repository", vc.Layout.Root)
 			}
-			if err := hooks.Install(cmd.Context(), vc.Layout.Root, vc.Layout.Hooks(), check); err != nil {
+			res, err := hooks.Install(cmd.Context(), vc.Layout.Root, vc.Layout.Hooks(), check)
+			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "installed commit hooks (core.hooksPath -> .stardust/hooks, check: %s)\n", check)
+			if res.Composed() {
+				fmt.Fprintf(cmd.ErrOrStderr(), "installed commit hooks (composed into %s, check: %s)\n", res.Target, check)
+			} else {
+				fmt.Fprintf(cmd.ErrOrStderr(), "installed commit hooks (owned: %s, check: %s)\n", res.Target, check)
+			}
 			return nil
 		},
 	}
@@ -49,7 +53,7 @@ func newHooksCmd() *cobra.Command {
 				if err := hooks.Uninstall(cmd.Context(), vc.Layout.Root); err != nil {
 					return err
 				}
-				fmt.Fprintln(os.Stderr, "removed commit-hook wiring")
+				fmt.Fprintln(cmd.ErrOrStderr(), "removed commit-hook wiring")
 				return nil
 			},
 		},

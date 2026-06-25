@@ -94,7 +94,7 @@ func runNew(cmd *cobra.Command, name, template, check string) error {
 	if err := gitx.Init(ctx, root); err != nil {
 		return err
 	}
-	if err := scaffoldVault(ctx, root, check, false); err != nil {
+	if _, err := scaffoldVault(ctx, root, check, false); err != nil {
 		return err
 	}
 	if err := gitx.CommitAll(ctx, root, "initial vault"); err != nil {

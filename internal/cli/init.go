@@ -36,14 +36,19 @@ func runInit(cmd *cobra.Command, docs bool) error {
 	if err != nil {
 		return fmt.Errorf("get working dir: %w", err)
 	}
-	if err := scaffoldVault(cmd.Context(), cwd, "off", docs); err != nil {
+	res, err := scaffoldVault(cmd.Context(), cwd, "off", docs)
+	if err != nil {
 		return err
 	}
 
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Initialised .stardust/ in %s\n", cwd)
 	if gitx.IsRepo(cmd.Context(), cwd) {
-		fmt.Fprintln(out, "Wired commit hooks (core.hooksPath -> .stardust/hooks).")
+		if res.Composed() {
+			fmt.Fprintf(out, "Composed commit hooks into %s.\n", res.Target)
+		} else {
+			fmt.Fprintf(out, "Wired commit hooks (owned: %s).\n", res.Target)
+		}
 	}
 	fmt.Fprintln(out, "Next: run `stardust index` to build the search index.")
 	return nil
@@ -52,46 +57,46 @@ func runInit(cmd *cobra.Command, docs bool) error {
 // scaffoldVault creates the .stardust layout (dirs, config, manifest, INDEX,
 // cache .gitignore) under root and, when root is a git repo, installs the hooks
 // with the given check mode. When docs is set it also writes the specs, plans,
-// adr, and research docs collection configs. Shared by `init` and `new`.
-func scaffoldVault(ctx context.Context, root, check string, docs bool) error {
+// adr, and research docs collection configs. Shared by `init` and `new`. The
+// returned hooks.Result names which install path was taken; it is the zero value
+// when root is not a git repo.
+func scaffoldVault(ctx context.Context, root, check string, docs bool) (hooks.Result, error) {
 	layout := config.Layout{Root: root}
 
 	for _, dir := range []string{layout.Dir(), layout.Cache(), layout.Hooks(), layout.CronJobs()} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create %s: %w", dir, err)
+			return hooks.Result{}, fmt.Errorf("create %s: %w", dir, err)
 		}
 	}
 
 	if _, err := os.Stat(layout.Config()); os.IsNotExist(err) {
 		if err := config.Save(layout.Config(), config.Default()); err != nil {
-			return err
+			return hooks.Result{}, err
 		}
 	}
 
 	// keep the rebuildable cache out of git
 	if err := os.WriteFile(filepath.Join(layout.Dir(), ".gitignore"), []byte("cache/\n"), 0o644); err != nil {
-		return fmt.Errorf("write .stardust/.gitignore: %w", err)
+		return hooks.Result{}, fmt.Errorf("write .stardust/.gitignore: %w", err)
 	}
 
 	if err := manifest.WriteManifest(layout.Manifest(), filepath.Base(root)); err != nil {
-		return err
+		return hooks.Result{}, err
 	}
 	if err := manifest.WriteIndex(layout.IndexMD(), nil); err != nil {
-		return err
+		return hooks.Result{}, err
 	}
 
 	if docs {
 		if err := writeDocsCollections(layout.Collections()); err != nil {
-			return err
+			return hooks.Result{}, err
 		}
 	}
 
 	if gitx.IsRepo(ctx, root) {
-		if err := hooks.Install(ctx, root, layout.Hooks(), check); err != nil {
-			return err
-		}
+		return hooks.Install(ctx, root, layout.Hooks(), check)
 	}
-	return nil
+	return hooks.Result{}, nil
 }
 
 // writeDocsCollections writes the four docs collection configs under

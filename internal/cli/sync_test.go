@@ -45,7 +45,8 @@ func TestSyncCheckCmdFailsOnDrift(t *testing.T) {
 
 func TestSyncInitAlxxDryRunPrintsConfig(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	t.Chdir(root)
 	var out bytes.Buffer
@@ -58,14 +59,15 @@ func TestSyncInitAlxxDryRunPrintsConfig(t *testing.T) {
 
 	require.Contains(t, out.String(), "forge-private/skills")
 	require.Contains(t, out.String(), "import_only = true")
-	_, err := os.Stat(filepath.Join(root, ".stardust", "sync.toml"))
+	_, err = os.Stat(filepath.Join(root, ".stardust", "sync.toml"))
 	require.True(t, os.IsNotExist(err), "dry-run must not write sync config")
 }
 
 func syncTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	require.NoError(t, scaffoldVault(t.Context(), root, "off", false))
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
 
 	source := filepath.Join(root, "skills")
 	require.NoError(t, os.MkdirAll(filepath.Join(source, "foo"), 0o755))

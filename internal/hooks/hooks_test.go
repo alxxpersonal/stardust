@@ -41,7 +41,7 @@ func TestInstallOwnedModeWritesStardustHooks(t *testing.T) {
 	root := newRepo(t)
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
 
-	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "off"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 
@@ -66,7 +66,7 @@ func TestInstallOwnedModeWritesPreCommitGate(t *testing.T) {
 	root := newRepo(t)
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
 
-	if err := Install(context.Background(), root, hooksDir, "strict"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "strict"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 
@@ -89,7 +89,7 @@ func TestInstallComposeModeAppendsBlockAndKeepsHooksPath(t *testing.T) {
 	}
 
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
-	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "off"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 
@@ -139,11 +139,11 @@ func TestInstallComposeModeIsIdempotent(t *testing.T) {
 	}
 
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
-	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "off"); err != nil {
 		t.Fatalf("first Install() error = %v", err)
 	}
 	first := readFile(t, filepath.Join(huskyDir, "post-commit"))
-	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "off"); err != nil {
 		t.Fatalf("second Install() error = %v", err)
 	}
 	second := readFile(t, filepath.Join(huskyDir, "post-commit"))
@@ -168,7 +168,7 @@ func TestInstallComposeModeWritesPreCommitGate(t *testing.T) {
 	}
 
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
-	if err := Install(context.Background(), root, hooksDir, "warn"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "warn"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestUninstallComposeStripsBlockAndKeepsHooksPath(t *testing.T) {
 	}
 
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
-	if err := Install(context.Background(), root, hooksDir, "warn"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "warn"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 	if err := Uninstall(context.Background(), root); err != nil {
@@ -224,7 +224,7 @@ func TestUninstallComposeStripsBlockAndKeepsHooksPath(t *testing.T) {
 func TestUninstallOwnedUnsetsHooksPath(t *testing.T) {
 	root := newRepo(t)
 	hooksDir := filepath.Join(root, ".stardust", "hooks")
-	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+	if _, err := Install(context.Background(), root, hooksDir, "off"); err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
 	if got := configValue(t, root, "core.hooksPath"); got != ".stardust/hooks" {
