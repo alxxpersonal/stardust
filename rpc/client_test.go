@@ -111,3 +111,78 @@ func TestClientStatusAndRoundTrip(t *testing.T) {
 	require.Equal(t, created.Path, del.Path)
 	require.Equal(t, "deleted", del.Status)
 }
+
+// TestClientFullOperationSet exercises the typed client methods added for the
+// full operation set, proving each new method is wired to its slash route and
+// decodes a typed result over the jrpc2 HTTP bridge. The temp fixture is not a
+// git repo, so digest and archive surface their "not a git repository" error
+// through the typed method rather than panicking; the call path is what is under
+// test.
+func TestClientFullOperationSet(t *testing.T) {
+	ctx := context.Background()
+	client := newClient(t)
+
+	_, err := client.RecordCreate(ctx, rpc.CreateRecordParams{
+		Collection: "jobs",
+		Fields:     map[string]any{"company": "Initech", "status": "open"},
+		Body:       "initech body",
+	})
+	require.NoError(t, err)
+
+	cols, err := client.CollectionList(ctx)
+	require.NoError(t, err)
+	require.Len(t, cols, 1)
+	require.Equal(t, "jobs", cols[0].Name)
+
+	col, err := client.CollectionGet(ctx, rpc.CollectionParams{Name: "jobs"})
+	require.NoError(t, err)
+	require.Equal(t, "jobs", col.Name)
+	require.Equal(t, 1, col.Records)
+
+	note, err := client.NoteGet(ctx, rpc.NoteParams{Path: "jobs/initech.md"})
+	require.NoError(t, err)
+	require.Equal(t, "jobs/initech.md", note.Path)
+
+	qr, err := client.Query(ctx, rpc.QueryParams{Query: "initech", Limit: 5})
+	require.NoError(t, err)
+	require.Equal(t, "initech", qr.Query)
+
+	br, err := client.Bundle(ctx, rpc.BundleParams{Task: "initech", Budget: 1000})
+	require.NoError(t, err)
+	require.Equal(t, "initech", br.Task)
+
+	graph, err := client.Graph(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, graph.Notes)
+
+	check, err := client.Check(ctx)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, check.Errors, 0)
+
+	mounts, err := client.MountList(ctx)
+	require.NoError(t, err)
+	require.Empty(t, mounts)
+
+	jobs, err := client.CronList(ctx)
+	require.NoError(t, err)
+	require.Empty(t, jobs)
+
+	stats, err := client.IndexRun(ctx, rpc.IndexParams{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, stats.Indexed, 0)
+
+	rebuilt, err := client.IndexRebuild(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, rebuilt.Indexed)
+
+	_, err = client.Digest(ctx, rpc.DigestParams{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a git repository")
+
+	_, err = client.Archive(ctx, rpc.ArchiveParams{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a git repository")
+
+	_, err = client.CronRun(ctx, rpc.CronRunParams{Name: "missing"})
+	require.Error(t, err)
+}

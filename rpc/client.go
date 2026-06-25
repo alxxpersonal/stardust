@@ -71,3 +71,109 @@ func (c *Client) RecordDelete(ctx context.Context, p RecordParams) (DeleteResult
 	err := c.rpc.CallResult(ctx, "record/delete", p, &out)
 	return out, err
 }
+
+// Query runs hybrid retrieval and returns the ranked hits.
+func (c *Client) Query(ctx context.Context, p QueryParams) (QueryResult, error) {
+	var out QueryResult
+	err := c.rpc.CallResult(ctx, "query", p, &out)
+	return out, err
+}
+
+// Bundle assembles a token-budgeted context bundle for a task.
+func (c *Client) Bundle(ctx context.Context, p BundleParams) (BundleResult, error) {
+	var out BundleResult
+	err := c.rpc.CallResult(ctx, "bundle", p, &out)
+	return out, err
+}
+
+// Graph derives the link graph and returns its summary. The method takes no
+// params.
+func (c *Client) Graph(ctx context.Context) (GraphResult, error) {
+	var out GraphResult
+	err := c.rpc.CallResult(ctx, "graph", nil, &out)
+	return out, err
+}
+
+// Digest summarizes vault activity since a commit cursor, optionally advancing
+// the stored cursor to HEAD.
+func (c *Client) Digest(ctx context.Context, p DigestParams) (DigestResult, error) {
+	var out DigestResult
+	err := c.rpc.CallResult(ctx, "digest", p, &out)
+	return out, err
+}
+
+// Check runs the vault integrity check. The method takes no params.
+func (c *Client) Check(ctx context.Context) (CheckResult, error) {
+	var out CheckResult
+	err := c.rpc.CallResult(ctx, "check", nil, &out)
+	return out, err
+}
+
+// NoteGet reads the parsed note at a vault-relative path.
+func (c *Client) NoteGet(ctx context.Context, p NoteParams) (Note, error) {
+	var out Note
+	err := c.rpc.CallResult(ctx, "note/get", p, &out)
+	return out, err
+}
+
+// CollectionList lists every configured collection with a live record count. The
+// method takes no params.
+func (c *Client) CollectionList(ctx context.Context) ([]Collection, error) {
+	var out []Collection
+	err := c.rpc.CallResult(ctx, "collection/list", nil, &out)
+	return out, err
+}
+
+// CollectionGet reads a single collection by name.
+func (c *Client) CollectionGet(ctx context.Context, p CollectionParams) (Collection, error) {
+	var out Collection
+	err := c.rpc.CallResult(ctx, "collection/get", p, &out)
+	return out, err
+}
+
+// MountList returns the configured mounts. The method takes no params.
+func (c *Client) MountList(ctx context.Context) ([]Mount, error) {
+	var out []Mount
+	err := c.rpc.CallResult(ctx, "mount/list", nil, &out)
+	return out, err
+}
+
+// IndexRun incrementally indexes the vault; a non-empty Since uses the git-diff
+// fast path.
+func (c *Client) IndexRun(ctx context.Context, p IndexParams) (IndexStats, error) {
+	var out IndexStats
+	err := c.rpc.CallResult(ctx, "index/run", p, &out)
+	return out, err
+}
+
+// IndexRebuild clears the derived cache and reindexes from scratch. The method
+// takes no params.
+func (c *Client) IndexRebuild(ctx context.Context) (IndexStats, error) {
+	var out IndexStats
+	err := c.rpc.CallResult(ctx, "index/rebuild", nil, &out)
+	return out, err
+}
+
+// Archive snapshots the vault's git history into Dest (empty uses the default
+// archives directory).
+func (c *Client) Archive(ctx context.Context, p ArchiveParams) (ArchiveResult, error) {
+	var out ArchiveResult
+	err := c.rpc.CallResult(ctx, "archive", p, &out)
+	return out, err
+}
+
+// CronList returns the configured cron jobs flattened for the wire. The method
+// takes no params.
+func (c *Client) CronList(ctx context.Context) ([]CronJob, error) {
+	var out []CronJob
+	err := c.rpc.CallResult(ctx, "cron/list", nil, &out)
+	return out, err
+}
+
+// CronRun executes a cron job by name and returns the buffered run output. The
+// server streams the run to an io.Writer and buffers it into the result string.
+func (c *Client) CronRun(ctx context.Context, p CronRunParams) (CronRunResult, error) {
+	var out CronRunResult
+	err := c.rpc.CallResult(ctx, "cron/run", p, &out)
+	return out, err
+}
