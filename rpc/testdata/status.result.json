@@ -1,0 +1,9 @@
+{
+  "root": "/vault",
+  "notes": 12,
+  "chunks": 34,
+  "last_indexed_sha": "abc123",
+  "embed_model": "model-x",
+  "vectors": true,
+  "reranker": false
+}

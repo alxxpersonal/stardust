@@ -1,0 +1,13 @@
+{
+  "collection": "tasks",
+  "filter": [
+    {
+      "field": "status",
+      "op": "eq",
+      "value": "active"
+    }
+  ],
+  "sort": "-updated_at",
+  "limit": 10,
+  "offset": 5
+}

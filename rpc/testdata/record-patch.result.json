@@ -1,0 +1,8 @@
+{
+  "path": "notes/a.md",
+  "title": "A",
+  "frontmatter": {
+    "status": "done"
+  },
+  "body": "new body"
+}

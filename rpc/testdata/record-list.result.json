@@ -1,0 +1,14 @@
+{
+  "collection": "tasks",
+  "folder": "20-Active/Tasks",
+  "records": [
+    {
+      "path": "20-Active/Tasks/a.md",
+      "title": "A",
+      "frontmatter": {
+        "status": "active"
+      },
+      "body": "hello"
+    }
+  ]
+}
