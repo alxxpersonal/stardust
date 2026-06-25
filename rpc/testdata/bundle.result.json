@@ -1,0 +1,13 @@
+{
+  "task": "ship the release",
+  "items": [
+    {
+      "path": "20-Active/Tasks/a.md",
+      "title": "A",
+      "snippet": "ship it tonight",
+      "score": 0.91
+    }
+  ],
+  "markdown": "# Context bundle\n\nship it tonight\n",
+  "tokens_estimate": 42
+}

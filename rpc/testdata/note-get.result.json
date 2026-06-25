@@ -1,0 +1,21 @@
+{
+  "path": "notes/a.md",
+  "title": "A",
+  "tags": [
+    "project",
+    "active"
+  ],
+  "links": [
+    "B"
+  ],
+  "link_targets": [
+    {
+      "link": "B",
+      "path": "notes/b.md"
+    }
+  ],
+  "frontmatter": {
+    "status": "active"
+  },
+  "body": "hello"
+}

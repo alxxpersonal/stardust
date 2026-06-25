@@ -1,0 +1,6 @@
+{
+  "since": "abc123",
+  "head": "def456",
+  "changed": 2,
+  "markdown": "# Digest\n\n2 notes changed.\n"
+}

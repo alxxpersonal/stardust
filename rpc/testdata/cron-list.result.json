@@ -1,0 +1,8 @@
+[
+  {
+    "name": "nightly-index",
+    "schedule": "0 3 * * *",
+    "kind": "command",
+    "command": "stardust index"
+  }
+]

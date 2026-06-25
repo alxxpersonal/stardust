@@ -1,0 +1,20 @@
+[
+  {
+    "name": "tasks",
+    "path": "20-Active/Tasks",
+    "description": "task records",
+    "fields": [
+      {
+        "name": "status",
+        "type": "enum",
+        "required": true,
+        "enum": [
+          "active",
+          "done"
+        ],
+        "default": "active"
+      }
+    ],
+    "records": 7
+  }
+]

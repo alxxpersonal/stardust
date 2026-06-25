@@ -136,3 +136,42 @@ func TestTransportParity(t *testing.T) {
 	require.Equal(t, callRaw(t, stdio, "record/delete", del), callRaw(t, http, "record/delete", del),
 		"record/delete result must be byte-identical across stdio and http")
 }
+
+// TestTransportParityFullOps pins stdio and HTTP transport parity for the
+// remaining read operations of the full set. Each is deterministic and
+// vault-relative over the freshly indexed jobs vault: query and bundle return no
+// hits, graph and check are empty, the collection methods echo the jobs schema,
+// and the mount and cron listings are empty. The same registry, reached over the
+// jrpc2 stdio channel and the jhttp bridge, MUST return byte-identical JSON for
+// each, so a surface that diverges in field set, ordering, or encoding fails here
+// (plan Task F4). The mutating operations (index/run, index/rebuild, archive) and
+// the git-cursor digest, path-addressed note/get, and binary-backed cron/run are
+// pinned by the golden wire-shape suite instead, since they are not byte-stable
+// across two independently seeded vaults.
+func TestTransportParityFullOps(t *testing.T) {
+	stdioSvc, _ := parityService(t)
+	httpSvc, _ := parityService(t)
+	stdio := stdioClient(t, stdioSvc)
+	http := httpClient(t, httpSvc)
+
+	cases := []struct {
+		method string
+		params any
+	}{
+		{"query", rpc.QueryParams{Query: "acme", Limit: 5}},
+		{"bundle", rpc.BundleParams{Task: "acme", Budget: 1000}},
+		{"graph", nil},
+		{"check", nil},
+		{"collection/list", nil},
+		{"collection/get", rpc.CollectionParams{Name: "jobs"}},
+		{"mount/list", nil},
+		{"cron/list", nil},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.method, func(t *testing.T) {
+			require.Equal(t, callRaw(t, stdio, c.method, c.params), callRaw(t, http, c.method, c.params),
+				c.method+" result must be byte-identical across stdio and http")
+		})
+	}
+}

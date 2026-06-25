@@ -1,0 +1,13 @@
+{
+  "issues": [
+    {
+      "severity": "warn",
+      "kind": "broken_link",
+      "path": "notes/a.md",
+      "detail": "link target missing"
+    }
+  ],
+  "errors": 0,
+  "warnings": 1,
+  "markdown": "# Vault check\n\n0 errors, 1 warning.\n"
+}

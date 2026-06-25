@@ -1,0 +1,20 @@
+{
+  "notes": 3,
+  "links": 2,
+  "orphans": [
+    "notes/orphan.md"
+  ],
+  "broken": [
+    {
+      "from": "notes/a.md",
+      "target": "missing"
+    }
+  ],
+  "pagerank": [
+    {
+      "path": "notes/a.md",
+      "title": "A",
+      "score": 0.42
+    }
+  ]
+}

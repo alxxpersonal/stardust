@@ -24,11 +24,12 @@ type goldenCase struct {
 	value  any
 }
 
-// goldenCases enumerates every seam method's Params and Result with a
-// representative, fully populated value. The set mirrors the canonical method
-// table in the spec for the record seam plus status. A new method or a changed
-// shape must be reflected here and in a regenerated golden file, which makes the
-// wire change explicit in review.
+// goldenCases enumerates every method's Params and Result with a representative,
+// fully populated value. The set mirrors the canonical method table in the spec
+// for the full operation set (the record seam plus status, then the remaining
+// read and write operations). A new method or a changed shape must be reflected
+// here and in a regenerated golden file, which makes the wire change explicit in
+// review.
 func goldenCases() []goldenCase {
 	body := "new body"
 	return []goldenCase{
@@ -89,6 +90,116 @@ func goldenCases() []goldenCase {
 		}},
 		{"record/delete", "params", RecordParams{Path: "notes/a.md"}},
 		{"record/delete", "result", DeleteResult{Path: "notes/a.md", Status: "deleted"}},
+		{"query", "params", QueryParams{Query: "ship it", Limit: 10}},
+		{"query", "result", QueryResult{
+			Query: "ship it",
+			Mode:  "hybrid + rerank",
+			Hits: []Hit{{
+				Path:    "20-Active/Tasks/a.md",
+				Title:   "A",
+				Heading: "Plan",
+				Snippet: "ship it tonight",
+				Score:   0.91,
+			}},
+		}},
+		{"bundle", "params", BundleParams{Task: "ship the release", Budget: 4000}},
+		{"bundle", "result", BundleResult{
+			Task: "ship the release",
+			Items: []BundleItem{{
+				Path:    "20-Active/Tasks/a.md",
+				Title:   "A",
+				Snippet: "ship it tonight",
+				Score:   0.91,
+			}},
+			Markdown: "# Context bundle\n\nship it tonight\n",
+			Tokens:   42,
+		}},
+		{"graph", "result", GraphResult{
+			Notes:   3,
+			Links:   2,
+			Orphans: []string{"notes/orphan.md"},
+			Broken:  []BrokenLink{{From: "notes/a.md", Target: "missing"}},
+			PageRank: []PageRankEntry{{
+				Path:  "notes/a.md",
+				Title: "A",
+				Score: 0.42,
+			}},
+		}},
+		{"digest", "params", DigestParams{Since: "abc123", Advance: true}},
+		{"digest", "result", DigestResult{
+			Since:    "abc123",
+			Head:     "def456",
+			Changed:  2,
+			Markdown: "# Digest\n\n2 notes changed.\n",
+		}},
+		{"check", "result", CheckResult{
+			Issues: []Issue{{
+				Severity: "warn",
+				Kind:     "broken_link",
+				Path:     "notes/a.md",
+				Detail:   "link target missing",
+			}},
+			Errors:   0,
+			Warnings: 1,
+			Markdown: "# Vault check\n\n0 errors, 1 warning.\n",
+		}},
+		{"note/get", "params", NoteParams{Path: "notes/a.md"}},
+		{"note/get", "result", Note{
+			Path:        "notes/a.md",
+			Title:       "A",
+			Tags:        []string{"project", "active"},
+			Links:       []string{"B"},
+			LinkTargets: []LinkTarget{{Link: "B", Path: "notes/b.md"}},
+			Frontmatter: map[string]any{"status": "active"},
+			Body:        "hello",
+		}},
+		{"collection/list", "result", []Collection{{
+			Name:        "tasks",
+			Path:        "20-Active/Tasks",
+			Description: "task records",
+			Fields: []Field{{
+				Name:     "status",
+				Type:     "enum",
+				Required: true,
+				Enum:     []string{"active", "done"},
+				Default:  "active",
+			}},
+			Records: 7,
+		}}},
+		{"collection/get", "params", CollectionParams{Name: "tasks"}},
+		{"collection/get", "result", Collection{
+			Name:        "tasks",
+			Path:        "20-Active/Tasks",
+			Description: "task records",
+			Fields: []Field{{
+				Name:     "status",
+				Type:     "enum",
+				Required: true,
+				Enum:     []string{"active", "done"},
+				Default:  "active",
+			}},
+			Records: 7,
+		}},
+		{"mount/list", "result", []Mount{{
+			Name:   "exo-jobs",
+			Kind:   "mcp",
+			Target: "exo-jobs",
+			Args:   []string{"serve", "--mcp"},
+			Tool:   "jobs",
+		}}},
+		{"index/run", "params", IndexParams{Since: "abc123"}},
+		{"index/run", "result", IndexStats{Indexed: 5, Skipped: 2, Deleted: 1, Vectors: true}},
+		{"index/rebuild", "result", IndexStats{Indexed: 12, Skipped: 0, Deleted: 0, Vectors: true}},
+		{"archive", "params", ArchiveParams{Dest: ".stardust/archives"}},
+		{"archive", "result", ArchiveResult{Path: ".stardust/archives/vault-20260625.bundle"}},
+		{"cron/list", "result", []CronJob{{
+			Name:     "nightly-index",
+			Schedule: "0 3 * * *",
+			Kind:     "command",
+			Command:  "stardust index",
+		}}},
+		{"cron/run", "params", CronRunParams{Name: "nightly-index"}},
+		{"cron/run", "result", CronRunResult{Output: "indexed 5 notes\n"}},
 	}
 }
 

@@ -1,0 +1,13 @@
+{
+  "query": "ship it",
+  "mode": "hybrid + rerank",
+  "hits": [
+    {
+      "path": "20-Active/Tasks/a.md",
+      "title": "A",
+      "heading": "Plan",
+      "snippet": "ship it tonight",
+      "score": 0.91
+    }
+  ]
+}
