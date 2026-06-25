@@ -14,6 +14,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/creachadair/jrpc2/jhttp"
+
+	"github.com/alxxpersonal/stardust/internal/rpcserver"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
@@ -24,9 +27,14 @@ type Handler struct {
 	mux *http.ServeMux
 }
 
-// New builds an API handler over svc.
+// New builds an API handler over svc. Alongside the REST routes it mounts the
+// typed jrpc2 registry as a jhttp bridge at POST /rpc; the bridge and the REST
+// routes share the same service core, so the two surfaces stay additive while
+// REST is retired in a later pass (ADR 0004).
 func New(svc *service.Service) *Handler {
 	h := &Handler{svc: svc, mux: http.NewServeMux()}
+	bridge := jhttp.NewBridge(rpcserver.NewRegistry(svc), nil)
+	h.mux.Handle("/rpc", bridge)
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("GET /query", h.query)
 	h.mux.HandleFunc("GET /note", h.note)
