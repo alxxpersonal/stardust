@@ -180,3 +180,63 @@ func TestInstallComposeModeWritesPreCommitGate(t *testing.T) {
 		t.Fatalf("pre-commit = %q, want the check line composed in", preCommitBody)
 	}
 }
+
+func TestUninstallComposeStripsBlockAndKeepsHooksPath(t *testing.T) {
+	root := newRepo(t)
+	runGit(t, root, "config", "core.hooksPath", ".husky")
+	huskyDir := filepath.Join(root, ".husky")
+	if err := os.MkdirAll(huskyDir, 0o755); err != nil {
+		t.Fatalf("create husky dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(huskyDir, "post-commit"), []byte("#!/bin/sh\nnpx lint-staged\n"), 0o755); err != nil {
+		t.Fatalf("write user post-commit: %v", err)
+	}
+
+	hooksDir := filepath.Join(root, ".stardust", "hooks")
+	if err := Install(context.Background(), root, hooksDir, "warn"); err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	if err := Uninstall(context.Background(), root); err != nil {
+		t.Fatalf("Uninstall() error = %v", err)
+	}
+
+	// Compose uninstall leaves another manager's core.hooksPath alone.
+	if got := configValue(t, root, "core.hooksPath"); got != ".husky" {
+		t.Fatalf("core.hooksPath = %q, want .husky (untouched)", got)
+	}
+
+	// The user's line survives and every stardust block is gone.
+	for _, name := range []string{"post-commit", "post-merge", "pre-commit"} {
+		body := readFile(t, filepath.Join(huskyDir, name))
+		if starts, ends := countMarkers(body); starts != 0 || ends != 0 {
+			t.Fatalf("%s markers = (%d start, %d end), want zero of each after uninstall", name, starts, ends)
+		}
+		if strings.Contains(body, "stardust") {
+			t.Fatalf("%s = %q, want no stardust lines after uninstall", name, body)
+		}
+	}
+	postCommitBody := readFile(t, filepath.Join(huskyDir, "post-commit"))
+	if !strings.Contains(postCommitBody, "npx lint-staged") {
+		t.Fatalf("post-commit = %q, want the user line preserved after uninstall", postCommitBody)
+	}
+}
+
+func TestUninstallOwnedUnsetsHooksPath(t *testing.T) {
+	root := newRepo(t)
+	hooksDir := filepath.Join(root, ".stardust", "hooks")
+	if err := Install(context.Background(), root, hooksDir, "off"); err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	if got := configValue(t, root, "core.hooksPath"); got != ".stardust/hooks" {
+		t.Fatalf("core.hooksPath = %q, want .stardust/hooks before uninstall", got)
+	}
+
+	if err := Uninstall(context.Background(), root); err != nil {
+		t.Fatalf("Uninstall() error = %v", err)
+	}
+
+	// Owned uninstall unsets the path stardust set.
+	if got := configValue(t, root, "core.hooksPath"); got != "" {
+		t.Fatalf("core.hooksPath = %q, want unset after owned uninstall", got)
+	}
+}

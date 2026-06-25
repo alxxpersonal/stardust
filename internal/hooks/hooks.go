@@ -145,9 +145,30 @@ func composeInstall(targetDir, check string) error {
 	return nil
 }
 
-// Uninstall unsets core.hooksPath, restoring git's default .git/hooks. It is
-// best-effort: unsetting an already-absent key is not an error.
+// Uninstall removes only stardust's contribution to the repo's hooks. It detects
+// how stardust was installed and acts surgically:
+//
+//   - compose mode (husky, a custom core.hooksPath, or existing .git/hooks): strip
+//     the sentinel block from each target hook file, leaving the user's lines and
+//     core.hooksPath untouched.
+//   - owned mode (stardust set core.hooksPath to .stardust/hooks): unset
+//     core.hooksPath, restoring git's default .git/hooks.
+//
+// It never unsets a core.hooksPath value stardust did not write. Unsetting an
+// already-absent key is best-effort and not an error.
 func Uninstall(ctx context.Context, root string) error {
+	mode, targetDir, err := detect(root)
+	if err != nil {
+		return fmt.Errorf("detect hook chain: %w", err)
+	}
+	if mode == modeCompose {
+		for _, name := range []string{"post-commit", "post-merge", "pre-commit"} {
+			if err := stripBlock(filepath.Join(targetDir, name)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	_ = exec.CommandContext(ctx, "git", "-C", root, "config", "--unset", "core.hooksPath").Run()
 	return nil
 }
