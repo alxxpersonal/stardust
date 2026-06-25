@@ -1,4 +1,4 @@
-// Typed TypeScript client for the Stardust HTTP/JSON API (see docs/openapi.yaml).
+// Typed TypeScript client for the Stardust JSON-RPC API (POST /rpc, see docs/openrpc.json).
 // Uses the global fetch, so it runs in the browser, Obsidian, Node 18+, and Deno.
 
 export interface Hit {
@@ -111,112 +111,116 @@ export interface RecordList {
   records: Record[];
 }
 
+interface RPCError {
+  code: number;
+  message: string;
+}
+
+interface RPCEnvelope<T> {
+  result?: T;
+  error?: RPCError;
+}
+
 export class StardustClient {
+  private readonly rpcURL: string;
   private readonly baseURL: string;
+  private id = 0;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL.replace(/\/$/, "");
+    this.rpcURL = this.baseURL + "/rpc";
   }
 
-  private async request<T>(method: "GET" | "POST", path: string, params?: Record<string, string>): Promise<T> {
-    const qs = params && Object.keys(params).length ? "?" + new URLSearchParams(params).toString() : "";
-    const res = await fetch(this.baseURL + path + qs, { method });
-    if (!res.ok) {
-      throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);
-    }
-    return (await res.json()) as T;
-  }
-
-  private async requestJSON<T>(method: "POST" | "PATCH", path: string, body: unknown, params?: Record<string, string>): Promise<T> {
-    const qs = params && Object.keys(params).length ? "?" + new URLSearchParams(params).toString() : "";
-    const res = await fetch(this.baseURL + path + qs, {
+  // call sends one JSON-RPC 2.0 request to POST /rpc and unwraps the result.
+  private async call<T>(method: string, params?: unknown): Promise<T> {
+    const body: { jsonrpc: "2.0"; id: number; method: string; params?: unknown } = {
+      jsonrpc: "2.0",
+      id: ++this.id,
       method,
+    };
+    if (params !== undefined) body.params = params;
+    const res = await fetch(this.rpcURL, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);
+      throw new Error(`POST /rpc ${method}: ${res.status} ${await res.text()}`);
     }
-    return (await res.json()) as T;
+    const env = (await res.json()) as RPCEnvelope<T>;
+    if (env.error) {
+      throw new Error(`rpc ${method}: ${env.error.code} ${env.error.message}`);
+    }
+    return env.result as T;
   }
 
   query(q: string, limit = 10): Promise<QueryResult> {
-    return this.request("GET", "/query", { q, limit: String(limit) });
+    return this.call("query", { query: q, limit });
   }
 
   note(path: string): Promise<Note> {
-    return this.request("GET", "/note", { path });
+    return this.call("note/get", { path });
   }
 
   status(): Promise<Status> {
-    return this.request("GET", "/status");
+    return this.call("status");
   }
 
   graph(): Promise<GraphReport> {
-    return this.request("GET", "/graph");
+    return this.call("graph");
   }
 
   bundle(task: string, budget = 4000): Promise<BundleResult> {
-    return this.request("GET", "/bundle", { task, budget: String(budget) });
+    return this.call("bundle", { task, budget });
   }
 
   digest(since = "", advance = false): Promise<DigestResult> {
-    const p: Record<string, string> = {};
-    if (since) p.since = since;
-    if (advance) p.advance = "true";
-    return this.request("GET", "/digest", p);
+    return this.call("digest", { since, advance });
   }
 
   index(since = ""): Promise<IndexStats> {
-    return this.request("POST", "/index", since ? { since } : undefined);
+    return this.call("index/run", { since });
   }
 
   listCollections(): Promise<CollectionInfo[]> {
-    return this.request("GET", "/collections");
+    return this.call("collection/list");
   }
 
   collection(name: string): Promise<CollectionInfo> {
-    return this.request("GET", "/collection", { name });
+    return this.call("collection/get", { name });
   }
 
-  async listRecords(
+  listRecords(
     collection: string,
     filter: Predicate[] = [],
     sort = "",
     limit = 0,
     offset = 0,
   ): Promise<RecordList> {
-    // Build the query string by hand: `where` repeats, which a plain object
-    // params map cannot express.
-    const qs = new URLSearchParams();
-    qs.set("collection", collection);
-    for (const p of filter) qs.append("where", `${p.field}:${p.op}:${p.value}`);
-    if (sort) qs.set("sort", sort);
-    if (limit > 0) qs.set("limit", String(limit));
-    if (offset > 0) qs.set("offset", String(offset));
-    const res = await fetch(`${this.baseURL}/records?${qs.toString()}`, { method: "GET" });
-    if (!res.ok) {
-      throw new Error(`GET /records: ${res.status} ${await res.text()}`);
-    }
-    return (await res.json()) as RecordList;
+    return this.call("record/list", { collection, filter, sort, limit, offset });
   }
 
   getRecord(path: string): Promise<Record> {
-    return this.request("GET", "/record", { path });
+    return this.call("record/get", { path });
   }
 
   createRecord(collection: string, fields: Record_, body = ""): Promise<Record> {
-    return this.requestJSON("POST", "/records", { collection, fields, body });
+    return this.call("record/create", { collection, fields, body });
   }
 
   patchRecord(path: string, fields?: Record_, body?: string): Promise<Record> {
-    const payload: Record_ = {};
-    if (fields !== undefined) payload.fields = fields;
-    if (body !== undefined) payload.body = body;
-    return this.requestJSON("PATCH", "/record", payload, { path });
+    const params: { path: string; fields?: Record_; body?: string } = { path };
+    if (fields !== undefined) params.fields = fields;
+    if (body !== undefined) params.body = body;
+    return this.call("record/patch", params);
   }
 
-  healthz(): Promise<{ status: string }> {
-    return this.request("GET", "/healthz");
+  // healthz stays a plain REST liveness probe; GET /healthz is retained alongside POST /rpc.
+  async healthz(): Promise<{ status: string }> {
+    const res = await fetch(this.baseURL + "/healthz", { method: "GET" });
+    if (!res.ok) {
+      throw new Error(`GET /healthz: ${res.status} ${await res.text()}`);
+    }
+    return (await res.json()) as { status: string };
   }
 }
