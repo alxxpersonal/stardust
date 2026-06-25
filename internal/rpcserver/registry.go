@@ -57,7 +57,7 @@ func createRecordHandler(svc *service.Service) func(context.Context, rpc.CreateR
 	return func(ctx context.Context, p rpc.CreateRecordParams) (rpc.Record, error) {
 		rec, err := svc.CreateRecord(ctx, p.Collection, p.Fields, p.Body)
 		if err != nil {
-			return rpc.Record{}, err
+			return rpc.Record{}, domainError(err)
 		}
 		return toRecord(rec), nil
 	}
@@ -98,7 +98,7 @@ func patchRecordHandler(svc *service.Service) func(context.Context, rpc.PatchRec
 	return func(ctx context.Context, p rpc.PatchRecordParams) (rpc.Record, error) {
 		rec, err := svc.PatchRecord(ctx, p.Path, p.Fields, p.Body)
 		if err != nil {
-			return rpc.Record{}, err
+			return rpc.Record{}, domainError(err)
 		}
 		return toRecord(rec), nil
 	}

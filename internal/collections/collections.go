@@ -6,6 +6,7 @@
 package collections
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,13 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+// ErrValidation tags a record-frontmatter validation failure. It marks a domain
+// error (the request was well formed but its data violates the schema) as
+// distinct from an infrastructure failure, so a transport can map it to the
+// positive JSON-RPC domain code band rather than the reserved server band (ADR
+// 0006). Every non-nil Validate result wraps it; classify with errors.Is.
+var ErrValidation = errors.New("validation")
 
 // FieldType enumerates the supported schema field types.
 const (
@@ -119,7 +127,14 @@ func LoadOne(collectionsDir, name string) (Collection, error) {
 // required field must be present and non-nil, every enum field's value must be a
 // member of its Enum set, and present values must satisfy a basic type check for
 // their declared type. Fields not in the schema are ignored.
-func Validate(frontmatter map[string]any, fields []Field) error {
+func Validate(frontmatter map[string]any, fields []Field) (err error) {
+	// Tag every non-nil result with ErrValidation so callers can classify a
+	// schema violation as a domain error without losing the specific message.
+	defer func() {
+		if err != nil && !errors.Is(err, ErrValidation) {
+			err = fmt.Errorf("%w: %w", ErrValidation, err)
+		}
+	}()
 	for _, f := range fields {
 		v, present := frontmatter[f.Name]
 		if !present || v == nil {
