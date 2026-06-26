@@ -15,6 +15,8 @@ and a docs-convention code repo.
 - Steers the model to `stardust bundle` and `stardust query` for plans and decisions, and
   reserves grep, the editor, and the language server for source code.
 - Arms two native crons on demand: maintenance (index, registry, sync) and a daily digest.
+- Provides authoring commands that resolve the workspace and author docs directly in the
+  current turn.
 - Degrades to a silent no-op, or a single one-time pointer, when stardust is absent or no
   workspace resolves. It never errors loudly and never nags.
 
@@ -96,24 +98,24 @@ needed, runs the first index, and writes `config.json` under the plugin data dir
 
 ### Authoring
 
-These route the write side of the docs loop, the counterpart to the read-side state injected
-at session start. Each resolves the workspace, surfaces relevant existing docs, then hands off
-to a canonical forge skill. They never write a doc themselves (`allowed-tools: Bash, Read`,
-no `Write`).
+These run the write side of the docs loop, the counterpart to the read-side state injected at
+session start. Each resolves the workspace, surfaces relevant existing docs, writes the
+convention-correct file set, and regenerates `docs/INDEX.md` (`allowed-tools: Bash, Read,
+Write`).
 
 - `/stardust:spec` `[what to spec]` - start a technical spec, ADRs, and implementation plan
-  via spec-forge.
+  using the inline spec workflow.
 - `/stardust:plan` `[topic to plan, or empty to list]` - list active plans from `docs/plans`,
-  or start a new spec and plan via spec-forge.
+  or write a new spec and plan using the inline spec workflow.
 - `/stardust:doc` `[adr|research|runbook] [topic]` - add one ADR, research note, or runbook to
-  `docs/` via doc-forge.
+  `docs/` using the inline single-doc workflow.
 - `/stardust:adr` `[decision to document]` - record an architectural decision as an ADR via
-  doc-forge.
+  the inline ADR workflow.
 
-The authoring commands delegate to the canonical spec-forge and doc-forge skills, which own
-the writing discipline and the native `/plan` sync. Those skills must be installed for the
-full write workflow. Without them, each command names the docs-convention folders so you can
-author by hand; the read side keeps working regardless.
+The authoring commands embed the forge workflows directly so a command such as
+`/stardust:plan plan this feature` writes the durable spec, ADRs, plan, and registry update in
+one turn. They keep `docs/plans/` canonical, never write `docs/superpowers/`, and do not use
+the unrelated Microsoft `.docx` tooling.
 
 ## Crons and the 7-day expiry
 
@@ -146,10 +148,10 @@ commands/setup.md            configure dual-mode, init + first index
 commands/crons.md            arm the maintenance and digest crons
 commands/refresh.md          manual index + registry
 commands/status.md           show resolved mode, root, index health
-commands/spec.md             route to spec-forge for a spec, ADRs, and plan
-commands/plan.md             list active plans or route to spec-forge
-commands/doc.md              route to doc-forge for one ADR, research note, or runbook
-commands/adr.md              ADR shorthand over doc-forge
+commands/spec.md             write a spec, ADRs, and plan inline
+commands/plan.md             list active plans or write a spec and plan inline
+commands/doc.md              write one ADR, research note, or runbook inline
+commands/adr.md              write one ADR inline
 scripts/resolve-root.sh      shared mode/root resolution
 ```
 

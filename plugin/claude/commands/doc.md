@@ -1,33 +1,59 @@
 ---
-description: Add an ADR, research note, or runbook to docs/ via doc-forge.
+description: Write one ADR, research note, or runbook inline.
 argument-hint: "[adr|research|runbook] [topic]"
-allowed-tools: Bash, Read
+allowed-tools: Bash, Read, Write
 ---
 
-You are routing the user into the canonical doc-forge skill, which owns the single-doc
-writing discipline and the index regeneration. This command parses, validates, surfaces a
-hint, and hands off. It never writes a doc. Keep it terse.
+You are running the complete doc-forge workflow inline for one convention-correct document.
+Do not invoke the unrelated Microsoft `.docx` tooling. Do not print a second slash command
+for the user to run. Author the doc in this turn, regenerate the registry, and stop
+gracefully when the workspace cannot be resolved.
 
-## Steps
+## Workflow
 
-1. Parse `$ARGUMENTS`: the first token is the doc type, the rest is the topic.
-2. Validate the type against the closed set `{adr, research, runbook}`. If it is anything
-   else, reject it, print the valid set (`adr`, `research`, `runbook`), and stop. If the
-   topic is empty, ask the user to name it and stop.
-3. Resolve the workspace by running `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and
+1. Parse `$ARGUMENTS`: the first token is the doc type, the rest is the topic. Valid types
+   are `adr`, `research`, and `runbook`. If the type is invalid, print the valid set and
+   stop. If the topic is empty, ask the user to name it and stop.
+2. Resolve the workspace by running `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and
    reading the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace
    resolved and stop. In a docs-convention repo the user can run `stardust init --docs`; for
    a vault, point them to `/stardust:setup`.
-4. If the type is `adr`, compute the next free zero-padded four-digit number as a convenience
-   hint only. List `${ROOT}/docs/adr/`, take the highest leading number, and add one:
-   `ls "${ROOT}/docs/adr/" 2>/dev/null | grep -Eo '^[0-9]{4}' | sort -n | tail -1`
-   Print the result plus one, zero-padded to four digits, and state it is a hint: doc-forge
-   assigns the final number at write time.
-5. Delegate to doc-forge with the type and topic. State that doc-forge writes the one doc to
-   the right `docs/` folder and regenerates the index. End with the exact handoff to run next:
+3. Explore before writing:
+   - Run `stardust query "<topic>"` from `${ROOT}` when available.
+   - For an ADR, inspect `docs/adr` and determine the next free zero-padded four-digit
+     number.
+   - Read related docs so the new document updates or supersedes rather than duplicates.
+   - Get the real timestamp with `date "+%Y-%m-%d-%H%M"` from `${ROOT}`.
+4. Choose the output path:
+   - ADR: `docs/adr/<NNNN>-<slug>.md`
+   - Research: `docs/research/<timestamp>-<slug>.md`
+   - Runbook: `docs/runbooks/<slug>.md`
+5. Write YAML frontmatter:
 
-   `/doc-forge <type> "<topic>"`
+   ```yaml
+   ---
+   title: <Title>
+   status: <status>
+   date: <YYYY-MM-DD>
+   related: [<paths>]
+   ---
+   ```
 
-   If doc-forge is not installed, say so and point the user at the matching `docs/` convention
-   folder (`docs/adr/`, `docs/research/`, or `docs/runbooks/`) so they can author by hand. Do
-   not error.
+   ADR status is `Proposed` or `Accepted`. Research status is `Active`, `Archived`, or
+   `Superseded`. Runbook status is `Active` or `Deprecated`.
+6. Put a one-line thesis after frontmatter. Wrap every section in collapsible markdown using
+   `<details>`, `<summary><b>Section</b></summary>`, and `<br>`.
+7. Use the correct sections:
+   - ADR: Context, Decision, Consequences, Alternatives considered, References.
+   - Research: Question, Sources, Findings, Recommendation, Open questions, See also.
+   - Runbook: Purpose, Prerequisites, Steps, Rollback, References.
+8. Run `stardust registry` from `${ROOT}`. If Stardust is unavailable, report the skip.
+9. Self-review:
+   - correct type, folder, and filename
+   - status from the closed set
+   - no placeholders
+   - no U+2014 or U+2013
+   - no generated-by or co-author trailers
+   - no docs mirror folder
+
+Write the file directly with the available tools. Do not commit or push.
