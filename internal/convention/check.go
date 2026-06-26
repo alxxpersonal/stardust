@@ -34,6 +34,10 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 	if err != nil {
 		return nil, err
 	}
+	allowedDocFolders, err := registeredDocFolders(root)
+	if err != nil {
+		return nil, err
+	}
 	var issues []ConventionIssue
 	for _, rel := range paths {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
@@ -43,6 +47,9 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		if strings.ContainsRune(string(raw), '\u2014') || strings.ContainsRune(string(raw), '\u2013') {
 			issues = append(issues, ConventionIssue{Severity: "error", Kind: "forbidden-dash", Path: rel, Detail: "contains a forbidden unicode dash"})
 		}
+		if issue, ok := checkStrayDoc(rel, allowedDocFolders); ok {
+			issues = append(issues, issue)
+		}
 		docType, ok := docTypeForPath(rel)
 		if !ok {
 			continue
@@ -50,6 +57,51 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		issues = append(issues, checkDocFile(root, rel, docType)...)
 	}
 	return issues, nil
+}
+
+// registeredDocFolders returns the registered markdown collection folders under
+// docs, using committed collection configs when present.
+func registeredDocFolders(root string) ([]string, error) {
+	cols, err := collections.Load(filepath.Join(root, config.DirName, "collections"))
+	if err != nil {
+		return nil, err
+	}
+	folders := make([]string, 0, len(cols))
+	for _, col := range cols {
+		folder := cleanFolder(col.Cfg.Path)
+		if folder == "docs" || strings.HasPrefix(folder, "docs/") {
+			folders = append(folders, folder)
+		}
+	}
+	return folders, nil
+}
+
+// checkStrayDoc rejects markdown under docs that is outside registered folders.
+func checkStrayDoc(rel string, allowedFolders []string) (ConventionIssue, bool) {
+	rel = filepath.ToSlash(rel)
+	if !strings.HasPrefix(rel, "docs/") {
+		return ConventionIssue{}, false
+	}
+	if rel == "docs/INDEX.md" || strings.HasPrefix(rel, "docs/templates/") {
+		return ConventionIssue{}, false
+	}
+	for _, folder := range allowedFolders {
+		if rel == folder || strings.HasPrefix(rel, folder+"/") {
+			return ConventionIssue{}, false
+		}
+	}
+	return ConventionIssue{
+		Severity: "error",
+		Kind:     "stray-doc",
+		Path:     rel,
+		Detail:   "markdown file under docs is outside registered collection folders",
+	}, true
+}
+
+// cleanFolder normalizes a collection folder to slash-separated relative form.
+func cleanFolder(path string) string {
+	clean := filepath.ToSlash(filepath.Clean("/" + filepath.FromSlash(path)))
+	return strings.Trim(clean, "/")
 }
 
 // CheckSkills validates skill frontmatter targets.

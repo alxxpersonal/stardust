@@ -32,16 +32,22 @@ func (s *Service) Index(ctx context.Context, since string) (IndexStats, error) {
 	}
 
 	var paths []string
+	var currentPaths []string
 	var err error
 	if since != "" && isRepo {
 		paths, err = gitx.DiffNames(ctx, s.Layout.Root, since)
+		if err == nil {
+			currentPaths, err = vault.Scan(s.Layout.Root, s.Config.Ignore)
+		}
 	} else {
 		paths, err = vault.Scan(s.Layout.Root, s.Config.Ignore)
+		currentPaths = append([]string(nil), paths...)
 	}
 	if err != nil {
 		return IndexStats{}, err
 	}
 	paths = filterIgnored(paths, s.Config.Ignore)
+	currentPaths = filterIgnored(currentPaths, s.Config.Ignore)
 
 	catalog, err := s.store.Catalog(ctx)
 	if err != nil {
@@ -50,6 +56,18 @@ func (s *Service) Index(ctx context.Context, since string) (IndexStats, error) {
 
 	useVectors := s.embed.Available(ctx)
 	var stats IndexStats
+	current := pathSet(currentPaths)
+	for rel := range catalog {
+		if current[rel] {
+			continue
+		}
+		if err := s.store.DeleteNote(ctx, rel); err != nil {
+			return stats, err
+		}
+		delete(catalog, rel)
+		stats.Deleted++
+	}
+
 	for _, rel := range paths {
 		rel = filepath.ToSlash(rel)
 		if _, statErr := os.Stat(filepath.Join(s.Layout.Root, rel)); statErr != nil {
@@ -149,6 +167,15 @@ func filterIgnored(paths, ignore []string) []string {
 		if !skip {
 			out = append(out, p)
 		}
+	}
+	return out
+}
+
+// pathSet maps vault-relative paths to true.
+func pathSet(paths []string) map[string]bool {
+	out := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		out[filepath.ToSlash(path)] = true
 	}
 	return out
 }

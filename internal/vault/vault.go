@@ -28,12 +28,12 @@ type Note struct {
 }
 
 var (
-	frontmatterRe = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---\r?\n?`)
-	wikilinkRe    = regexp.MustCompile(`\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]`)
-	hashtagRe     = regexp.MustCompile(`(?m)(?:^|\s)#([a-zA-Z][\w/-]+)`)
-	h1Re          = regexp.MustCompile(`(?m)^#\s+(.+)$`)
-	inlineCodeRe  = regexp.MustCompile("`([^`\n]+)`")
-	repoPathRe    = regexp.MustCompile(`^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`)
+	frontmatterRe  = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---\r?\n?`)
+	wikilinkRe     = regexp.MustCompile(`\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]`)
+	hashtagRe      = regexp.MustCompile(`(?m)(?:^|\s)#([a-zA-Z][\w/-]+)`)
+	h1Re           = regexp.MustCompile(`(?m)^#\s+(.+)$`)
+	repoPathRe     = regexp.MustCompile(`^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`)
+	repoPathFindRe = regexp.MustCompile(`[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+`)
 )
 
 // Edge kinds enumerate the channels through which a note references another.
@@ -61,6 +61,7 @@ func ContentHash(b []byte) string {
 
 // ExtractLinks returns the unique normalized wikilink targets in body.
 func ExtractLinks(body string) []string {
+	body = maskMarkdownCode(body)
 	seen := map[string]bool{}
 	var out []string
 	for _, m := range wikilinkRe.FindAllStringSubmatch(body, -1) {
@@ -75,12 +76,11 @@ func ExtractLinks(body string) []string {
 }
 
 // ExtractEdges returns the typed outbound references in a note: wikilinks from
-// the body, related targets from frontmatter, and inline repo-path references
-// from backtick code spans. Wikilink targets are normalized; related targets are
-// kept verbatim for the graph to resolve and classify; an inline-path candidate
-// is emitted only when it matches a dir/dir/file.ext shape and resolves to an
-// existing file under root, which suppresses false positives. Edges are unique
-// by (kind, target).
+// prose, related targets from frontmatter, and repo-path references from prose.
+// Wikilink targets are normalized; related targets are kept verbatim for the
+// graph to resolve and classify; an inline-path candidate is emitted only when
+// it matches a dir/dir/file.ext shape and resolves to an existing file under
+// root, which suppresses false positives. Edges are unique by (kind, target).
 func ExtractEdges(root string, note Note) []Edge {
 	var out []Edge
 	seen := map[string]bool{}
@@ -96,14 +96,15 @@ func ExtractEdges(root string, note Note) []Edge {
 		out = append(out, Edge{Target: target, Kind: kind})
 	}
 
-	for _, m := range wikilinkRe.FindAllStringSubmatch(note.Body, -1) {
+	visibleBody := maskMarkdownCode(note.Body)
+	for _, m := range wikilinkRe.FindAllStringSubmatch(visibleBody, -1) {
 		add(normalizeWikilinkTarget(m[1]), EdgeWikilink)
 	}
 	for _, target := range fmStringList(note.Frontmatter, "related") {
 		add(strings.TrimSpace(target), EdgeRelated)
 	}
-	for _, m := range inlineCodeRe.FindAllStringSubmatch(note.Body, -1) {
-		token := strings.TrimSpace(m[1])
+	for _, m := range repoPathFindRe.FindAllStringSubmatch(visibleBody, -1) {
+		token := cleanRepoPathToken(m[0])
 		if !repoPathRe.MatchString(token) || filepath.Ext(token) == "" {
 			continue
 		}
@@ -116,7 +117,7 @@ func ExtractEdges(root string, note Note) []Edge {
 }
 
 // CodeRefs returns the unique repo-relative paths a note binds to code through a
-// related: frontmatter entry or an inline code-path span: targets that resolve to
+// related: frontmatter entry or an inline path ref: targets that resolve to
 // an existing, non-directory, non-markdown file under root. It is the doc-to-code
 // binding set drift detection watches; wikilinks and markdown targets are
 // excluded, since those are doc-to-doc graph edges. Paths are slash-separated.
@@ -142,6 +143,146 @@ func CodeRefs(root string, note Note) []string {
 		out = append(out, target)
 	}
 	return out
+}
+
+// maskMarkdownCode replaces inline code spans and fenced code blocks with
+// spaces while preserving newlines and byte length.
+func maskMarkdownCode(body string) string {
+	if body == "" {
+		return body
+	}
+	b := []byte(body)
+	masked := make([]bool, len(b))
+	maskFencedCode(b, masked)
+	maskInlineCode(b, masked)
+
+	out := make([]byte, len(b))
+	copy(out, b)
+	for i := range out {
+		if masked[i] && out[i] != '\n' && out[i] != '\r' {
+			out[i] = ' '
+		}
+	}
+	return string(out)
+}
+
+// maskFencedCode marks fenced code blocks opened by backticks or tildes.
+func maskFencedCode(b []byte, masked []bool) {
+	for lineStart := 0; lineStart < len(b); {
+		lineEnd := lineStart
+		for lineEnd < len(b) && b[lineEnd] != '\n' {
+			lineEnd++
+		}
+		lineNext := lineEnd
+		if lineNext < len(b) {
+			lineNext++
+		}
+		marker, count, ok := fenceMarker(b[lineStart:lineEnd])
+		if !ok {
+			lineStart = lineNext
+			continue
+		}
+
+		closeEnd := len(b)
+		search := lineNext
+		for search < len(b) {
+			end := search
+			for end < len(b) && b[end] != '\n' {
+				end++
+			}
+			next := end
+			if next < len(b) {
+				next++
+			}
+			closeMarker, closeCount, closeOK := fenceMarker(b[search:end])
+			if closeOK && closeMarker == marker && closeCount >= count {
+				closeEnd = next
+				break
+			}
+			search = next
+		}
+		for i := lineStart; i < closeEnd; i++ {
+			masked[i] = true
+		}
+		lineStart = closeEnd
+	}
+}
+
+// maskInlineCode marks inline backtick code spans outside fenced blocks.
+func maskInlineCode(b []byte, masked []bool) {
+	for i := 0; i < len(b); i++ {
+		if masked[i] || b[i] != '`' || escapedAt(b, i) {
+			continue
+		}
+		run := countRun(b, i, '`')
+		close := findInlineCodeClose(b, masked, i+run, run)
+		if close < 0 {
+			i += run - 1
+			continue
+		}
+		for j := i; j < close+run; j++ {
+			masked[j] = true
+		}
+		i = close + run - 1
+	}
+}
+
+// fenceMarker returns the marker and marker length for a markdown fence line.
+func fenceMarker(line []byte) (byte, int, bool) {
+	i := 0
+	for i < len(line) && i < 3 && line[i] == ' ' {
+		i++
+	}
+	if i >= len(line) || line[i] != '`' && line[i] != '~' {
+		return 0, 0, false
+	}
+	marker := line[i]
+	count := countRun(line, i, marker)
+	if count < 3 {
+		return 0, 0, false
+	}
+	return marker, count, true
+}
+
+// findInlineCodeClose finds the next unescaped matching backtick run.
+func findInlineCodeClose(b []byte, masked []bool, start, run int) int {
+	for i := start; i < len(b); i++ {
+		if b[i] == '\n' || b[i] == '\r' {
+			return -1
+		}
+		if masked[i] || b[i] != '`' || escapedAt(b, i) {
+			continue
+		}
+		n := countRun(b, i, '`')
+		if n == run {
+			return i
+		}
+		i += n - 1
+	}
+	return -1
+}
+
+// countRun counts consecutive target bytes starting at start.
+func countRun(b []byte, start int, target byte) int {
+	i := start
+	for i < len(b) && b[i] == target {
+		i++
+	}
+	return i - start
+}
+
+// escapedAt reports whether b[pos] is escaped by an odd number of backslashes.
+func escapedAt(b []byte, pos int) bool {
+	count := 0
+	for i := pos - 1; i >= 0 && b[i] == '\\'; i-- {
+		count++
+	}
+	return count%2 == 1
+}
+
+// cleanRepoPathToken removes punctuation that commonly surrounds prose paths.
+func cleanRepoPathToken(token string) string {
+	return strings.Trim(token, "<>()[]{}\"'`")
 }
 
 // NormalizeLink reduces a wikilink target or file path to its lowercased base

@@ -16,7 +16,7 @@ func TestExtractEdges(t *testing.T) {
 	note := Note{
 		Path:        "docs/adr/0001-x.md",
 		Frontmatter: map[string]any{"related": []any{"docs/specs/x.md"}},
-		Body:        "see [[Foo Bar]] and the daemon in `internal/store/daemon.go` and `missing/dir/none.go`",
+		Body:        "see [[Foo Bar]] and the daemon in internal/store/daemon.go and missing/dir/none.go",
 	}
 	edges := ExtractEdges(root, note)
 
@@ -36,6 +36,59 @@ func TestContentHashStable(t *testing.T) {
 func TestExtractLinks(t *testing.T) {
 	body := "see [[Foo Bar]] and [[notes/Baz|alias]] then [[Foo Bar]] dup and [[Qux#heading]]"
 	require.ElementsMatch(t, []string{"foo bar", "baz", "qux"}, ExtractLinks(body))
+}
+
+func TestExtractLinksIgnoresMarkdownCode(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want []string
+	}{
+		{
+			name: "inline code",
+			body: "format example `[[Hidden]]` only",
+			want: nil,
+		},
+		{
+			name: "backtick fence",
+			body: "```markdown\n[[Hidden]]\n```\n",
+			want: nil,
+		},
+		{
+			name: "tilde fence",
+			body: "~~~markdown\n[[Hidden]]\n~~~\n",
+			want: nil,
+		},
+		{
+			name: "prose",
+			body: "see [[Visible]] in prose",
+			want: []string{"visible"},
+		},
+		{
+			name: "escaped backticks",
+			body: "escaped \\`[[Visible]]\\` stays prose",
+			want: []string{"visible"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.ElementsMatch(t, tt.want, ExtractLinks(tt.body))
+		})
+	}
+}
+
+func TestExtractEdgesIgnoresCodeMaskedReferences(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "internal", "store"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "internal", "store", "daemon.go"), []byte("package store\n"), 0o644))
+
+	note := Note{
+		Path: "docs/adr/0001-x.md",
+		Body: "see `[[Hidden]]` and `internal/store/daemon.go`\n\n```\n[[Fenced]]\ninternal/store/daemon.go\n```\n",
+	}
+
+	require.Empty(t, ExtractEdges(root, note))
 }
 
 func TestNormalizeLink(t *testing.T) {

@@ -88,3 +88,28 @@ func TestIndexReembedsOnlyChangedChunk(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, emb.embedded) // only one more chunk re-embedded
 }
+
+func TestIndexPrunesRenamedPathsIncrementally(t *testing.T) {
+	emb := &fakeEmbedder{available: false}
+	svc, root := newServiceWith(t, emb, "")
+	ctx := context.Background()
+
+	original := filepath.Join(root, "notes", "old.md")
+	require.NoError(t, os.MkdirAll(filepath.Dir(original), 0o755))
+	require.NoError(t, os.WriteFile(original, []byte("---\ntitle: Old\n---\n# Old\nbody\n"), 0o644))
+
+	_, err := svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	renamed := filepath.Join(root, "notes", "new.md")
+	require.NoError(t, os.Rename(original, renamed))
+
+	stats, err := svc.Index(ctx, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, stats.Deleted)
+
+	catalog, err := svc.store.Catalog(ctx)
+	require.NoError(t, err)
+	require.NotContains(t, catalog, "notes/old.md")
+	require.Contains(t, catalog, "notes/new.md")
+}

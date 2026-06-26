@@ -82,6 +82,36 @@ func TestRegistry(t *testing.T) {
 	require.Empty(t, groups[3].Records)
 }
 
+func TestRegistryFailsWhenIndexEmptyOrStale(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("empty index over docs", func(t *testing.T) {
+		root := docsVault(t)
+		svc, err := service.Open(ctx, root)
+		require.NoError(t, err)
+		defer func() { _ = svc.Close() }()
+
+		_, err = svc.Registry([]string{"specs"})
+		require.ErrorContains(t, err, "index looks empty or stale, run stardust index")
+	})
+
+	t.Run("stale index missing disk doc", func(t *testing.T) {
+		root := docsVault(t)
+		svc, err := service.Open(ctx, root)
+		require.NoError(t, err)
+		defer func() { _ = svc.Close() }()
+
+		_, err = svc.Index(ctx, "")
+		require.NoError(t, err)
+
+		extra := "---\ntitle: Third Spec\nstatus: Draft\n---\n\n# Third Spec\nbody\n"
+		require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "specs", "2026-06-23-0900-third-spec.md"), []byte(extra), 0o644))
+
+		_, err = svc.Registry([]string{"specs"})
+		require.ErrorContains(t, err, "index looks empty or stale, run stardust index")
+	})
+}
+
 func TestRegistryADRNumberAndDateField(t *testing.T) {
 	ctx := context.Background()
 	root := emptyVault(t)

@@ -44,17 +44,17 @@ func TestRelatedAndInlineEdges(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o644))
 	}
-	// a code file that a.md references inline -> a code reference, not a graph node.
+	// a code file that a.md references in prose -> a code reference, not a graph node.
 	write("internal/store/daemon.go", "package store\n")
-	// a.md reaches b.md only through related: (no wikilink), wikilinks c.md, inlines daemon.go.
-	write("a.md", "---\ntitle: A\nrelated: [\"sub/b.md\"]\n---\n# A\nsee [[c]] and `internal/store/daemon.go`")
+	// a.md reaches b.md only through related: (no wikilink), wikilinks c.md, references daemon.go.
+	write("a.md", "---\ntitle: A\nrelated: [\"sub/b.md\"]\n---\n# A\nsee [[c]] and internal/store/daemon.go")
 	write("sub/b.md", "---\ntitle: B\n---\n# B\n")
 	write("c.md", "---\ntitle: C\n---\n# C\n")
 
 	g, err := graph.Build(root, nil)
 	require.NoError(t, err)
 
-	// the related-only target is not an orphan and the inline code path is not a node.
+	// the related-only target is not an orphan and the code path is not a node.
 	require.NotContains(t, g.Orphans(), "sub/b.md")
 	_, daemonIsNode := g.Nodes[vault.NormalizeLink("internal/store/daemon.go")]
 	require.False(t, daemonIsNode)

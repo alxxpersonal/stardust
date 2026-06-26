@@ -74,6 +74,48 @@ func TestCheckDocFileUsesCommittedSchema(t *testing.T) {
 	}
 }
 
+func TestCheckDocsReportsStrayDocs(t *testing.T) {
+	root := t.TempDir()
+	cfg := "path = \"docs/specs\"\ndescription = \"specs\"\n\n" +
+		"[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n"
+	writeFile(t, root, ".stardust/collections/specs/config.toml", cfg)
+	writeFile(t, root, "docs/specs/2026-06-22-1000-good.md", "---\ntitle: Good\n---\n# Good\n")
+	writeFile(t, root, "docs/superpowers/mirror.md", "# Mirror\n")
+	writeFile(t, root, "docs/loose.md", "# Loose\n")
+	writeFile(t, root, "docs/INDEX.md", "# Docs Index\n")
+	writeFile(t, root, "docs/templates/spec.md", "# Template\n")
+
+	issues, err := CheckDocs(root, nil)
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+
+	if !hasIssuePath(issues, "stray-doc", "docs/superpowers/mirror.md") {
+		t.Fatalf("expected stray-doc for mirror folder, got %#v", issues)
+	}
+	if !hasIssuePath(issues, "stray-doc", "docs/loose.md") {
+		t.Fatalf("expected stray-doc for loose doc, got %#v", issues)
+	}
+	if hasIssuePath(issues, "stray-doc", "docs/INDEX.md") {
+		t.Fatalf("docs/INDEX.md must be exempt, got %#v", issues)
+	}
+	if hasIssuePath(issues, "stray-doc", "docs/templates/spec.md") {
+		t.Fatalf("docs/templates must be exempt, got %#v", issues)
+	}
+	if hasIssuePath(issues, "stray-doc", "docs/specs/2026-06-22-1000-good.md") {
+		t.Fatalf("registered collection doc must be allowed, got %#v", issues)
+	}
+}
+
+func hasIssuePath(issues []ConventionIssue, kind, path string) bool {
+	for _, issue := range issues {
+		if issue.Kind == kind && issue.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
 func hasIssueDetail(issues []ConventionIssue, kind, detail string) bool {
 	for _, issue := range issues {
 		if issue.Kind == kind && issue.Detail == detail {

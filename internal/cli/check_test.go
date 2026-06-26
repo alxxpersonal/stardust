@@ -11,7 +11,7 @@ import (
 
 func TestCheckStrictFailsForConventionErrors(t *testing.T) {
 	root := t.TempDir()
-	_, err := scaffoldVault(t.Context(), root, "off", false)
+	_, err := scaffoldVault(t.Context(), root, "off", true)
 	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
@@ -28,7 +28,7 @@ func TestCheckStrictFailsForConventionErrors(t *testing.T) {
 
 func TestCheckFixRewritesBadType(t *testing.T) {
 	root := t.TempDir()
-	_, err := scaffoldVault(t.Context(), root, "off", false)
+	_, err := scaffoldVault(t.Context(), root, "off", true)
 	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
@@ -50,7 +50,7 @@ func TestCheckFixRewritesBadType(t *testing.T) {
 
 func TestCheckCIRatchetExit(t *testing.T) {
 	root := t.TempDir()
-	_, err := scaffoldVault(t.Context(), root, "off", false)
+	_, err := scaffoldVault(t.Context(), root, "off", true)
 	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
@@ -84,7 +84,7 @@ func TestCheckCIRatchetExit(t *testing.T) {
 
 func TestCheckFixThenStrictPasses(t *testing.T) {
 	root := t.TempDir()
-	_, err := scaffoldVault(t.Context(), root, "off", false)
+	_, err := scaffoldVault(t.Context(), root, "off", true)
 	require.NoError(t, err)
 	t.Setenv("STARDUST_VAULT", root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
