@@ -10,6 +10,7 @@ import (
 	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/doclinks"
 	"github.com/alxxpersonal/stardust/internal/gitx"
+	"github.com/alxxpersonal/stardust/internal/graph"
 )
 
 // GovernedDoc is a document whose governs patterns match a code path.
@@ -187,6 +188,129 @@ func (s *Service) governingDoc(ctx context.Context, collection string, record Re
 		return GovernedDoc{}, false, err
 	}
 	return doc, true, nil
+}
+
+// --- Reference-bound drift (ungated) ---
+
+// DriftBinding is one moved code file a doc references, carrying the number of
+// commits to that file since the doc's last commit.
+type DriftBinding struct {
+	File           string `json:"file"`
+	ChangedCommits int    `json:"changed_commits"`
+}
+
+// DriftDoc is a doc bound to code through a related: or inline-path reference
+// (ADR 0015) whose bound code moved since the doc's last commit. Unlike a stale
+// governed doc it is ungated by status: a doc that points at moved code drifts
+// regardless of an Implemented marker it never carries.
+type DriftDoc struct {
+	DocPath  string         `json:"doc_path"`
+	Title    string         `json:"title"`
+	Type     string         `json:"type"`
+	Bindings []DriftBinding `json:"bindings"`
+}
+
+// DriftResult is the repo-wide set of docs referencing moved code.
+type DriftResult struct {
+	Docs     []DriftDoc `json:"docs"`
+	Markdown string     `json:"markdown"`
+}
+
+// DriftDocs reports every doc whose code references moved since the doc's last
+// commit. It binds each doc to code through the reference edges of ADR 0015
+// (related: targets and inline code paths resolving to a non-markdown repo file,
+// captured as the link graph's CodeRefs), then measures commit-distance per bound
+// file. It is the ungated, reference-bound counterpart to StaleDocs; the
+// governs:-plus-Implemented path (StaleDocs) is unchanged.
+func (s *Service) DriftDocs(ctx context.Context) (DriftResult, error) {
+	g, err := graph.Build(s.Layout.Root, s.Config.Ignore)
+	if err != nil {
+		return DriftResult{}, err
+	}
+	var docs []DriftDoc
+	for _, node := range g.Nodes {
+		docType, ok := convention.DocTypeForPath(node.Path)
+		if !ok || len(node.CodeRefs) == 0 {
+			continue
+		}
+		bindings, err := s.docDrift(ctx, node.Path, codeRefTargets(node.CodeRefs))
+		if err != nil {
+			return DriftResult{}, err
+		}
+		if len(bindings) == 0 {
+			continue
+		}
+		docs = append(docs, DriftDoc{DocPath: node.Path, Title: node.Title, Type: docType, Bindings: bindings})
+	}
+	sort.SliceStable(docs, func(i, j int) bool {
+		if typeRank(docs[i].Type) != typeRank(docs[j].Type) {
+			return typeRank(docs[i].Type) < typeRank(docs[j].Type)
+		}
+		return docs[i].DocPath < docs[j].DocPath
+	})
+	result := DriftResult{Docs: docs}
+	result.Markdown = renderDriftMarkdown(result)
+	return result, nil
+}
+
+// docDrift returns the moved code bindings for a doc: for each referenced code
+// file, the number of commits to it since the doc's last commit, keeping only
+// files that moved. It returns nil outside a git repo, when the doc is untracked,
+// or when no referenced file moved, so a non-repo or fresh doc never drifts.
+func (s *Service) docDrift(ctx context.Context, docPath string, codeRefs []string) ([]DriftBinding, error) {
+	if len(codeRefs) == 0 {
+		return nil, nil
+	}
+	docCommit, err := gitx.LastCommit(ctx, s.Layout.Root, docPath)
+	if err != nil {
+		return nil, fmt.Errorf("last doc commit %s: %w", docPath, err)
+	}
+	if docCommit == "" {
+		return nil, nil
+	}
+	var out []DriftBinding
+	for _, ref := range codeRefs {
+		count, err := gitx.CommitCountSince(ctx, s.Layout.Root, docCommit, ref)
+		if err != nil {
+			return nil, fmt.Errorf("drift count for %s referencing %s: %w", docPath, ref, err)
+		}
+		if count > 0 {
+			out = append(out, DriftBinding{File: ref, ChangedCommits: count})
+		}
+	}
+	return out, nil
+}
+
+// codeRefTargets returns the unique target paths of a node's code references.
+func codeRefTargets(edges []graph.Edge) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, e := range edges {
+		if e.Target == "" || seen[e.Target] {
+			continue
+		}
+		seen[e.Target] = true
+		out = append(out, e.Target)
+	}
+	return out
+}
+
+// renderDriftMarkdown renders the drifted-docs report, one row per moved binding.
+func renderDriftMarkdown(result DriftResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Drifted Docs\n\n")
+	if len(result.Docs) == 0 {
+		fmt.Fprintln(&b, "No drifted docs found.")
+		return b.String()
+	}
+	fmt.Fprintln(&b, "| Type | Title | Doc | Referenced | Commits |")
+	fmt.Fprintln(&b, "|---|---|---|---|---|")
+	for _, doc := range result.Docs {
+		for _, bind := range doc.Bindings {
+			fmt.Fprintf(&b, "| %s | %s | `%s` | `%s` | %d |\n", doc.Type, doc.Title, doc.DocPath, bind.File, bind.ChangedCommits)
+		}
+	}
+	return b.String()
 }
 
 func (s *Service) annotateStaleness(ctx context.Context, doc *GovernedDoc) error {

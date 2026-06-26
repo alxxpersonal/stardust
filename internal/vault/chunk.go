@@ -27,6 +27,13 @@ const (
 
 var headingRe = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
 
+// ChunkEmbedText returns the exact text a chunk is embedded as: its title,
+// heading, and body joined by newlines and trimmed. The index hashes this same
+// text per chunk so a reindex re-embeds only the chunks whose text changed.
+func ChunkEmbedText(c Chunk) string {
+	return strings.TrimSpace(c.Title + "\n" + c.Heading + "\n" + c.Body)
+}
+
 // Chunks splits a note into header-aware chunks carrying parent-note metadata.
 func Chunks(n Note) []Chunk {
 	tags := strings.Join(n.Tags, " ")

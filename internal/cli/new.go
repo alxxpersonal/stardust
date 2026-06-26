@@ -77,7 +77,7 @@ func runNew(cmd *cobra.Command, name, template, check string) error {
 		return fmt.Errorf("resolve %s: %w", name, err)
 	}
 	if entries, err := os.ReadDir(root); err == nil && len(entries) > 0 {
-		return fmt.Errorf("new: %s already exists and is not empty", root)
+		return fmt.Errorf("%s already exists and is not empty", root)
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", root, err)

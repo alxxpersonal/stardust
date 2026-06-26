@@ -2,12 +2,21 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/alxxpersonal/stardust/internal/clierr"
 	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
+
+// noVaultHint dresses config.ErrNoVault for humans at the CLI boundary: a clean
+// sentence plus the runnable fix, while keeping the sentinel reachable via
+// errors.Is.
+func noVaultHint(err error) error {
+	return clierr.Wrap(err, "no stardust vault found here", "stardust init")
+}
 
 // vaultContext bundles the resolved per-vault layout and config for commands
 // that touch .stardust files directly (init, hooks) rather than the index.
@@ -25,6 +34,9 @@ func resolveVault() (vaultContext, error) {
 	}
 	root, err := config.FindRoot(cwd)
 	if err != nil {
+		if errors.Is(err, config.ErrNoVault) {
+			return vaultContext{}, noVaultHint(err)
+		}
 		return vaultContext{}, err
 	}
 	layout := config.Layout{Root: root}
@@ -47,5 +59,12 @@ func openService(ctx context.Context) (*service.Service, error) {
 		}
 		start = cwd
 	}
-	return service.Open(ctx, start)
+	svc, err := service.Open(ctx, start)
+	if err != nil {
+		if errors.Is(err, config.ErrNoVault) {
+			return nil, noVaultHint(err)
+		}
+		return nil, err
+	}
+	return svc, nil
 }

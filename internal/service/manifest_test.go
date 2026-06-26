@@ -58,3 +58,31 @@ func TestRefreshManifestRendersRichStaleDrift(t *testing.T) {
 	require.Contains(t, got, "internal/foo.go")
 	require.Contains(t, got, "commit")
 }
+
+// TestRefreshManifestRendersReferenceDrift asserts the manifest carries a drift
+// line for a doc that references moved code through a reference binding, ungated
+// by an Implemented status.
+func TestRefreshManifestRendersReferenceDrift(t *testing.T) {
+	ctx := context.Background()
+	root := emptyVault(t)
+	writeGovernedCode(t, root, "internal/store/daemon.go")
+	writeReferencingDoc(t, root, "docs/adr/0001-daemon.md", "Daemon ADR", "adr", "Proposed", "internal/store/daemon.go")
+	gitInit(t, root)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "internal", "store", "daemon.go"), []byte("package store\n\nconst X = 1\n"), 0o644))
+	gitCommitAll(t, root, "edit daemon")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	require.NoError(t, svc.RefreshManifest(ctx))
+	data, err := os.ReadFile(config.Layout{Root: root}.Manifest())
+	require.NoError(t, err)
+	got := string(data)
+
+	require.Contains(t, got, "Daemon ADR")
+	require.Contains(t, got, "internal/store/daemon.go")
+	require.Contains(t, got, "review")
+}

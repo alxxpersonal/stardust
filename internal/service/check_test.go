@@ -82,6 +82,60 @@ func TestCheckIncludesConventionIssues(t *testing.T) {
 	require.True(t, hasCheckIssue(res.Issues, "bad-target"))
 }
 
+func TestRelatedEdgeParticipatesInGraph(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	// a references an existing plan and a missing spec via related: only.
+	write("docs/specs/2026-06-26-0001-a.md", "---\ntitle: A\ntype: spec\nstatus: Draft\ncreated: 2026-06-26\nupdated: 2026-06-26\nrelated: [\"docs/plans/2026-06-26-0001-b.md\", \"docs/specs/missing.md\"]\n---\n# A\n")
+	write("docs/plans/2026-06-26-0001-b.md", "---\ntitle: B\ntype: plan\nstatus: Draft\ncreated: 2026-06-26\nupdated: 2026-06-26\n---\n# B\n")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	check, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(check.Issues, "broken-doc-ref")) // missing related still flagged
+
+	gr, err := svc.Graph(context.Background())
+	require.NoError(t, err)
+	require.NotContains(t, gr.Orphans, "docs/plans/2026-06-26-0001-b.md") // reachable via related:
+}
+
+func TestDuplicateNameCrossCollectionScoped(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	// the same slug across specs/ and plans/ must not warn: distinct collection keys.
+	write("docs/specs/2026-06-26-0001-game.md", "---\ntitle: Spec\ntype: spec\nstatus: Draft\ncreated: 2026-06-26\nupdated: 2026-06-26\n---\n# Spec\n")
+	write("docs/plans/2026-06-26-0001-game.md", "---\ntitle: Plan\ntype: plan\nstatus: Draft\ncreated: 2026-06-26\nupdated: 2026-06-26\n---\n# Plan\n")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(res.Issues, "duplicate-name"))
+
+	// a true in-collection duplicate (same slug, two subdirs of specs/) still warns.
+	write("docs/specs/archive/2026-06-26-0001-game.md", "---\ntitle: Spec2\ntype: spec\nstatus: Draft\ncreated: 2026-06-26\nupdated: 2026-06-26\n---\n# Spec2\n")
+	res, err = svc.Check(context.Background())
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(res.Issues, "duplicate-name"))
+}
+
 func hasCheckIssue(issues []service.Issue, kind string) bool {
 	for _, issue := range issues {
 		if issue.Kind == kind {

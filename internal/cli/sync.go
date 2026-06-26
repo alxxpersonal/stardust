@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alxxpersonal/stardust/internal/agentsync"
+	"github.com/alxxpersonal/stardust/internal/clierr"
 )
 
 // newSyncCmd builds the agent asset sync command.
@@ -54,7 +55,10 @@ func newSyncCmd() *cobra.Command {
 				emitMarkdown(cmd.OutOrStdout(), res.Plan.Markdown(), output)
 			}
 			if opts.Check && (res.Plan.Missing > 0 || res.Plan.Drift > 0 || res.Plan.Conflicts > 0) {
-				return fmt.Errorf("sync check failed: %d missing, %d drift, %d conflicts", res.Plan.Missing, res.Plan.Drift, res.Plan.Conflicts)
+				return clierr.New(
+					fmt.Sprintf("sync check failed: %d missing, %d drift, %d conflicts", res.Plan.Missing, res.Plan.Drift, res.Plan.Conflicts),
+					"stardust sync",
+				)
 			}
 			return nil
 		},

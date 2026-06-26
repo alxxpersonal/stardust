@@ -84,6 +84,9 @@ func (l Layout) Manifest() string { return filepath.Join(l.Dir(), "manifest.md")
 // IndexMD returns the generated table-of-contents path.
 func (l Layout) IndexMD() string { return filepath.Join(l.Dir(), "INDEX.md") }
 
+// Baseline returns the committed CI-ratchet baseline path.
+func (l Layout) Baseline() string { return filepath.Join(l.Dir(), "baseline.json") }
+
 // Cache returns the gitignored derived-cache directory.
 func (l Layout) Cache() string { return filepath.Join(l.Dir(), "cache") }
 

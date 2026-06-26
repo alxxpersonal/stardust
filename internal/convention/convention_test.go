@@ -3,7 +3,47 @@ package convention
 import (
 	"reflect"
 	"testing"
+
+	"github.com/alxxpersonal/stardust/internal/collections"
 )
+
+func TestDocCollectionFields(t *testing.T) {
+	byName := map[string]DocCollection{}
+	for _, c := range DefaultDocCollections() {
+		byName[c.Name] = c
+	}
+	cases := []struct {
+		name     string
+		docType  string
+		statuses []string
+	}{
+		{"specs", "spec", []string{"Draft", "In Review", "Approved", "Implemented", "Superseded"}},
+		{"plans", "plan", []string{"Draft", "Active", "Done", "Abandoned"}},
+		{"adr", "adr", []string{"Proposed", "Accepted", "Deferred", "Rejected", "Superseded"}},
+		{"research", "research", []string{"Active", "Archived", "Superseded"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, ok := byName[tc.name]
+			if !ok {
+				t.Fatalf("DefaultDocCollections missing %s", tc.name)
+			}
+			want := []collections.Field{
+				{Name: "title", Type: collections.TypeString, Required: true},
+				{Name: "type", Type: collections.TypeEnum, Required: true, Enum: []string{tc.docType}},
+				{Name: "status", Type: collections.TypeEnum, Required: true, Enum: tc.statuses},
+				{Name: "created", Type: collections.TypeDate, Required: true},
+				{Name: "updated", Type: collections.TypeDate, Required: true},
+				{Name: "governs", Type: collections.TypeRef, Required: false},
+				{Name: "related", Type: collections.TypeRef, Required: false},
+			}
+			got := c.Fields()
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("Fields() = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
 
 func TestDocStatusAllowed(t *testing.T) {
 	tests := []struct {

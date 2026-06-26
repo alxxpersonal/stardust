@@ -74,7 +74,7 @@ func (s *Service) Index(ctx context.Context, since string) (IndexStats, error) {
 		chunks := vault.Chunks(note)
 		var vectors [][]float32
 		if useVectors {
-			vectors, err = embedChunks(ctx, s.embed, chunks)
+			vectors, err = s.embedNoteChunks(ctx, note.Path, chunks)
 			if err != nil {
 				useVectors = false // degrade to FTS-only for the rest of the run
 				vectors = nil
@@ -154,12 +154,70 @@ func filterIgnored(paths, ignore []string) []string {
 }
 
 // embedChunks builds one embedding per chunk from its title, heading, and body.
-func embedChunks(ctx context.Context, embedder interface {
-	Embed(context.Context, []string) ([][]float32, error)
-}, chunks []vault.Chunk) ([][]float32, error) {
+// It is the full-note path used by single-note reindexing.
+func embedChunks(ctx context.Context, emb embedder, chunks []vault.Chunk) ([][]float32, error) {
 	texts := make([]string, len(chunks))
 	for i, c := range chunks {
-		texts[i] = strings.TrimSpace(c.Title + "\n" + c.Heading + "\n" + c.Body)
+		texts[i] = vault.ChunkEmbedText(c)
 	}
-	return embedder.Embed(ctx, texts)
+	return emb.Embed(ctx, texts)
+}
+
+// embedNoteChunks returns one vector per chunk, embedding only the chunks whose
+// content hash changed since the last index and reusing stored vectors for the
+// rest. This makes incremental reindexing cheap enough to keep vectors on by
+// default: a one-heading edit re-embeds one chunk, not the whole note.
+func (s *Service) embedNoteChunks(ctx context.Context, path string, chunks []vault.Chunk) ([][]float32, error) {
+	hashes := chunkHashes(chunks)
+	existing, err := s.store.ChunkVectors(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	toEmbed, reuse := embedPlan(hashes, existing)
+	vectors := make([][]float32, len(chunks))
+	for i, v := range reuse {
+		vectors[i] = v
+	}
+	if len(toEmbed) == 0 {
+		return vectors, nil
+	}
+	texts := make([]string, len(toEmbed))
+	for j, idx := range toEmbed {
+		texts[j] = vault.ChunkEmbedText(chunks[idx])
+	}
+	embedded, err := s.embed.Embed(ctx, texts)
+	if err != nil {
+		return nil, err
+	}
+	if len(embedded) != len(texts) {
+		return nil, fmt.Errorf("embed chunks for %s: got %d vectors for %d inputs", path, len(embedded), len(texts))
+	}
+	for j, idx := range toEmbed {
+		vectors[idx] = embedded[j]
+	}
+	return vectors, nil
+}
+
+// chunkHashes returns the per-chunk content hash of the exact embedded text, the
+// same hash UpsertNote persists, so reuse decisions and storage stay aligned.
+func chunkHashes(chunks []vault.Chunk) []string {
+	out := make([]string, len(chunks))
+	for i, c := range chunks {
+		out[i] = vault.ContentHash([]byte(vault.ChunkEmbedText(c)))
+	}
+	return out
+}
+
+// embedPlan splits a note's chunk hashes into the indices that must be embedded
+// (new or changed) and a map of indices that can reuse an existing vector.
+func embedPlan(hashes []string, existing map[string][]float32) (toEmbed []int, reuse map[int][]float32) {
+	reuse = map[int][]float32{}
+	for i, h := range hashes {
+		if vec, ok := existing[h]; ok && vec != nil {
+			reuse[i] = vec
+		} else {
+			toEmbed = append(toEmbed, i)
+		}
+	}
+	return toEmbed, reuse
 }

@@ -119,17 +119,24 @@ func writeDocsCollections(collectionsDir string) error {
 	return nil
 }
 
+// docCollectionConfig codegens a collection's config.toml from its declarative
+// schema (convention.DocCollection.Fields), so the scaffolder and the checker
+// read the exact same field set. Each field becomes a [[fields]] table; an enum
+// line is emitted only for enum fields.
 func docCollectionConfig(c convention.DocCollection) string {
-	return fmt.Sprintf("path = %q\n", c.Path) +
-		fmt.Sprintf("description = %q\n\n", c.Description) +
-		"[[fields]]\n" +
-		"name = \"title\"\n" +
-		"type = \"string\"\n" +
-		"required = true\n\n" +
-		"[[fields]]\n" +
-		"name = \"status\"\n" +
-		"type = \"enum\"\n" +
-		"enum = [" + quoteList(c.Statuses) + "]\n"
+	var b strings.Builder
+	fmt.Fprintf(&b, "path = %q\n", c.Path)
+	fmt.Fprintf(&b, "description = %q\n", c.Description)
+	for _, f := range c.Fields() {
+		b.WriteString("\n[[fields]]\n")
+		fmt.Fprintf(&b, "name = %q\n", f.Name)
+		fmt.Fprintf(&b, "type = %q\n", f.Type)
+		fmt.Fprintf(&b, "required = %t\n", f.Required)
+		if len(f.Enum) > 0 {
+			fmt.Fprintf(&b, "enum = [%s]\n", quoteList(f.Enum))
+		}
+	}
+	return b.String()
 }
 
 func quoteList(items []string) string {

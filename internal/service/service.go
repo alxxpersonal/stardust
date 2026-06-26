@@ -21,12 +21,21 @@ import (
 	"github.com/alxxpersonal/stardust/internal/vault"
 )
 
+// embedder is the embedding capability the service depends on: availability
+// probing, batch embedding, and the model name. *embed.Client satisfies it; tests
+// inject a fake so the vector path runs without a live Ollama.
+type embedder interface {
+	Available(ctx context.Context) bool
+	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	Model() string
+}
+
 // Service is the open core over one vault: the index, embedder, and reranker.
 type Service struct {
 	Layout config.Layout
 	Config config.Config
 	store  *index.Store
-	embed  *embed.Client
+	embed  embedder
 	rerank *rerank.Client
 }
 
@@ -65,15 +74,34 @@ func (s *Service) Close() error {
 
 // --- Read operations ---
 
-// QueryResult is the outcome of a search.
+// Retrieval modes announced on read results so a consumer never mistakes a
+// degraded FTS-only answer for the full hybrid-semantic one.
+const (
+	RetrievalHybridSemantic = "hybrid-semantic"
+	RetrievalFTSOnly        = "fts-only"
+)
+
+// ftsOnlyReason is the one-line explanation surfaced when semantic retrieval is
+// unavailable and the engine degrades to FTS-only.
+const ftsOnlyReason = "embeddings unavailable (Ollama unreachable or model absent): serving FTS-only results"
+
+// QueryResult is the outcome of a search. RetrievalMode announces whether the
+// answer is hybrid-semantic or a degraded fts-only, RetrievalReason carries the
+// one-line cause when degraded, and Reranked records whether the cross-encoder
+// reordered the top-k. Mode is the legacy human-readable stage string.
 type QueryResult struct {
-	Query string      `json:"query"`
-	Mode  string      `json:"mode"`
-	Hits  []index.Hit `json:"hits"`
+	Query           string      `json:"query"`
+	Mode            string      `json:"mode"`
+	RetrievalMode   string      `json:"retrieval_mode"`
+	RetrievalReason string      `json:"retrieval_reason,omitempty"`
+	Reranked        bool        `json:"reranked"`
+	Hits            []index.Hit `json:"hits"`
 }
 
 // Query runs hybrid retrieval (embedding the query when Ollama is available),
-// then optional reranking. Mode records which stages ran.
+// then optional reranking. It announces its retrieval mode: hybrid-semantic when
+// the query vector is live, otherwise fts-only with a reason, and records whether
+// the reranker actually reordered the results.
 func (s *Service) Query(ctx context.Context, query string, limit int) (QueryResult, error) {
 	var queryVec []float32
 	if s.embed.Available(ctx) {
@@ -85,15 +113,45 @@ func (s *Service) Query(ctx context.Context, query string, limit int) (QueryResu
 	if err != nil {
 		return QueryResult{}, err
 	}
-	mode := "keyword"
+
+	res := QueryResult{Query: query, RetrievalMode: RetrievalFTSOnly, Mode: "keyword"}
 	if queryVec != nil {
-		mode = "hybrid"
+		res.RetrievalMode = RetrievalHybridSemantic
+		res.Mode = "hybrid"
+	} else {
+		res.RetrievalReason = ftsOnlyReason
 	}
+
 	if s.rerank.Enabled() {
+		before := hitPaths(hits)
 		hits = s.rerank.Rerank(ctx, query, hits)
-		mode += " + rerank"
+		res.Reranked = !equalStrings(before, hitPaths(hits))
+		res.Mode += " + rerank"
 	}
-	return QueryResult{Query: query, Mode: mode, Hits: hits}, nil
+	res.Hits = hits
+	return res, nil
+}
+
+// hitPaths projects a hit slice to its ordered paths, for order comparison.
+func hitPaths(hits []index.Hit) []string {
+	out := make([]string, len(hits))
+	for i, h := range hits {
+		out[i] = h.Path
+	}
+	return out
+}
+
+// equalStrings reports whether two string slices are equal in order and content.
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // LinkTarget pairs a note's normalized wikilink with the vault-relative path it

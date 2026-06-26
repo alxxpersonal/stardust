@@ -4,6 +4,8 @@ package convention
 import (
 	"fmt"
 	"strings"
+
+	"github.com/alxxpersonal/stardust/internal/collections"
 )
 
 // DocType identifies a Stardust convention document type.
@@ -17,9 +19,12 @@ const (
 	DocTypeResearch DocType = "research"
 )
 
-// DocCollection describes one docs collection scaffold.
+// DocCollection describes one docs collection scaffold. Type is the singular
+// frontmatter type its records carry ("spec", "plan", "adr", "research") and is
+// the lone member of the type field's enum.
 type DocCollection struct {
 	Name        string
+	Type        string
 	Path        string
 	Description string
 	Statuses    []string
@@ -28,10 +33,27 @@ type DocCollection struct {
 // DefaultDocCollections returns the standard specs, plans, adr, and research collections.
 func DefaultDocCollections() []DocCollection {
 	return []DocCollection{
-		{Name: "specs", Path: "docs/specs", Description: "technical specs", Statuses: []string{"Draft", "In Review", "Approved", "Implemented", "Superseded"}},
-		{Name: "plans", Path: "docs/plans", Description: "implementation plans", Statuses: []string{"Draft", "Active", "Done", "Abandoned"}},
-		{Name: "adr", Path: "docs/adr", Description: "architecture decision records", Statuses: []string{"Proposed", "Accepted", "Deferred", "Rejected", "Superseded"}},
-		{Name: "research", Path: "docs/research", Description: "research notes", Statuses: []string{"Active", "Archived", "Superseded"}},
+		{Name: "specs", Type: "spec", Path: "docs/specs", Description: "technical specs", Statuses: []string{"Draft", "In Review", "Approved", "Implemented", "Superseded"}},
+		{Name: "plans", Type: "plan", Path: "docs/plans", Description: "implementation plans", Statuses: []string{"Draft", "Active", "Done", "Abandoned"}},
+		{Name: "adr", Type: "adr", Path: "docs/adr", Description: "architecture decision records", Statuses: []string{"Proposed", "Accepted", "Deferred", "Rejected", "Superseded"}},
+		{Name: "research", Type: "research", Path: "docs/research", Description: "research notes", Statuses: []string{"Active", "Archived", "Superseded"}},
+	}
+}
+
+// Fields returns the ordered, full frontmatter schema for the collection: the
+// required title, type, status, created, and updated columns plus the optional
+// governs and related reference columns. It is the single declarative source the
+// scaffolder codegens from, the checker validates against, and the autofixer
+// derives fixability from, so a generated doc cannot fail its own linter.
+func (c DocCollection) Fields() []collections.Field {
+	return []collections.Field{
+		{Name: "title", Type: collections.TypeString, Required: true},
+		{Name: "type", Type: collections.TypeEnum, Required: true, Enum: []string{c.Type}},
+		{Name: "status", Type: collections.TypeEnum, Required: true, Enum: append([]string(nil), c.Statuses...)},
+		{Name: "created", Type: collections.TypeDate, Required: true},
+		{Name: "updated", Type: collections.TypeDate, Required: true},
+		{Name: "governs", Type: collections.TypeRef, Required: false},
+		{Name: "related", Type: collections.TypeRef, Required: false},
 	}
 }
 

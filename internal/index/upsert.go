@@ -30,6 +30,33 @@ func (s *Store) Catalog(ctx context.Context) (map[string]string, error) {
 	return out, rows.Err()
 }
 
+// ChunkVectors returns the stored embedding for each chunk of path, keyed by the
+// chunk content hash, so a reindex can reuse vectors for unchanged chunks instead
+// of re-embedding them. Chunks without a vector (FTS-only) are omitted.
+func (s *Store) ChunkVectors(ctx context.Context, path string) (map[string][]float32, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.chunk_hash, v.vec
+		FROM chunks c JOIN vectors v ON v.chunk_id = c.id
+		WHERE c.path = ?`, path)
+	if err != nil {
+		return nil, fmt.Errorf("read chunk vectors for %s: %w", path, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := map[string][]float32{}
+	for rows.Next() {
+		var hash string
+		var blob []byte
+		if err := rows.Scan(&hash, &blob); err != nil {
+			return nil, fmt.Errorf("scan chunk vector for %s: %w", path, err)
+		}
+		if hash != "" {
+			out[hash] = decodeVec(blob)
+		}
+	}
+	return out, rows.Err()
+}
+
 // Count returns the number of indexed notes and chunks.
 func (s *Store) Count(ctx context.Context) (notes, chunks int, err error) {
 	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM catalog`).Scan(&notes); err != nil {
@@ -77,9 +104,9 @@ func (s *Store) UpsertNote(ctx context.Context, path, hash string, chunks []vaul
 			title = c.Title
 		}
 		res, err := tx.ExecContext(ctx,
-			`INSERT INTO chunks (path, title, tags, heading, ord, body, token_est)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			c.NotePath, c.Title, c.Tags, c.Heading, c.Ord, c.Body, c.TokenEst)
+			`INSERT INTO chunks (path, title, tags, heading, ord, body, token_est, chunk_hash)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			c.NotePath, c.Title, c.Tags, c.Heading, c.Ord, c.Body, c.TokenEst, vault.ContentHash([]byte(vault.ChunkEmbedText(c))))
 		if err != nil {
 			return fmt.Errorf("insert chunk for %s: %w", path, err)
 		}

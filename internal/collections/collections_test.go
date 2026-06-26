@@ -107,6 +107,15 @@ func TestValidateTypes(t *testing.T) {
 	require.Error(t, Validate(map[string]any{"t": []any{"a", 2}}, []Field{{Name: "t", Type: TypeTags}}))
 }
 
+func TestValidateRefAcceptsStringOrList(t *testing.T) {
+	fields := []Field{{Name: "related", Type: TypeRef}}
+	require.NoError(t, Validate(map[string]any{"related": "docs/x.md"}, fields))                     // single ref
+	require.NoError(t, Validate(map[string]any{"related": []any{"docs/x.md", "docs/y.md"}}, fields)) // list of refs
+	require.NoError(t, Validate(map[string]any{"related": []string{"docs/x.md"}}, fields))           // []string list
+	require.Error(t, Validate(map[string]any{"related": []any{"docs/x.md", 7}}, fields))             // non-string element
+	require.Error(t, Validate(map[string]any{"related": 7}, fields))                                 // not a ref at all
+}
+
 func TestValidateIgnoresUnknownFields(t *testing.T) {
 	// extra frontmatter keys not in the schema are allowed.
 	fields := []Field{{Name: "company", Type: TypeString, Required: true}}

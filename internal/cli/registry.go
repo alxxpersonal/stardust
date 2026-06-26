@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/alxxpersonal/stardust/internal/clierr"
 	"github.com/alxxpersonal/stardust/internal/manifest"
 )
 
@@ -62,7 +63,7 @@ func newRegistryStaleCmd() *cobra.Command {
 				emitMarkdown(cmd.OutOrStdout(), res.Markdown, output)
 			}
 			if exitCode && len(res.Docs) > 0 {
-				return fmt.Errorf("%d stale docs", len(res.Docs))
+				return clierr.New(fmt.Sprintf("%d stale docs", len(res.Docs)), "stardust registry")
 			}
 			return nil
 		},

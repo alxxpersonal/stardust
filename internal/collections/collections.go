@@ -160,9 +160,13 @@ func Validate(frontmatter map[string]any, fields []Field) (err error) {
 // checkType verifies that v is a plausible value for the field's declared type.
 func checkType(f Field, v any) error {
 	switch f.Type {
-	case TypeString, TypeRef:
+	case TypeString:
 		if _, ok := v.(string); !ok {
 			return fmt.Errorf("field %s must be a string", f.Name)
+		}
+	case TypeRef:
+		if err := checkRef(f, v); err != nil {
+			return err
 		}
 	case TypeEnum:
 		if _, ok := v.(string); !ok {
@@ -186,6 +190,27 @@ func checkType(f Field, v any) error {
 		}
 	}
 	return nil
+}
+
+// checkRef verifies that v is a reference: a single target string or a list of
+// target strings, matching how related and governs surface from YAML
+// frontmatter (commonly a list, occasionally a lone scalar).
+func checkRef(f Field, v any) error {
+	switch list := v.(type) {
+	case string:
+		return nil
+	case []any:
+		for _, item := range list {
+			if _, ok := item.(string); !ok {
+				return fmt.Errorf("field %s must be a string or list of strings", f.Name)
+			}
+		}
+		return nil
+	case []string:
+		return nil
+	default:
+		return fmt.Errorf("field %s must be a string or list of strings", f.Name)
+	}
 }
 
 // checkEnum verifies that v (a string) is a member of the field's Enum set.

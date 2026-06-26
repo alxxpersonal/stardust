@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/alxxpersonal/stardust/internal/agentsync"
+	"github.com/alxxpersonal/stardust/internal/collections"
+	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/gitx"
 	"github.com/alxxpersonal/stardust/internal/vault"
 )
@@ -100,25 +102,80 @@ func checkDocFile(root, rel, docType string) []ConventionIssue {
 		return issues
 	}
 	fm := note.Frontmatter
-	for _, field := range []string{"title", "type", "status", "created", "updated"} {
-		if _, ok := fm[field]; !ok {
-			issues = append(issues, ConventionIssue{Severity: "error", Kind: "missing-doc-field", Path: rel, Detail: field + " is required"})
-		}
-	}
-	if got := fmString(fm, "type"); got != "" && got != docType {
-		issues = append(issues, ConventionIssue{Severity: "error", Kind: "bad-doc-type", Path: rel, Detail: fmt.Sprintf("type %q does not match %q", got, docType)})
-	}
-	status := fmString(fm, "status")
-	if status != "" && !DocStatusAllowed(docType, status) {
-		issues = append(issues, ConventionIssue{Severity: "error", Kind: "bad-doc-status", Path: rel, Detail: fmt.Sprintf("status %q is not allowed for %s", status, docType)})
+	if fields, ok := DocFields(root, docType); ok {
+		issues = append(issues, checkDocFieldsSchema(rel, docType, fm, fields)...)
 	}
 	issues = append(issues, checkRelated(root, rel, fm)...)
 	governsIssues, matched := checkGoverns(root, rel, fm)
 	issues = append(issues, governsIssues...)
-	if status == "Implemented" && len(matched) > 0 {
+	if fmString(fm, "status") == "Implemented" && len(matched) > 0 {
 		issues = append(issues, checkStale(root, rel, matched)...)
 	}
+	issues = append(issues, checkDrift(root, rel, note)...)
 	return issues
+}
+
+// DocFields returns the frontmatter schema the checker enforces for a doc of the
+// given type. It prefers the committed .stardust/collections/<name>/config.toml
+// when present, falling back to the built-in default for the collection, so an
+// un-scaffolded repo still validates. ok is false for an unknown doc type.
+func DocFields(root, docType string) ([]collections.Field, bool) {
+	dc, ok := defaultDocCollectionFor(docType)
+	if !ok {
+		return nil, false
+	}
+	collectionsDir := filepath.Join(root, config.DirName, "collections")
+	cfgPath := filepath.Join(collectionsDir, dc.Name, "config.toml")
+	if _, err := os.Stat(cfgPath); err == nil {
+		if col, err := collections.LoadOne(collectionsDir, dc.Name); err == nil {
+			return col.Cfg.Fields, true
+		}
+	}
+	return dc.Fields(), true
+}
+
+// defaultDocCollectionFor returns the built-in DocCollection for a singular doc
+// type ("spec", "plan", "adr", "research").
+func defaultDocCollectionFor(docType string) (DocCollection, bool) {
+	for _, c := range DefaultDocCollections() {
+		if c.Type == docType {
+			return c, true
+		}
+	}
+	return DocCollection{}, false
+}
+
+// checkDocFieldsSchema validates a doc's frontmatter against its collection
+// schema via collections.Validate, one field at a time so every violation is
+// reported. A missing required field is missing-doc-field; an invalid type or
+// status keeps its dedicated kind; any other validation failure is bad-doc-field.
+func checkDocFieldsSchema(rel, docType string, fm map[string]any, fields []collections.Field) []ConventionIssue {
+	var issues []ConventionIssue
+	for _, f := range fields {
+		if v, present := fm[f.Name]; !present || v == nil {
+			if f.Required {
+				issues = append(issues, ConventionIssue{Severity: "error", Kind: "missing-doc-field", Path: rel, Detail: f.Name + " is required"})
+			}
+			continue
+		}
+		if err := collections.Validate(fm, []collections.Field{f}); err != nil {
+			issues = append(issues, fieldViolation(rel, docType, f, fm, err))
+		}
+	}
+	return issues
+}
+
+// fieldViolation maps a single-field validation failure to a ConventionIssue,
+// preserving the dedicated type and status kinds and their detail wording.
+func fieldViolation(rel, docType string, f collections.Field, fm map[string]any, err error) ConventionIssue {
+	switch f.Name {
+	case "type":
+		return ConventionIssue{Severity: "error", Kind: "bad-doc-type", Path: rel, Detail: fmt.Sprintf("type %q does not match %q", fmString(fm, "type"), docType)}
+	case "status":
+		return ConventionIssue{Severity: "error", Kind: "bad-doc-status", Path: rel, Detail: fmt.Sprintf("status %q is not allowed for %s", fmString(fm, "status"), docType)}
+	default:
+		return ConventionIssue{Severity: "error", Kind: "bad-doc-field", Path: rel, Detail: strings.TrimPrefix(err.Error(), "validation: ")}
+	}
 }
 
 func checkRelated(root, rel string, fm map[string]any) []ConventionIssue {
@@ -177,6 +234,48 @@ func checkStale(root, rel string, matched []string) []ConventionIssue {
 		return nil
 	}
 	return []ConventionIssue{{Severity: "warn", Kind: "stale-governed-doc", Path: rel, Detail: fmt.Sprintf("%d governed code commit(s) since doc update", count)}}
+}
+
+// checkDrift flags a doc whose referenced code has moved since the doc was last
+// committed. The bindings are the doc-to-code references from ADR 0015 (related:
+// targets and inline code-path spans that resolve to a non-markdown repo file),
+// so unlike checkStale this is ungated by status: an ADR or research note that
+// points at moved code is stale regardless of an Implemented marker it never
+// carries. Each moved file yields one drift warning carrying its own commit
+// count, phrased as a review prompt so it never reads as a hard error.
+func checkDrift(root, rel string, note vault.Note) []ConventionIssue {
+	refs := vault.CodeRefs(root, note)
+	if len(refs) == 0 {
+		return nil
+	}
+	ctx := context.Background()
+	docCommit, err := gitx.LastCommit(ctx, root, rel)
+	if err != nil || docCommit == "" {
+		return nil
+	}
+	var issues []ConventionIssue
+	for _, ref := range refs {
+		count, err := gitx.CommitCountSince(ctx, root, docCommit, ref)
+		if err != nil || count == 0 {
+			continue
+		}
+		issues = append(issues, ConventionIssue{
+			Severity: "warn",
+			Kind:     "drift",
+			Path:     rel,
+			Detail:   fmt.Sprintf("references `%s`, which moved %s since this doc was last touched; review", ref, commitNoun(count)),
+		})
+	}
+	return issues
+}
+
+// commitNoun renders a commit count with a singular or plural noun, e.g.
+// "1 commit" or "3 commits", for drift review prompts.
+func commitNoun(n int) string {
+	if n == 1 {
+		return "1 commit"
+	}
+	return fmt.Sprintf("%d commits", n)
 }
 
 // DocTypeForPath returns the convention doc type ("spec", "plan", "adr",

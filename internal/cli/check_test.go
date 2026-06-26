@@ -48,6 +48,40 @@ func TestCheckFixRewritesBadType(t *testing.T) {
 	require.Contains(t, string(fixed), "type: spec")
 }
 
+func TestCheckCIRatchetExit(t *testing.T) {
+	root := t.TempDir()
+	_, err := scaffoldVault(t.Context(), root, "off", false)
+	require.NoError(t, err)
+	t.Setenv("STARDUST_VAULT", root)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "specs", "2026-06-22-1000-one.md"), []byte("---\ntitle: One\ntype: spec\nstatus: Weird\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# One\n"), 0o644))
+
+	run := func(args ...string) (string, error) {
+		var out bytes.Buffer
+		cmd := newRootCmd()
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		return out.String(), err
+	}
+	defer func() { _, _ = run() }()
+
+	// snapshot the existing backlog, then the ratchet adopts green.
+	_, err = run("check", "--update-baseline", "--output", "plain")
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(root, ".stardust", "baseline.json"))
+	_, err = run("check", "--ci", "--output", "plain")
+	require.NoError(t, err)
+
+	// a brand-new error fails the gate and names exactly the new issue.
+	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "specs", "2026-06-22-1000-two.md"), []byte("---\ntitle: Two\ntype: spec\nstatus: AlsoWeird\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Two\n"), 0o644))
+	out, err := run("check", "--ci", "--output", "plain")
+	require.Error(t, err)
+	require.Contains(t, out, "bad-doc-status")
+	require.Contains(t, out, "2026-06-22-1000-two.md")
+}
+
 func TestCheckFixThenStrictPasses(t *testing.T) {
 	root := t.TempDir()
 	_, err := scaffoldVault(t.Context(), root, "off", false)

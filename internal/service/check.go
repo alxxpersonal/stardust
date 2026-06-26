@@ -61,7 +61,7 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 			}
 			issues = append(issues, Issue{Severity: sev, Kind: pr.Kind, Path: rel, Detail: pr.Detail})
 		}
-		key := vault.NormalizeLink(rel)
+		key := vault.CollectionKey(rel)
 		nameToPaths[key] = append(nameToPaths[key], rel)
 	}
 	for name, ps := range nameToPaths {

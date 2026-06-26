@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/alxxpersonal/stardust/internal/clierr"
 	"github.com/alxxpersonal/stardust/internal/gitx"
 	"github.com/alxxpersonal/stardust/internal/hooks"
 )
@@ -25,7 +26,7 @@ func newHooksCmd() *cobra.Command {
 				return err
 			}
 			if !gitx.IsRepo(cmd.Context(), vc.Layout.Root) {
-				return fmt.Errorf("hooks: %s is not a git repository", vc.Layout.Root)
+				return clierr.New(vc.Layout.Root+" is not a git repository", "git init")
 			}
 			res, err := hooks.Install(cmd.Context(), vc.Layout.Root, vc.Layout.Hooks(), check)
 			if err != nil {

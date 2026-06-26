@@ -56,6 +56,58 @@ func LastCommit(ctx context.Context, repoRoot string, paths ...string) (string, 
 	return sha, nil
 }
 
+// FirstCommitDate returns the YYYY-MM-DD date of the commit that first added
+// path, following renames. It returns an empty string when path is untracked or
+// repoRoot is not a git repository.
+func FirstCommitDate(ctx context.Context, repoRoot, path string) (string, error) {
+	if !hasHead(ctx, repoRoot) {
+		return "", nil
+	}
+	out, err := run(ctx, repoRoot, "log", "--diff-filter=A", "--follow", "--format=%ad", "--date=short", "--", path)
+	if err != nil {
+		return "", fmt.Errorf("first commit date %s: %w", path, err)
+	}
+	return lastLine(out), nil
+}
+
+// LastCommitDate returns the YYYY-MM-DD date of the most recent commit touching
+// paths. It returns an empty string when paths are untracked or repoRoot is not
+// a git repository.
+func LastCommitDate(ctx context.Context, repoRoot string, paths ...string) (string, error) {
+	if !hasHead(ctx, repoRoot) {
+		return "", nil
+	}
+	args := []string{"log", "-1", "--format=%ad", "--date=short", "--"}
+	args = append(args, paths...)
+	out, err := run(ctx, repoRoot, args...)
+	if err != nil {
+		return "", fmt.Errorf("last commit date: %w", err)
+	}
+	return strings.TrimSpace(out), nil
+}
+
+// Move renames a tracked file from oldPath to newPath via git mv, preserving
+// history. Both paths are relative to repoRoot.
+func Move(ctx context.Context, repoRoot, oldPath, newPath string) error {
+	if _, err := run(ctx, repoRoot, "mv", oldPath, newPath); err != nil {
+		return fmt.Errorf("git mv %s to %s: %w", oldPath, newPath, err)
+	}
+	return nil
+}
+
+// IsTracked reports whether path is tracked in repoRoot's git index.
+func IsTracked(ctx context.Context, repoRoot, path string) bool {
+	_, err := run(ctx, repoRoot, "ls-files", "--error-unmatch", "--", path)
+	return err == nil
+}
+
+// hasHead reports whether repoRoot is a git repository with at least one commit,
+// so history queries do not fail on a non-repo or an unborn branch.
+func hasHead(ctx context.Context, repoRoot string) bool {
+	_, err := run(ctx, repoRoot, "rev-parse", "--verify", "HEAD")
+	return err == nil
+}
+
 // CommitCountSince counts commits since a commit that touched paths. Non-git
 // repos and empty since commits return zero.
 func CommitCountSince(ctx context.Context, repoRoot string, since string, paths ...string) (int, error) {
@@ -136,6 +188,15 @@ func Archive(ctx context.Context, repoRoot, dest string) (string, error) {
 }
 
 // --- Helpers ---
+
+// lastLine returns the trimmed final non-empty line of s, or an empty string.
+func lastLine(s string) string {
+	lines := nonEmptyLines(s)
+	if len(lines) == 0 {
+		return ""
+	}
+	return lines[len(lines)-1]
+}
 
 func nonEmptyLines(s string) []string {
 	if s == "" {

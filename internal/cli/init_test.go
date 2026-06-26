@@ -7,8 +7,28 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/config"
+	"github.com/alxxpersonal/stardust/internal/convention"
 )
+
+// TestDocCollectionConfigCodegensAllFields asserts the scaffolder codegens every
+// schema field declared by Fields(), and that the emitted TOML round-trips
+// through collections.LoadOne back to the same field set.
+func TestDocCollectionConfigCodegensAllFields(t *testing.T) {
+	dir := t.TempDir()
+	for _, c := range convention.DefaultDocCollections() {
+		cdir := filepath.Join(dir, c.Name)
+		require.NoError(t, os.MkdirAll(cdir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(cdir, "config.toml"), []byte(docCollectionConfig(c)), 0o644))
+
+		col, err := collections.LoadOne(dir, c.Name)
+		require.NoErrorf(t, err, "LoadOne(%s)", c.Name)
+		require.Equal(t, c.Path, col.Cfg.Path)
+		require.Equal(t, c.Description, col.Cfg.Description)
+		require.Equal(t, c.Fields(), col.Cfg.Fields)
+	}
+}
 
 // TestInitDocsScaffold runs `init --docs` in a temp vault and asserts the four
 // docs collection configs are written under .stardust/collections/.

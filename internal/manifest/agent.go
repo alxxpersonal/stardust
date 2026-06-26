@@ -14,6 +14,7 @@ type AgentManifestInput struct {
 	IndexPath    string
 	ActivePlans  []RegistryRecord
 	StaleDocs    []StaleDoc
+	DriftDocs    []DriftDoc
 }
 
 // StaleDoc is one stale implemented doc in the boot manifest, carrying enough
@@ -24,6 +25,22 @@ type StaleDoc struct {
 	Path           string
 	ChangedCommits int
 	Matched        []string
+}
+
+// DriftBinding is one moved code file a doc references, with the commit count to
+// it since the doc's last commit.
+type DriftBinding struct {
+	File           string
+	ChangedCommits int
+}
+
+// DriftDoc is one doc that references moved code through a related: or inline
+// path binding (ungated by status), with the per-file commit counts, rendered in
+// the boot manifest so an agent sees which docs trail their referenced code.
+type DriftDoc struct {
+	Title    string
+	Path     string
+	Bindings []DriftBinding
 }
 
 // WriteAgentManifest writes the dynamic agent boot manifest.
@@ -66,6 +83,15 @@ func renderAgentManifest(input AgentManifestInput) string {
 		}
 	}
 
+	b.WriteString("\n## Docs referencing moved code\n\n")
+	if len(input.DriftDocs) == 0 {
+		b.WriteString("- None.\n")
+	} else {
+		for _, doc := range input.DriftDocs {
+			fmt.Fprintf(&b, "- %s `%s` references %s; review\n", doc.Title, doc.Path, driftBindingSummary(doc.Bindings))
+		}
+	}
+
 	b.WriteString("\n## Core conventions\n\n")
 	b.WriteString("- Files are source of truth; indexes and registries are derived.\n")
 	b.WriteString("- Docs use YAML frontmatter with type, status, related, and governs fields.\n")
@@ -102,6 +128,31 @@ func matchedSummary(matched []string) string {
 		quoted[i] = "`" + m + "`"
 	}
 	out := strings.Join(quoted, ", ")
+	if extra > 0 {
+		out = fmt.Sprintf("%s +%d more", out, extra)
+	}
+	return out
+}
+
+// driftBindingSummary renders the moved code files a doc references, each with its
+// commit count, capping at the first three with a "+N more" suffix so the line
+// stays within budget regardless of how many files a doc binds.
+func driftBindingSummary(bindings []DriftBinding) string {
+	if len(bindings) == 0 {
+		return "moved code"
+	}
+	const cap = 3
+	shown := bindings
+	extra := 0
+	if len(bindings) > cap {
+		shown = bindings[:cap]
+		extra = len(bindings) - cap
+	}
+	parts := make([]string, len(shown))
+	for i, bind := range shown {
+		parts[i] = fmt.Sprintf("`%s` (%s)", bind.File, commitCount(bind.ChangedCommits))
+	}
+	out := strings.Join(parts, ", ")
 	if extra > 0 {
 		out = fmt.Sprintf("%s +%d more", out, extra)
 	}
