@@ -1,10 +1,10 @@
 {
   "name": "stardust",
-  "version": "0.1.0",
-  "description": "Search your local markdown vault from Claude Code: hybrid keyword + semantic retrieval over your notes, served by the stardust MCP server.",
+  "version": "0.3.0",
+  "description": "Make stardust the context spine of a Claude Code session: wire the stardust MCP server, inject the current plans, specs, and verification state at session start, route context through hybrid keyword and semantic retrieval, arm maintenance and digest crons, and route the docs write side through authoring commands (/stardust:spec, /stardust:plan, /stardust:doc, /stardust:adr) that delegate to the canonical spec-forge and doc-forge skills. Works for an Obsidian vault and a docs-convention code repo.",
   "author": { "name": "alxxpersonal" },
   "homepage": "https://github.com/alxxpersonal/stardust",
   "repository": "https://github.com/alxxpersonal/stardust",
   "license": "MIT",
-  "keywords": ["markdown", "search", "rag", "notes", "mcp", "obsidian"]
+  "keywords": ["markdown", "search", "rag", "notes", "mcp", "obsidian", "context", "agent", "workflow", "claude-code", "hooks", "cron"]
 }

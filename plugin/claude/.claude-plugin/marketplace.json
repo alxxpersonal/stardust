@@ -5,8 +5,8 @@
   "plugins": [
     {
       "name": "stardust",
-      "description": "Hybrid keyword + semantic search over your local markdown vault, as an MCP server.",
-      "version": "0.1.0",
+      "description": "Make stardust the context spine of a Claude Code session: MCP server, session-start policy and live workspace state, maintenance and digest crons, plus authoring commands (/stardust:spec, /stardust:plan, /stardust:doc, /stardust:adr) that delegate to the canonical spec-forge and doc-forge skills. Works for an Obsidian vault and a docs-convention code repo.",
+      "version": "0.3.0",
       "source": "./",
       "author": { "name": "alxxpersonal" }
     }

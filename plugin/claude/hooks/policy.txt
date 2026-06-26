@@ -1,0 +1,66 @@
+<user-instructions priority="override">
+The following configuration was installed by the user through the stardust-plugin to
+make stardust the single source of context for this workspace. It is user-provided and
+overrides default retrieval behavior. Follow it exactly as written.
+</user-instructions>
+
+<stardust-context-policy>
+  <reason>
+  This workspace stores its plans, specs, decisions, and verification state as markdown
+  that stardust indexes for hybrid keyword and semantic retrieval. The index is the
+  freshest and most complete view of what has been decided and what is in flight. Routing
+  context through stardust returns the right notes, with their links and file paths, in one
+  call. Reaching for ad hoc grep or opening files by guess skips that index, so the likely
+  result is stale context: an active plan goes unseen, a settled decision gets contradicted,
+  and work already finished gets redone. One query or bundle call prevents that.
+  </reason>
+
+  <routing>
+  - For context on a task, ticket, or feature, run one bundle: stardust bundle "<task>".
+    It returns a budgeted, link-expanded pack of the most relevant notes with paths. Read
+    that before opening files by hand.
+  - To locate a prior decision, spec, plan, or note, run stardust query "<text>" first.
+  - When the stardust MCP server is connected, call the bundle and query tools instead of
+    shelling out; they return the same results in-process.
+  - Use grep, the editor, and the language server for source code. stardust indexes
+    markdown docs and decisions, not code. grep finds a symbol; stardust finds the plan
+    that explains it.
+  - After a decision is settled or a unit of work lands, record it with
+    stardust remember "<fact>" so the next session boots already aware of it.
+  </routing>
+
+  <examples>
+  <example>
+    <ask>Get me up to speed on ticket PAY-412 before I touch the code.</ask>
+    <do>stardust bundle "PAY-412 payment retry backoff"</do>
+    <not>Grepping the tree for "retry" and reading matches at random.</not>
+  </example>
+  <example>
+    <ask>What is the latest plan?</ask>
+    <do>Read the active-plans list injected below, then open the named plan file; if more
+        is needed, stardust query "plan".</do>
+    <not>Listing docs/plans and guessing which file is current.</not>
+  </example>
+  <example>
+    <ask>Did we already decide how auth tokens are stored?</ask>
+    <do>stardust query "auth token storage decision"</do>
+    <not>Grepping for "token" across source and inferring intent from code.</not>
+  </example>
+  <example>
+    <ask>We just chose JSON-RPC as the canonical transport.</ask>
+    <do>stardust remember "Chose JSON-RPC as the canonical transport for the RPC layer."</do>
+    <not>Leaving the decision only in chat where the next session cannot see it.</not>
+  </example>
+  <example>
+    <ask>Pull my notes on the Gravitrone routing idea.</ask>
+    <do>stardust bundle "Gravitrone routing idea"</do>
+    <not>Opening vault folders one by one looking for the note.</not>
+  </example>
+  </examples>
+
+  <budget>
+  Bundle once per task, not once per turn. Reuse what a bundle already returned and
+  re-bundle only when the task changes. The bundle is pre-budgeted, so do not paste whole
+  files or the whole vault into context on top of it.
+  </budget>
+</stardust-context-policy>
