@@ -1,32 +1,45 @@
 package tui
 
 import (
-	"fmt"
-	"strings"
-
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
-// Tab indices.
+// --- Tab Constants ---
+
 const (
-	tabSearch = iota
-	tabStatus
-	tabGraph
-	tabCount
+	TabSearch = 0
+	TabBrowse = 1
+	TabGraph  = 2
+	TabDrift  = 3
+	TabStatus = 4
 )
 
-var tabNames = []string{"Search", "Status", "Graph"}
+var tabNames = []string{"Search", "Browse", "Graph", "Drift", "Status"}
 
-// renderTabBar renders the tab strip with the active tab highlighted.
-func renderTabBar(active int) string {
-	parts := make([]string, len(tabNames))
+// TabModel is the interface that each tab must implement.
+type TabModel interface {
+	Init() tea.Cmd
+	Update(msg tea.Msg) (TabModel, tea.Cmd)
+	View(width, height int) string
+	Hints() []components.HintItem
+	Focused() bool
+	StatusLine() string
+	HeaderLabel() string
+}
+
+// renderTabBar renders the tab bar with the active tab highlighted.
+func renderTabBar(activeTab int, width int) string {
+	segments := make([]string, 0, len(tabNames))
 	for i, name := range tabNames {
-		label := fmt.Sprintf(" %d %s ", i+1, name)
-		if i == active {
-			parts[i] = lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Render(label)
+		if i == activeTab {
+			segments = append(segments, TabActiveStyle.Render(name))
 		} else {
-			parts[i] = mutedStyle.Render(label)
+			segments = append(segments, TabInactiveStyle.Render(name))
 		}
 	}
-	return strings.Join(parts, " ")
+	bar := lipgloss.JoinHorizontal(lipgloss.Top, segments...)
+	return centerBlockUniform(bar, width)
 }

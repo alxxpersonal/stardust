@@ -15,7 +15,7 @@ import (
 func TestBundleAssembles(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
-	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), ftsOnlyConfig()))
 	write := func(name, content string) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o644))
 	}
@@ -45,7 +45,7 @@ func TestBundleAssembles(t *testing.T) {
 func TestBundleProvenance(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
-	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), ftsOnlyConfig()))
 	write := func(name, content string) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o644))
 	}
@@ -165,4 +165,10 @@ func gitInitVaultBare(t *testing.T) string {
 	gitRun(t, root, "config", "user.name", "t")
 	gitRun(t, root, "config", "commit.gpgsign", "false")
 	return root
+}
+
+func ftsOnlyConfig() config.Config {
+	cfg := config.Default()
+	cfg.OllamaURL = "http://127.0.0.1:0"
+	return cfg
 }

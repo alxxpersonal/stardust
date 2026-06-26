@@ -1,159 +1,315 @@
 package tui
 
 import (
-	"image/color"
+	"strings"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/alxxpersonal/stardust/internal/tui/anim"
+	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
-// App is the root TUI model. It owns the tabs and routes messages to the active
-// one, with a few global keys (tab cycling, quit) handled up front.
+// --- App Model ---
+
+// App is the root TUI model.
 type App struct {
-	be     *backend
-	width  int
-	height int
-	active int
-	frame  int
-	search searchTab
-	status statusTab
-	graph  graphTab
+	be        *backend
+	width     int
+	height    int
+	activeTab int
+	frame     int
+
+	searchTab SearchTab
+	browseTab BrowseTab
+	graphTab  GraphTab
+	driftTab  DriftTab
+	statusTab StatusTab
 }
 
-// newApp builds the root model and its tabs over a shared backend.
-func newApp(be *backend) *App {
-	return &App{
-		be:     be,
-		search: newSearchTab(be),
-		status: newStatusTab(be),
-		graph:  newGraphTab(be),
+// newApp creates a new App model backed by the shared service backend.
+func newApp(be *backend) App {
+	app := App{
+		be:        be,
+		activeTab: TabSearch,
 	}
+	app.buildTabs(be)
+	return app
 }
 
-// Init starts every tab and the animation ticker.
-func (a *App) Init() tea.Cmd {
-	return tea.Batch(a.search.Init(), a.status.Init(), a.graph.Init(), animTick())
+// applySize fans the current width and height out to every tab.
+func (a *App) applySize() {
+	a.searchTab.Resize(a.width, a.height)
+	a.browseTab.Resize(a.width, a.height)
+	a.graphTab.Resize(a.width, a.height)
+	a.driftTab.Resize(a.width, a.height)
+	a.statusTab.Resize(a.width, a.height)
 }
 
-// Update handles global keys and animation, then delegates to the active tab.
-// Async search/spinner messages always route to the search tab so a tab switch
-// mid-search does not strand them.
-func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch m := msg.(type) {
-	case tickMsg:
-		a.frame++
-		return a, animTick()
+func (a *App) buildTabs(be *backend) {
+	a.searchTab = NewSearchTab(be)
+	a.browseTab = NewBrowseTab(be)
+	a.graphTab = NewGraphTab(be)
+	a.driftTab = NewDriftTab(be)
+	a.statusTab = NewStatusTab(be)
+}
+
+// Init implements tea.Model.
+func (a App) Init() tea.Cmd {
+	return tea.Batch(
+		anim.FlameTick(),
+		a.searchTab.Init(),
+		a.browseTab.Init(),
+		a.graphTab.Init(),
+		a.driftTab.Init(),
+		a.statusTab.Init(),
+	)
+}
+
+// Update implements tea.Model.
+func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		a.width = m.Width
-		a.height = m.Height
+		a.width = msg.Width
+		a.height = msg.Height
+		a.applySize()
 		return a, nil
-	case searchDoneMsg, spinner.TickMsg:
-		var cmd tea.Cmd
-		a.search, cmd = a.search.Update(msg)
-		return a, cmd
+
 	case tea.KeyPressMsg:
-		switch m.String() {
-		case "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
-		case "tab":
-			a.active = (a.active + 1) % tabCount
+		}
+
+		switch msg.String() {
+		case "left":
+			if a.activeTab > 0 {
+				a.activeTab--
+			}
 			return a, nil
-		case "shift+tab":
-			a.active = (a.active + tabCount - 1) % tabCount
+		case "right":
+			if a.activeTab < len(tabNames)-1 {
+				a.activeTab++
+			}
 			return a, nil
 		}
-		// digits and q drive tab switching / quit only off the search tab, where
-		// they would otherwise be swallowed as query text
-		if a.active != tabSearch {
-			switch m.String() {
+
+		if !a.activeTabModel().Focused() {
+			switch msg.String() {
 			case "1":
-				a.active = tabSearch
+				a.activeTab = TabSearch
 				return a, nil
 			case "2":
-				a.active = tabStatus
+				a.activeTab = TabBrowse
 				return a, nil
 			case "3":
-				a.active = tabGraph
+				a.activeTab = TabGraph
 				return a, nil
-			case "q":
-				return a, tea.Quit
+			case "4":
+				a.activeTab = TabDrift
+				return a, nil
+			case "5":
+				a.activeTab = TabStatus
+				return a, nil
 			}
 		}
 	}
-	return a.delegate(msg)
+
+	switch msg.(type) {
+	case anim.FlameTickMsg:
+		a.frame++
+		a.syncFrame()
+		return a, anim.FlameTick()
+	case searchDoneMsg, spinner.TickMsg:
+		updated, cmd := a.searchTab.Update(msg)
+		a.searchTab = updated.(SearchTab)
+		return a, cmd
+	case collectionsLoadedMsg, recordsLoadedMsg, recordLoadedMsg:
+		updated, cmd := a.browseTab.Update(msg)
+		a.browseTab = updated.(BrowseTab)
+		return a, cmd
+	case graphLoadedMsg:
+		updated, cmd := a.graphTab.Update(msg)
+		a.graphTab = updated.(GraphTab)
+		return a, cmd
+	case driftLoadedMsg:
+		updated, cmd := a.driftTab.Update(msg)
+		a.driftTab = updated.(DriftTab)
+		return a, cmd
+	case statusLoadedMsg:
+		updated, cmd := a.statusTab.Update(msg)
+		a.statusTab = updated.(StatusTab)
+		return a, cmd
+	}
+
+	switch a.activeTab {
+	case TabSearch:
+		updated, cmd := a.searchTab.Update(msg)
+		a.searchTab = updated.(SearchTab)
+		return a, cmd
+	case TabBrowse:
+		updated, cmd := a.browseTab.Update(msg)
+		a.browseTab = updated.(BrowseTab)
+		return a, cmd
+	case TabGraph:
+		updated, cmd := a.graphTab.Update(msg)
+		a.graphTab = updated.(GraphTab)
+		return a, cmd
+	case TabDrift:
+		updated, cmd := a.driftTab.Update(msg)
+		a.driftTab = updated.(DriftTab)
+		return a, cmd
+	case TabStatus:
+		updated, cmd := a.statusTab.Update(msg)
+		a.statusTab = updated.(StatusTab)
+		return a, cmd
+	}
+
+	return a, nil
 }
 
-// delegate forwards a message to the active tab.
-func (a *App) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch a.active {
-	case tabSearch:
-		a.search, cmd = a.search.Update(msg)
-	case tabStatus:
-		a.status, cmd = a.status.Update(msg)
-	case tabGraph:
-		a.graph, cmd = a.graph.Update(msg)
-	}
-	return a, cmd
+func (a *App) syncFrame() {
+	a.searchTab.frame = a.frame
+	a.browseTab.frame = a.frame
+	a.graphTab.frame = a.frame
+	a.driftTab.frame = a.frame
+	a.statusTab.frame = a.frame
 }
 
-// View composes the banner, tab bar, active body, and status bar.
-func (a *App) View() tea.View {
-	width := a.width
-	if width < 40 {
-		width = 80
+// activeTabModel returns the currently active TabModel.
+func (a App) activeTabModel() TabModel {
+	switch a.activeTab {
+	case TabSearch:
+		return a.searchTab
+	case TabBrowse:
+		return a.browseTab
+	case TabGraph:
+		return a.graphTab
+	case TabDrift:
+		return a.driftTab
+	case TabStatus:
+		return a.statusTab
+	default:
+		return a.searchTab
 	}
-	height := a.height
-	if height < 12 {
-		height = 24
-	}
+}
 
-	bodyHeight := height - 7
-	if bodyHeight < 4 {
-		bodyHeight = 4
-	}
-
-	var body string
-	switch a.active {
-	case tabSearch:
-		body = a.search.View(width, bodyHeight)
-	case tabStatus:
-		body = a.status.View(width, bodyHeight)
-	case tabGraph:
-		body = a.graph.View(width, bodyHeight)
-	}
-
-	content := lipgloss.JoinVertical(
-		lipgloss.Left,
-		a.renderBanner(),
-		"",
-		renderTabBar(a.active),
-		"",
-		body,
+// View implements tea.Model.
+func (a App) View() tea.View {
+	banner := centerBlockUniform(RenderBannerAnimated(a.frame), a.width)
+	tabBar := renderTabBar(a.activeTab, a.width)
+	statusBar := centerBlockUniform(
+		components.StatusBarFromItems(a.activeTabModel().Hints(), a.width),
+		a.width,
 	)
-	full := lipgloss.JoinVertical(lipgloss.Left, content, "", statusBar(a.hints(), width))
 
-	v := tea.NewView(lipgloss.NewStyle().Padding(0, 1).Render(full))
+	header := ""
+	if label := a.activeTabModel().HeaderLabel(); label != "" {
+		header = centerBlockUniform(promptHeaderBox(label, a.frame, tableWidth(a.width)), a.width) + "\n"
+	}
+
+	top := banner + "\n" + tabBar + "\n" + header
+	topLines := countViewLines(top)
+	statusBarLines := countViewLines(statusBar)
+
+	extraLines := 3
+	if a.activeTabModel().StatusLine() != "" {
+		extraLines++
+	}
+	contentHeight := a.height - topLines - statusBarLines - extraLines
+	if contentHeight < 3 {
+		contentHeight = 3
+	}
+
+	var content string
+	switch a.activeTab {
+	case TabSearch:
+		content = a.searchTab.View(a.width, contentHeight)
+	case TabBrowse:
+		content = a.browseTab.View(a.width, contentHeight)
+	case TabGraph:
+		content = a.graphTab.View(a.width, contentHeight)
+	case TabDrift:
+		content = a.driftTab.View(a.width, contentHeight)
+	case TabStatus:
+		content = a.statusTab.View(a.width, contentHeight)
+	}
+
+	tabStatusLine := a.activeTabModel().StatusLine()
+	statusLineRendered := ""
+	if tabStatusLine != "" {
+		statusLineRendered = "\n" + centerBlockUniform(tabStatusLine, a.width)
+	}
+
+	v := tea.NewView(top + content + statusLineRendered + "\n" + statusBar)
 	v.AltScreen = true
 	return v
 }
 
-// renderBanner draws the wordmark with a slow shimmer between the palette colors.
-func (a *App) renderBanner() string {
-	colors := []color.Color{colorPrimary, colorSecondary, colorAccent}
-	c := colors[(a.frame/4)%len(colors)]
-	mark := lipgloss.NewStyle().Foreground(c).Bold(true).Render("✦ STARDUST")
-	return mark + "  " + mutedStyle.Render("context engine")
+// --- Helpers ---
+
+func tableWidth(width int) int {
+	target := (width * 80) / 100
+	if target < 100 {
+		target = 100
+	}
+	if target > 180 {
+		target = 180
+	}
+	return target
 }
 
-// hints returns the status-bar hints for the active tab.
-func (a *App) hints() []string {
-	common := []string{hint("tab", "switch"), hint("1-3", "tabs"), hint("ctrl+c", "quit")}
-	switch a.active {
-	case tabSearch:
-		return append([]string{hint("enter", "search"), hint("↑↓", "select")}, common...)
-	default:
-		return append([]string{hint("r", "refresh")}, common...)
+func centerBlockUniform(s string, width int) string {
+	if width <= 0 {
+		return s
 	}
+	lines := strings.Split(s, "\n")
+	maxWidth := 0
+	for _, line := range lines {
+		w := lipgloss.Width(line)
+		if w > maxWidth {
+			maxWidth = w
+		}
+	}
+	if maxWidth <= 0 || maxWidth >= width {
+		return s
+	}
+	pad := (width - maxWidth) / 2
+	if pad <= 0 {
+		return s
+	}
+	prefix := strings.Repeat(" ", pad)
+	for i := range lines {
+		if lines[i] != "" {
+			lines[i] = prefix + lines[i]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func countViewLines(block string) int {
+	if strings.TrimSpace(block) == "" {
+		return 0
+	}
+	return strings.Count(block, "\n") + 1
+}
+
+func centerOverlay(block string, width, height int) string {
+	centered := centerBlockUniform(block, width)
+	pad := height - countViewLines(centered)
+	if pad <= 0 {
+		return centered
+	}
+	top := pad / 2
+	return strings.Repeat("\n", top) + centered + strings.Repeat("\n", pad-top)
+}
+
+func promptHeaderBox(text string, frame, width int) string {
+	a, b, c := anim.AnimatedBorderStops(frame)
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForegroundBlend(a, b, c).
+		Padding(0, 2).
+		Render(lipgloss.NewStyle().Italic(true).Render(anim.Shimmer(text, frame)))
+	return lipgloss.PlaceHorizontal(width, lipgloss.Center, box)
 }
