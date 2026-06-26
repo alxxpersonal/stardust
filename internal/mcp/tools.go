@@ -48,6 +48,16 @@ type memoryResult struct {
 	Result string `json:"result"`
 }
 
+// mountsResult wraps the mounts list so the MCP tool output schema is an object.
+type mountsResult struct {
+	Mounts []service.MountInfo `json:"mounts"`
+}
+
+// collectionsResult wraps the collections list so the MCP tool output schema is an object.
+type collectionsResult struct {
+	Collections []service.CollectionInfo `json:"collections"`
+}
+
 type listRecordsArgs struct {
 	Collection string   `json:"collection" jsonschema:"the collection name to list records from"`
 	Where      []string `json:"where,omitempty" jsonschema:"frontmatter filters as field:op:value, op is one of eq, ne, gt, gte, lt, lte, contains"`
@@ -124,9 +134,9 @@ func registerTools(server *sdkmcp.Server, svc *service.Service, r *router) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "mounts",
 		Description: "List the configured external-source mounts (context-mesh connectors). Returns each mount's name, kind, target command, args, and search tool. Use this to see which external sources a federated query can reach.",
-	}, func(_ context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, []service.MountInfo, error) {
+	}, func(_ context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, mountsResult, error) {
 		ms, err := svc.Mounts()
-		return nil, ms, err
+		return nil, mountsResult{Mounts: ms}, err
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
@@ -167,9 +177,9 @@ func registerTools(server *sdkmcp.Server, svc *service.Service, r *router) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "list_collections",
 		Description: "List the structured collections defined over the vault. A collection is a vault folder paired with a typed schema; each note in it is a record and its frontmatter holds the typed columns. Returns each collection's name, folder, description, schema fields, and live record count.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, []service.CollectionInfo, error) {
+	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, _ struct{}) (*sdkmcp.CallToolResult, collectionsResult, error) {
 		cols, err := svc.ListCollections(ctx)
-		return nil, cols, err
+		return nil, collectionsResult{Collections: cols}, err
 	})
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
