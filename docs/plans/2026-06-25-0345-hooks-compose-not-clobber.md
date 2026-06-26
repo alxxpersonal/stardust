@@ -1,6 +1,6 @@
 ---
 title: Hooks compose-not-clobber - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-06-25
 related:
@@ -34,11 +34,11 @@ Make `hooks.Install` detect an existing hooks chain and append a sentinel block 
 - Test: `internal/hooks/detect_test.go`
 - Produces: `func detect(root string) (mode, targetDir string, err error)` where mode is `owned` or `compose`.
 
-- [ ] Write a table test: `core.hooksPath=.stardust/hooks` -> owned; `=.husky` -> compose/.husky; unset + existing `.git/hooks/post-commit` -> compose/.git/hooks; unset + nothing -> owned/.stardust/hooks.
-- [ ] Run it, confirm fail.
-- [ ] Implement detect: read `git config --get core.hooksPath`; classify per the spec table; for the unset case, stat `.git/hooks/post-commit` and `.git/hooks/post-merge`.
-- [ ] Run; loop to green.
-- [ ] Commit `feat(hooks): detect an existing hook chain`.
+- [x] Write a table test: `core.hooksPath=.stardust/hooks` -> owned; `=.husky` -> compose/.husky; unset + existing `.git/hooks/post-commit` -> compose/.git/hooks; unset + nothing -> owned/.stardust/hooks.
+- [x] Run it, confirm fail.
+- [x] Implement detect: read `git config --get core.hooksPath`; classify per the spec table; for the unset case, stat `.git/hooks/post-commit` and `.git/hooks/post-merge`.
+- [x] Run; loop to green.
+- [x] Commit `feat(hooks): detect an existing hook chain`.
 
 ## Task 2: sentinel-block helpers
 
@@ -46,41 +46,41 @@ Make `hooks.Install` detect an existing hooks chain and append a sentinel block 
 - Test: `internal/hooks/block_test.go`
 - Produces: `injectBlock(path, lines string) error`, `stripBlock(path string) error`, with markers `# >>> stardust >>>` / `# <<< stardust <<<`.
 
-- [ ] Test: inject into a file with user lines keeps them and adds one block; inject twice yields exactly one block; strip removes only the block.
-- [ ] Run, confirm fail.
-- [ ] Implement read-modify-write: create with `#!/bin/sh` if absent, append or replace the block, set 0o755. strip removes the block and collapses blank lines.
-- [ ] Run; loop to green.
-- [ ] Commit `feat(hooks): add idempotent sentinel-block helpers`.
+- [x] Test: inject into a file with user lines keeps them and adds one block; inject twice yields exactly one block; strip removes only the block.
+- [x] Run, confirm fail.
+- [x] Implement read-modify-write: create with `#!/bin/sh` if absent, append or replace the block, set 0o755. strip removes the block and collapses blank lines.
+- [x] Run; loop to green.
+- [x] Commit `feat(hooks): add idempotent sentinel-block helpers`.
 
 ## Task 3: branch Install on the mode
 
 - Modify: `internal/hooks/hooks.go`
 - Test: `internal/hooks/hooks_test.go` (extend)
 
-- [ ] Test: compose mode appends the index/registry block to the target `post-commit` (+ post-merge) and does NOT change `core.hooksPath`; owned mode writes `.stardust/hooks` and sets `core.hooksPath` (current behavior preserved).
-- [ ] Run, confirm fail.
-- [ ] Refactor `Install` to call `detect`, then: owned path = current code; compose path = `injectBlock` the index/registry lines into the target post-commit and post-merge, and the check-mode lines into the target pre-commit, leaving `core.hooksPath` untouched.
-- [ ] Run; loop to green. `go build ./...`, `make lint`.
-- [ ] Commit `feat(hooks): compose into an existing chain instead of seizing core.hooksPath`.
+- [x] Test: compose mode appends the index/registry block to the target `post-commit` (+ post-merge) and does NOT change `core.hooksPath`; owned mode writes `.stardust/hooks` and sets `core.hooksPath` (current behavior preserved).
+- [x] Run, confirm fail.
+- [x] Refactor `Install` to call `detect`, then: owned path = current code; compose path = `injectBlock` the index/registry lines into the target post-commit and post-merge, and the check-mode lines into the target pre-commit, leaving `core.hooksPath` untouched.
+- [x] Run; loop to green. `go build ./...`, `make lint`.
+- [x] Commit `feat(hooks): compose into an existing chain instead of seizing core.hooksPath`.
 
 ## Task 4: surgical Uninstall
 
 - Modify: `internal/hooks/hooks.go`
 - Test: `internal/hooks/hooks_test.go`
 
-- [ ] Test: uninstall on a composed file strips the block but keeps user lines, and only unsets `core.hooksPath` when its value is `.stardust/hooks`.
-- [ ] Run, confirm fail.
-- [ ] Implement: strip the block from any composed target; unset `core.hooksPath` only when stardust owned it.
-- [ ] Run; loop to green.
-- [ ] Commit `fix(hooks): uninstall strips only stardust lines`.
+- [x] Test: uninstall on a composed file strips the block but keeps user lines, and only unsets `core.hooksPath` when its value is `.stardust/hooks`.
+- [x] Run, confirm fail.
+- [x] Implement: strip the block from any composed target; unset `core.hooksPath` only when stardust owned it.
+- [x] Run; loop to green.
+- [x] Commit `fix(hooks): uninstall strips only stardust lines`.
 
 ## Task 5: report the chosen mode
 
 - Modify: `internal/cli/hooks.go`, `internal/cli/init.go`
 
-- [ ] Print `installed commit hooks (owned: .stardust/hooks ...)` or `installed commit hooks (composed into .husky ...)` so the user knows which path was taken.
-- [ ] `go build ./...`, `go test ./...`, `make lint` green.
-- [ ] Commit `feat(hooks): report owned vs composed install mode`.
+- [x] Print `installed commit hooks (owned: .stardust/hooks ...)` or `installed commit hooks (composed into .husky ...)` so the user knows which path was taken.
+- [x] `go build ./...`, `go test ./...`, `make lint` green.
+- [x] Commit `feat(hooks): report owned vs composed install mode`.
 
 ## Verification
 
