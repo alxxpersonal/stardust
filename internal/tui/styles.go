@@ -7,17 +7,19 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/alxxpersonal/stardust/internal/ui"
 )
 
-// Stardust cosmic palette, mirroring internal/render.
+// Stardust cosmic palette, sourced from the shared internal/ui leaf package.
 var (
-	colorPrimary   = lipgloss.Color("#a78bfa")
-	colorSecondary = lipgloss.Color("#c4b5fd")
-	colorAccent    = lipgloss.Color("#f0abfc")
-	colorText      = lipgloss.Color("#e9e7ff")
-	colorMuted     = lipgloss.Color("#7c7ca0")
-	colorBorder    = lipgloss.Color("#4c4c6d")
-	colorBg        = lipgloss.Color("#0a0a12")
+	colorPrimary   = ui.Primary
+	colorSecondary = ui.Secondary
+	colorAccent    = ui.Accent
+	colorText      = ui.Text
+	colorMuted     = ui.Muted
+	colorBorder    = ui.Border
+	colorBg        = ui.Bg
 )
 
 var (

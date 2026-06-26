@@ -10,17 +10,19 @@ import (
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/ansi"
 	"golang.org/x/term"
+
+	"github.com/alxxpersonal/stardust/internal/ui"
 )
 
-// Stardust cosmic/violet palette.
+// Stardust cosmic/violet palette, sourced from the shared internal/ui leaf package.
 const (
-	clrPrimary   = "#a78bfa"
-	clrSecondary = "#c4b5fd"
-	clrAccent    = "#f0abfc"
-	clrText      = "#e9e7ff"
-	clrMuted     = "#7c7ca0"
-	clrBorder    = "#4c4c6d"
-	clrCodeBg    = "#16161e"
+	clrPrimary   = ui.PrimaryHex
+	clrSecondary = ui.SecondaryHex
+	clrAccent    = ui.AccentHex
+	clrText      = ui.TextHex
+	clrMuted     = ui.MutedHex
+	clrBorder    = ui.BorderHex
+	clrCodeBg    = ui.CodeBgHex
 )
 
 // stardustStyle returns the glamour ansi.StyleConfig for the cosmic palette so
@@ -41,7 +43,7 @@ func stardustStyle() ansi.StyleConfig {
 			StylePrimitive: ansi.StylePrimitive{
 				Prefix:          " ",
 				Suffix:          " ",
-				Color:           ptr("#0a0a12"),
+				Color:           ptr(ui.BgHex),
 				BackgroundColor: ptr(clrPrimary),
 				Bold:            ptr(true),
 			},
