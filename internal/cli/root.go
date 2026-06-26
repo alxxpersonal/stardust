@@ -90,6 +90,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.AddCommand(
 		newInitCmd(),
+		newStatusCmd(),
 		newIndexCmd(),
 		newQueryCmd(),
 		newGraphCmd(),

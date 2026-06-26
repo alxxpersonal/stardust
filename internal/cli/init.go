@@ -18,30 +18,60 @@ import (
 
 // newInitCmd scaffolds .stardust/ in the current directory.
 func newInitCmd() *cobra.Command {
-	var docs bool
+	var docs, noDocs bool
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Scaffold .stardust/ in the current vault",
 		Long:  "Creates the .stardust directory, default config, manifest, and an empty index.\nRun it from the vault root.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runInit(cmd, docs)
+			return runInit(cmd, docs, noDocs)
 		},
 	}
 	cmd.Flags().BoolVar(&docs, "docs", false, "scaffold the specs, plans, adr, and research docs collections")
+	cmd.Flags().BoolVar(&noDocs, "no-docs", false, "skip the docs collections even if the directory looks like a code repo")
 	return cmd
 }
 
-func runInit(cmd *cobra.Command, docs bool) error {
+// resolveInitDocs decides whether init scaffolds the docs convention and returns
+// an optional one-line detection notice. An explicit --docs always scaffolds and
+// an explicit --no-docs never does (both silent, --docs wins when both are set);
+// with neither flag set it sniffs dir with convention.DetectKind, scaffolds for a
+// code repo, and returns the kind's description line. A detection error is
+// non-fatal: it defaults to no docs and no line so init never fails on a
+// directory it could merely sniff.
+func resolveInitDocs(cmd *cobra.Command, dir string, docs, noDocs bool) (scaffold bool, line string) {
+	if cmd.Flags().Changed("docs") {
+		return true, ""
+	}
+	if cmd.Flags().Changed("no-docs") {
+		return false, ""
+	}
+	kind, err := convention.DetectKind(dir)
+	if err != nil {
+		return false, ""
+	}
+	return kind.WantsDocs(), kind.Describe()
+}
+
+// runInit resolves the docs-scaffold decision (explicit flags or detection),
+// scaffolds the vault, and reports what it did. With neither --docs nor --no-docs
+// it prints the detected-kind line before the initialised line.
+func runInit(cmd *cobra.Command, docs, noDocs bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get working dir: %w", err)
 	}
-	res, err := scaffoldVault(cmd.Context(), cwd, "off", docs)
+	scaffold, line := resolveInitDocs(cmd, cwd, docs, noDocs)
+
+	out := cmd.OutOrStdout()
+	if line != "" {
+		fmt.Fprintln(out, line)
+	}
+	res, err := scaffoldVault(cmd.Context(), cwd, "off", scaffold)
 	if err != nil {
 		return err
 	}
 
-	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Initialised .stardust/ in %s\n", cwd)
 	if gitx.IsRepo(cmd.Context(), cwd) {
 		if res.Composed() {

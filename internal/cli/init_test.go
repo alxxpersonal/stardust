@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,4 +60,77 @@ func TestInitNoDocs(t *testing.T) {
 
 	_, err := os.Stat(filepath.Join(root, ".stardust", "collections", "specs", "config.toml"))
 	require.True(t, os.IsNotExist(err), "plain init must not scaffold docs collections")
+}
+
+// specsConfigPath is the scaffolded specs collection config under a vault root.
+func specsConfigPath(root string) string {
+	return filepath.Join(root, ".stardust", "collections", "specs", "config.toml")
+}
+
+// TestInitAutoDetectsCodeRepo asserts that with neither flag a go.mod+.git dir
+// is detected as a code repo, scaffolds the docs collections, and prints the
+// detection line.
+func TestInitAutoDetectsCodeRepo(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
+	t.Chdir(root)
+
+	var buf bytes.Buffer
+	cmd := newInitCmd()
+	cmd.SetOut(&buf)
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(specsConfigPath(root))
+	require.NoError(t, err, "code repo auto-detect must scaffold docs collections")
+	require.Contains(t, buf.String(), "detected a code repo")
+}
+
+// TestInitAutoDetectsPlainVault asserts that with neither flag an .obsidian dir
+// is detected as a plain vault, skips the docs collections, and prints the
+// detection line.
+func TestInitAutoDetectsPlainVault(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".obsidian"), 0o755))
+	t.Chdir(root)
+
+	var buf bytes.Buffer
+	cmd := newInitCmd()
+	cmd.SetOut(&buf)
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(specsConfigPath(root))
+	require.True(t, os.IsNotExist(err), "plain vault auto-detect must not scaffold docs collections")
+	require.Contains(t, buf.String(), "detected a plain vault")
+}
+
+// TestInitNoDocsOverridesCodeRepo asserts --no-docs skips the docs collections
+// even when the directory looks like a code repo.
+func TestInitNoDocsOverridesCodeRepo(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--no-docs"})
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(specsConfigPath(root))
+	require.True(t, os.IsNotExist(err), "--no-docs must override the code-repo default")
+}
+
+// TestInitDocsOverridesPlainVault asserts --docs scaffolds the docs collections
+// even when the directory looks like a plain vault.
+func TestInitDocsOverridesPlainVault(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".obsidian"), 0o755))
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--docs"})
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(specsConfigPath(root))
+	require.NoError(t, err, "--docs must override the plain-vault default")
 }
