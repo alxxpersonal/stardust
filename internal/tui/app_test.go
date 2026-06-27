@@ -9,6 +9,7 @@ import (
 	teatest "github.com/charmbracelet/x/exp/teatest/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/service"
 	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
@@ -36,6 +37,36 @@ func TestAppArrowCycle(t *testing.T) {
 	require.Equal(t, TabStatus, got.activeTab)
 }
 
+func TestAppHasSixTabs(t *testing.T) {
+	require.Equal(t, 6, len(tabNames))
+	require.Equal(t, "Settings", tabNames[TabSettings])
+}
+
+func TestAppJumpToSettings(t *testing.T) {
+	app := newApp(nil)
+	app.activeTab = TabStatus // not focused, so digit jumps are live
+	model, _ := app.Update(tea.KeyPressMsg{Code: '6', Text: "6"})
+	got := model.(App)
+	require.Equal(t, TabSettings, got.activeTab)
+}
+
+func TestAppFocusedTabGatesTabSwitching(t *testing.T) {
+	app := newApp(nil)
+	app.activeTab = TabSettings
+	// drive the settings tab into the inline editor so it reports Focused()
+	updated, _ := app.settingsTab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	app.settingsTab = updated.(SettingsTab)
+	require.True(t, app.activeTabModel().Focused())
+
+	model, _ := app.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	got := model.(App)
+	require.Equal(t, TabSettings, got.activeTab) // arrow did not switch tabs
+
+	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	got = model.(App)
+	require.Equal(t, TabSettings, got.activeTab)
+}
+
 func TestAppViewRendersAllTabLabels(t *testing.T) {
 	app := newApp(nil)
 	app.width = 140
@@ -44,22 +75,44 @@ func TestAppViewRendersAllTabLabels(t *testing.T) {
 	for _, name := range tabNames {
 		require.Contains(t, components.SanitizeText(out), name)
 	}
-	require.Contains(t, components.SanitizeText(out), "STARDUST")
+	require.Contains(t, components.SanitizeText(out), "█████████")
+	require.Contains(t, components.SanitizeText(out), "Local-First Markdown Context Engine")
+	require.NotContains(t, components.SanitizeText(out), "STARDUST Local-First Markdown Context Engine")
 }
 
-func TestAppSmokeRendersBannerAndAllFiveTabs(t *testing.T) {
-	tm := teatest.NewTestModel(t, newApp(nil), teatest.WithInitialTermSize(140, 40))
-	for range tabNames[1:] {
-		tm.Send(tea.KeyPressMsg{Code: tea.KeyRight})
-		time.Sleep(20 * time.Millisecond)
-	}
+func TestAppDriftTabRendersSingleHeaders(t *testing.T) {
+	app := newApp(nil)
+	app.width = 140
+	app.height = 40
+	app.activeTab = TabDrift
+	app.driftTab.loaded = true
+	app.driftTab.drift = service.DriftResult{Docs: []service.DriftDoc{
+		{DocPath: "docs/specs/a.md", Title: "Spec A", Type: "spec",
+			Bindings: []service.DriftBinding{{File: "internal/a.go", ChangedCommits: 3}}},
+	}}
+	app.driftTab.stale = service.StaleResult{Docs: []service.GovernedDoc{
+		{DocPath: "docs/plans/b.md", Title: "Plan B", Type: "plan", Status: "Implemented",
+			ChangedCommits: 2, Matched: []string{"internal/b.go"}},
+	}}
+	out := components.SanitizeText(app.View().Content)
+	require.Equal(t, 1, strings.Count(out, "Drifted Docs"))
+	require.Equal(t, 1, strings.Count(out, "Stale Docs"))
+}
+
+func TestAppSmokeRendersBannerAndSettingsTab(t *testing.T) {
+	app := newApp(nil)
+	app.activeTab = TabSettings
+	tm := teatest.NewTestModel(t, app, teatest.WithInitialTermSize(140, 40))
+	time.Sleep(50 * time.Millisecond)
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 	final := tm.FinalModel(t, teatest.WithFinalTimeout(2*time.Second)).(App)
-	require.Equal(t, TabStatus, final.activeTab)
+	require.Equal(t, TabSettings, final.activeTab)
 	out := components.SanitizeText(final.View().Content)
-	require.Contains(t, out, "STARDUST")
+	require.Contains(t, out, "█████████")
+	require.Contains(t, out, "Local-First Markdown Context Engine")
 	for _, name := range tabNames {
 		require.True(t, strings.Contains(out, name), "missing tab label %s", name)
 	}
+	require.Contains(t, out, "Embed model") // settings config box renders
 }

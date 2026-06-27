@@ -108,7 +108,7 @@ func ClampTextWidth(text string, width int) string {
 	return truncateRunes(cleaned, width)
 }
 
-// ClampTextWidthEllipsis truncates text and adds "..." when truncation occurs.
+// ClampTextWidthEllipsis truncates text and adds one ellipsis when needed.
 func ClampTextWidthEllipsis(text string, width int) string {
 	if width <= 0 {
 		return ""
@@ -117,10 +117,10 @@ func ClampTextWidthEllipsis(text string, width int) string {
 	if lipgloss.Width(cleaned) <= width {
 		return cleaned
 	}
-	if width <= 3 {
-		return truncateRunes(cleaned, width)
+	if width == 1 {
+		return "…"
 	}
-	return truncateRunes(cleaned, width-3) + "..."
+	return truncateRunes(cleaned, width-1) + "…"
 }
 
 // ActiveBox renders content inside a highlighted bordered box.

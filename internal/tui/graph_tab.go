@@ -115,11 +115,11 @@ func (t GraphTab) View(width, height int) string {
 
 	top := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		animatedRoundedBox("PAGERANK", t.pageRankBox(leftW, boxHeight), t.frame),
+		animatedRoundedBox("", t.pageRankBox(leftW, boxHeight), t.frame),
 		"  ",
-		animatedRoundedBox("ORPHANS", t.orphansBox(rightW, boxHeight), t.frame),
+		animatedRoundedBox("", t.orphansBox(rightW, boxHeight), t.frame),
 	)
-	broken := animatedDoubleBox("BROKEN LINKS", t.brokenBox(cardW, boxHeight), t.frame)
+	broken := animatedDoubleBox("", t.brokenBox(cardW, boxHeight), t.frame)
 
 	return centerBlockUniform(top+"\n\n"+broken, width)
 }
@@ -150,55 +150,57 @@ func (t GraphTab) pageRankBox(width, height int) string {
 	if len(t.report.PageRank) == 0 {
 		return MutedStyle.Render("none")
 	}
-	rows := make([][]string, 0, len(t.report.PageRank))
+	rows := make([]cleanListRow, 0, len(t.report.PageRank))
 	for i, entry := range t.report.PageRank {
 		title := entry.Title
 		if title == "" {
 			title = entry.Path
 		}
-		rows = append(rows, []string{
+		rows = append(rows, cleanListRow{Cells: []string{
 			fmt.Sprintf("%02d", i+1),
 			components.SanitizeOneLine(title),
+			components.SanitizeOneLine(entry.Path),
 			fmt.Sprintf("%.4f", entry.Score),
-		})
+		}})
 	}
-	cols := []components.TableColumn{
-		{Header: "#", Width: 3, Align: lipgloss.Right},
-		{Header: "Note", Width: width - 16, Align: lipgloss.Left},
-		{Header: "Rank", Width: 9, Align: lipgloss.Right},
+	cols := []cleanListColumn{
+		{Header: "#", MinWidth: 2, MaxWidth: 3, Align: lipgloss.Right, Muted: true},
+		{Header: "Note", MinWidth: 14, Primary: true},
+		{Header: "Path", MinWidth: 10, MaxWidth: 34, Muted: true, Underline: true},
+		{Header: "Rank", MinWidth: 6, MaxWidth: 8, Align: lipgloss.Right, Numeric: true},
 	}
-	return clipLines(components.TableGrid(cols, rows, width), height)
+	return clipLines(renderCleanList("PageRank", cleanListCountLabel(len(t.report.PageRank), "note"), cols, rows, width, -1), height)
 }
 
 func (t GraphTab) orphansBox(width, height int) string {
 	if len(t.report.Orphans) == 0 {
 		return SuccessStyle.Render("none")
 	}
-	rows := make([][]string, 0, len(t.report.Orphans))
+	rows := make([]cleanListRow, 0, len(t.report.Orphans))
 	for i, path := range t.report.Orphans {
-		rows = append(rows, []string{fmt.Sprintf("%02d", i+1), components.SanitizeOneLine(path)})
+		rows = append(rows, cleanListRow{Cells: []string{fmt.Sprintf("%02d", i+1), components.SanitizeOneLine(path)}})
 	}
-	cols := []components.TableColumn{
-		{Header: "#", Width: 3, Align: lipgloss.Right},
-		{Header: "Path", Width: width - 6, Align: lipgloss.Left},
+	cols := []cleanListColumn{
+		{Header: "#", MinWidth: 2, MaxWidth: 3, Align: lipgloss.Right, Muted: true},
+		{Header: "Path", MinWidth: 20, Primary: true, Underline: true},
 	}
-	return clipLines(components.TableGrid(cols, rows, width), height)
+	return clipLines(renderCleanList("Orphans", cleanListCountLabel(len(t.report.Orphans), "note"), cols, rows, width, -1), height)
 }
 
 func (t GraphTab) brokenBox(width, height int) string {
 	if len(t.report.Broken) == 0 {
 		return SuccessStyle.Render("none")
 	}
-	rows := make([][]string, 0, len(t.report.Broken))
+	rows := make([]cleanListRow, 0, len(t.report.Broken))
 	for _, broken := range t.report.Broken {
-		rows = append(rows, []string{
+		rows = append(rows, cleanListRow{Cells: []string{
 			components.SanitizeOneLine(broken.From),
 			"[[" + components.SanitizeOneLine(broken.Target) + "]]",
-		})
+		}})
 	}
-	cols := []components.TableColumn{
-		{Header: "From", Width: width / 2, Align: lipgloss.Left},
-		{Header: "Target", Width: width/2 - 4, Align: lipgloss.Left},
+	cols := []cleanListColumn{
+		{Header: "From", MinWidth: 24, Primary: true, Underline: true},
+		{Header: "Target", MinWidth: 18, MaxWidth: 64, Warning: true},
 	}
-	return clipLines(components.TableGrid(cols, rows, width), height)
+	return clipLines(renderCleanList("Broken Links", cleanListCountLabel(len(t.report.Broken), "link"), cols, rows, width, -1), height)
 }

@@ -145,9 +145,10 @@ var (
 				Bold(true)
 
 	sectionHeaderStyle = lipgloss.NewStyle().
-				Foreground(ColorSecondary).
+				Foreground(ColorBackground).
+				Background(ColorPrimary).
 				Bold(true).
-				PaddingLeft(1)
+				Padding(0, 1)
 )
 
 var (
@@ -180,8 +181,8 @@ func clipLines(s string, n int) string {
 
 func commonHints() []components.HintItem {
 	return []components.HintItem{
-		{Key: "left/right", Desc: "tabs"},
-		{Key: "1-5", Desc: "jump"},
+		{Key: "tab", Desc: "tabs"},
+		{Key: "1-6", Desc: "jump"},
 		{Key: "ctrl+c", Desc: "quit"},
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/alxxpersonal/stardust/internal/service"
+	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
 func TestBrowseNavigatesLoadedMessages(t *testing.T) {
@@ -46,4 +47,23 @@ func TestBrowseNavigatesLoadedMessages(t *testing.T) {
 	tab = updated.(browseTab)
 	require.Equal(t, levelRecord, tab.level)
 	require.Equal(t, "rendered body", tab.rendered)
+}
+
+func TestBrowseRecordsRenderCleanListDropsEmptyUpdated(t *testing.T) {
+	tab := newBrowseTab(nil)
+	tab.level = levelRecords
+	tab.records = service.RecordList{
+		Collection: "specs",
+		Records: []service.Record{
+			{Path: "docs/specs/alpha.md", Title: "Alpha Spec"},
+			{Path: "docs/specs/beta.md", Title: "Beta Spec"},
+		},
+	}
+
+	out := components.SanitizeText(tab.View(120, 30))
+	require.Contains(t, out, "specs")
+	require.Contains(t, out, "◼")
+	require.Contains(t, out, "◻")
+	require.Contains(t, out, "docs/specs/alpha.md")
+	require.NotContains(t, out, "Updated")
 }

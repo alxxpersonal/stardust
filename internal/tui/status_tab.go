@@ -115,7 +115,7 @@ func (t StatusTab) View(width, height int) string {
 		"  ",
 		animatedRoundedBox("INDEX", t.indexHealth(rightWidth), t.frame),
 	)
-	collections := animatedDoubleBox("COLLECTIONS", t.collections(cardW, height/2), t.frame)
+	collections := animatedDoubleBox("", t.collections(cardW, height/2), t.frame)
 	return centerBlockUniform(top+"\n\n"+collections, width)
 }
 
@@ -185,23 +185,20 @@ func (t StatusTab) collections(width, height int) string {
 	if len(t.status.Collections) == 0 {
 		return MutedStyle.Render("no collections configured")
 	}
-	rows := make([][]string, 0, len(t.status.Collections))
+	rows := make([]cleanListRow, 0, len(t.status.Collections))
 	for _, c := range t.status.Collections {
-		rows = append(rows, []string{
+		rows = append(rows, cleanListRow{Cells: []string{
 			components.SanitizeOneLine(c.Name),
 			fmt.Sprintf("%d", c.Records),
 			components.SanitizeOneLine(c.Path),
 			components.SanitizeOneLine(c.Description),
-		})
+		}})
 	}
-	cols := []components.TableColumn{
-		{Header: "Collection", Width: 24, Align: lipgloss.Left},
-		{Header: "Records", Width: 8, Align: lipgloss.Right},
-		{Header: "Path", Width: 36, Align: lipgloss.Left},
-		{Header: "Description", Width: width - 74, Align: lipgloss.Left},
+	cols := []cleanListColumn{
+		{Header: "Collection", MinWidth: 14, MaxWidth: 28, Primary: true},
+		{Header: "Records", MinWidth: 7, MaxWidth: 8, Align: lipgloss.Right, Count: true},
+		{Header: "Path", MinWidth: 16, MaxWidth: 40, Muted: true, Underline: true},
+		{Header: "Description", MinWidth: 18, MaxWidth: 72, Muted: true},
 	}
-	if cols[3].Width < 24 {
-		cols[3].Width = 24
-	}
-	return clipLines(components.TableGrid(cols, rows, width), height)
+	return clipLines(renderCleanList("Collections", cleanListCountLabel(len(t.status.Collections), "collection"), cols, rows, width, -1), height)
 }

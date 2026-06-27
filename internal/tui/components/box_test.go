@@ -87,7 +87,7 @@ func TestClampTextWidthEllipsisExactFit(t *testing.T) {
 
 func TestClampTextWidthEllipsisAddsEllipsis(t *testing.T) {
 	out := ClampTextWidthEllipsis("hello world", 8)
-	assert.True(t, strings.HasSuffix(out, "..."), "should end with ellipsis, got %q", out)
+	assert.True(t, strings.HasSuffix(out, "…"), "should end with ellipsis, got %q", out)
 }
 
 func TestClampTextWidthEllipsisRespectsBound(t *testing.T) {
@@ -102,9 +102,9 @@ func TestClampTextWidthEllipsisZeroWidth(t *testing.T) {
 }
 
 func TestClampTextWidthEllipsisNarrowWidth(t *testing.T) {
-	// width 3 or less - no ellipsis, just truncate
 	out := ClampTextWidthEllipsis("hello", 3)
 	assert.LessOrEqual(t, len([]rune(out)), 3)
+	assert.True(t, strings.HasSuffix(out, "…"), "should end with ellipsis, got %q", out)
 }
 
 func TestClampTextWidthEllipsisStripsAnsi(t *testing.T) {

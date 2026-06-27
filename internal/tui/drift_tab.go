@@ -3,13 +3,13 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/alxxpersonal/stardust/internal/render"
 	"github.com/alxxpersonal/stardust/internal/service"
 	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
@@ -104,7 +104,9 @@ func (t DriftTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	return t, nil
 }
 
-// View renders the coherence report.
+// View renders the coherence report as a vertical stack of clean lists. Each box
+// renders the typed result slices (not the service Markdown), so exactly one
+// keycap header is emitted per list and duplicate headers are impossible.
 func (t DriftTab) View(width, height int) string {
 	if width <= 0 {
 		width = t.width
@@ -120,22 +122,32 @@ func (t DriftTab) View(width, height int) string {
 	}
 
 	cardW := tableWidth(width)
-	leftWidth := (cardW * 48) / 100
-	if leftWidth < 48 {
-		leftWidth = 48
+	avail := height - 4
+	if avail < 12 {
+		avail = 12
 	}
-	rightWidth := cardW - leftWidth - 4
-	if rightWidth < 48 {
-		rightWidth = 48
-	}
-	boxHeight := height - 2
-	if boxHeight < 8 {
-		boxHeight = 8
-	}
+	driftH := avail * 35 / 100
+	staleH := avail * 35 / 100
+	checkH := avail - driftH - staleH
+	driftH, staleH, checkH = atLeast(driftH, 6), atLeast(staleH, 6), atLeast(checkH, 6)
 
-	left := animatedRoundedBox("CHECK REPORT", t.issueBox(leftWidth, boxHeight), t.frame)
-	right := animatedRoundedBox("DRIFT + STALE", t.markdownBox(rightWidth, boxHeight), t.frame)
-	return centerBlockUniform(lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right), width)
+	var b strings.Builder
+	b.WriteString(t.summaryLine(cardW))
+	b.WriteString("\n\n")
+	b.WriteString(animatedDoubleBox("DRIFTED DOCS", t.driftList(cardW, driftH), t.frame))
+	b.WriteString("\n\n")
+	b.WriteString(animatedDoubleBox("STALE DOCS", t.staleList(cardW, staleH), t.frame))
+	b.WriteString("\n\n")
+	b.WriteString(animatedRoundedBox("CHECK FINDINGS", t.checkSummary(cardW, checkH), t.frame))
+	return centerBlockUniform(b.String(), width)
+}
+
+// atLeast clamps n up to floor.
+func atLeast(n, floor int) int {
+	if n < floor {
+		return floor
+	}
+	return n
 }
 
 // Hints returns the key hints for the drift tab.
@@ -166,44 +178,124 @@ func (t DriftTab) HeaderLabel() string {
 	return "drift · coherence checks"
 }
 
-func (t DriftTab) issueBox(width, height int) string {
+// summaryLine renders the one-line coherence summary, colored by worst severity.
+func (t DriftTab) summaryLine(width int) string {
+	_ = width
+	style := MutedStyle
+	if t.check.Errors > 0 {
+		style = ErrorStyle
+	} else if t.check.Warnings > 0 || len(t.drift.Docs) > 0 || len(t.stale.Docs) > 0 {
+		style = WarningStyle
+	}
+	return style.Render(fmt.Sprintf("%d errors · %d warnings · %d drifted · %d stale",
+		t.check.Errors, t.check.Warnings, len(t.drift.Docs), len(t.stale.Docs)))
+}
+
+// driftList renders drifted docs, one row per moved binding, in fitted columns.
+func (t DriftTab) driftList(width, height int) string {
+	if len(t.drift.Docs) == 0 {
+		return SuccessStyle.Render("no drifted docs")
+	}
+	var rows []cleanListRow
+	for _, doc := range t.drift.Docs {
+		for _, bind := range doc.Bindings {
+			rows = append(rows, cleanListRow{Cells: []string{
+				doc.Type,
+				components.SanitizeOneLine(doc.Title),
+				components.SanitizeOneLine(doc.DocPath),
+				components.SanitizeOneLine(bind.File),
+				fmt.Sprintf("%d", bind.ChangedCommits),
+			}})
+		}
+	}
+	cols := []cleanListColumn{
+		{Header: "Type", MinWidth: 4, MaxWidth: 8, Muted: true},
+		{Header: "Title", MinWidth: 16, Primary: true},
+		{Header: "Doc", MinWidth: 14, MaxWidth: 38, Muted: true, Underline: true},
+		{Header: "Referenced", MinWidth: 14, MaxWidth: 38, Muted: true, Underline: true},
+		{Header: "Commits", MinWidth: 7, MaxWidth: 8, Align: lipgloss.Right, Count: true},
+	}
+	label := cleanListCountLabel(len(t.drift.Docs), "doc")
+	return clipLines(renderCleanList("Drifted Docs", label, cols, rows, width, -1), height)
+}
+
+// staleList renders implemented docs whose governed code changed after the doc.
+func (t DriftTab) staleList(width, height int) string {
+	if len(t.stale.Docs) == 0 {
+		return SuccessStyle.Render("no stale docs")
+	}
+	rows := make([]cleanListRow, 0, len(t.stale.Docs))
+	for _, doc := range t.stale.Docs {
+		rows = append(rows, cleanListRow{Cells: []string{
+			doc.Type,
+			components.SanitizeOneLine(doc.Title),
+			components.SanitizeOneLine(doc.Status),
+			components.SanitizeOneLine(doc.DocPath),
+			fmt.Sprintf("%d", doc.ChangedCommits),
+			components.SanitizeOneLine(strings.Join(doc.Matched, ", ")),
+		}})
+	}
+	cols := []cleanListColumn{
+		{Header: "Type", MinWidth: 4, MaxWidth: 8, Muted: true},
+		{Header: "Title", MinWidth: 16, MaxWidth: 36, Primary: true},
+		{Header: "Status", MinWidth: 7, MaxWidth: 12, Muted: true},
+		{Header: "Doc", MinWidth: 14, MaxWidth: 34, Muted: true, Underline: true},
+		{Header: "Commits", MinWidth: 7, MaxWidth: 8, Align: lipgloss.Right, Count: true},
+		{Header: "Matched", MinWidth: 12, Muted: true},
+	}
+	label := cleanListCountLabel(len(t.stale.Docs), "doc")
+	return clipLines(renderCleanList("Stale Docs", label, cols, rows, width, -1), height)
+}
+
+// checkSummary groups check findings by kind with a count and a sample, errors
+// first, so the report is scannable instead of one row per finding.
+func (t DriftTab) checkSummary(width, height int) string {
 	if len(t.check.Issues) == 0 {
 		return SuccessStyle.Render("clean")
 	}
-	rows := make([][]string, 0, len(t.check.Issues))
-	for _, issue := range t.check.Issues {
-		rows = append(rows, []string{
-			issue.Severity,
-			issue.Kind,
-			components.SanitizeOneLine(issue.Path),
-			components.SanitizeOneLine(issue.Detail),
-		})
+	type group struct {
+		severity string
+		kind     string
+		sample   string
+		count    int
 	}
-	cols := []components.TableColumn{
-		{Header: "Severity", Width: 8, Align: lipgloss.Left},
-		{Header: "Kind", Width: 16, Align: lipgloss.Left},
-		{Header: "Path", Width: 26, Align: lipgloss.Left},
-		{Header: "Detail", Width: width - 56, Align: lipgloss.Left},
+	order := []string{}
+	byKind := map[string]*group{}
+	for _, is := range t.check.Issues {
+		g, ok := byKind[is.Kind]
+		if !ok {
+			g = &group{severity: is.Severity, kind: is.Kind, sample: is.Detail}
+			byKind[is.Kind] = g
+			order = append(order, is.Kind)
+		}
+		g.count++
+		if is.Severity == "error" {
+			g.severity = "error"
+		}
 	}
-	if cols[3].Width < 24 {
-		cols[3].Width = 24
+	sort.SliceStable(order, func(i, j int) bool {
+		gi, gj := byKind[order[i]], byKind[order[j]]
+		if (gi.severity == "error") != (gj.severity == "error") {
+			return gi.severity == "error"
+		}
+		return order[i] < order[j]
+	})
+	rows := make([]cleanListRow, 0, len(order))
+	for _, k := range order {
+		g := byKind[k]
+		rows = append(rows, cleanListRow{Cells: []string{
+			g.severity,
+			g.kind,
+			fmt.Sprintf("%d", g.count),
+			components.SanitizeOneLine(g.sample),
+		}})
 	}
-	return clipLines(components.TableGrid(cols, rows, width), height)
-}
-
-func (t DriftTab) markdownBox(width, height int) string {
-	var md strings.Builder
-	md.WriteString("# Drifted Docs\n\n")
-	if strings.TrimSpace(t.drift.Markdown) != "" {
-		md.WriteString(t.drift.Markdown)
-	} else {
-		md.WriteString("No drifted docs found.\n")
+	cols := []cleanListColumn{
+		{Header: "Severity", MinWidth: 5, MaxWidth: 8, Severity: true},
+		{Header: "Kind", MinWidth: 10, MaxWidth: 20, Muted: true},
+		{Header: "Count", MinWidth: 5, MaxWidth: 7, Align: lipgloss.Right, Count: true},
+		{Header: "Example", MinWidth: 16, Primary: true},
 	}
-	md.WriteString("\n\n# Stale Docs\n\n")
-	if strings.TrimSpace(t.stale.Markdown) != "" {
-		md.WriteString(t.stale.Markdown)
-	} else {
-		md.WriteString("No stale docs found.\n")
-	}
-	return clipLines(render.GlamourRender(md.String(), width-4), height)
+	label := fmt.Sprintf("%d error / %d warn", t.check.Errors, t.check.Warnings)
+	return clipLines(renderCleanList("Check Findings", label, cols, rows, width, -1), height)
 }

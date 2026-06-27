@@ -71,8 +71,8 @@ func TestTableGridMultipleRows(t *testing.T) {
 	}
 	out := TableGrid(cols, rows, 80)
 	lines := strings.Split(out, "\n")
-	// header + rule + 5 data rows = 7 lines minimum
-	assert.GreaterOrEqual(t, len(lines), 7)
+	// header + 5 data rows
+	assert.GreaterOrEqual(t, len(lines), 6)
 }
 
 func TestTableGridEmptyRows(t *testing.T) {
@@ -87,7 +87,7 @@ func TestTableGridTruncatesLongCellText(t *testing.T) {
 	out := TableGrid(cols, rows, 40)
 	require.NotEmpty(t, out)
 	// the rendered cell should be truncated with ellipsis
-	assert.Contains(t, out, "...")
+	assert.Contains(t, out, "…")
 }
 
 func TestTableGridWithActiveRow(t *testing.T) {
@@ -133,4 +133,13 @@ func TestTableGridSingleColumn(t *testing.T) {
 	out := TableGrid(cols, rows, 50)
 	assert.Contains(t, out, "Senior ML Engineer")
 	assert.Contains(t, out, "Principal SRE")
+}
+
+func TestTableGridUsesCleanListLayout(t *testing.T) {
+	cols := sampleColumns()
+	rows := [][]string{{"Engineer", "80", "Company"}}
+	out := TableGridWithActiveRow(cols, rows, 80, 0)
+	assert.Contains(t, out, "◼")
+	assert.NotContains(t, out, "|")
+	assert.NotContains(t, out, "─")
 }

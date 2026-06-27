@@ -8,6 +8,7 @@ import (
 
 	"github.com/alxxpersonal/stardust/internal/graph"
 	"github.com/alxxpersonal/stardust/internal/service"
+	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
 func TestGraphLoadedStoresReport(t *testing.T) {
@@ -38,4 +39,23 @@ func TestGraphLoadedStoresError(t *testing.T) {
 
 	require.True(t, tab.loaded)
 	require.ErrorIs(t, tab.err, want)
+}
+
+func TestGraphListsRenderCleanSections(t *testing.T) {
+	tab := newGraphTab(nil)
+	tab.report = service.GraphReport{
+		Orphans: []string{"orphan.md"},
+		Broken:  []graph.BrokenLink{{From: "a.md", Target: "missing"}},
+		PageRank: []graph.PageRankEntry{
+			{Path: "a.md", Title: "Alpha", Score: 0.88},
+		},
+	}
+
+	out := components.SanitizeText(tab.pageRankBox(80, 20) + "\n" + tab.orphansBox(80, 20) + "\n" + tab.brokenBox(80, 20))
+	require.Contains(t, out, "PageRank")
+	require.Contains(t, out, "Orphans")
+	require.Contains(t, out, "Broken Links")
+	require.Contains(t, out, "0.8800")
+	require.NotContains(t, out, "|")
+	require.NotContains(t, out, "─")
 }

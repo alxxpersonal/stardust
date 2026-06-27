@@ -21,11 +21,12 @@ type App struct {
 	activeTab int
 	frame     int
 
-	searchTab SearchTab
-	browseTab BrowseTab
-	graphTab  GraphTab
-	driftTab  DriftTab
-	statusTab StatusTab
+	searchTab   SearchTab
+	browseTab   BrowseTab
+	graphTab    GraphTab
+	driftTab    DriftTab
+	statusTab   StatusTab
+	settingsTab SettingsTab
 }
 
 // newApp creates a new App model backed by the shared service backend.
@@ -45,6 +46,7 @@ func (a *App) applySize() {
 	a.graphTab.Resize(a.width, a.height)
 	a.driftTab.Resize(a.width, a.height)
 	a.statusTab.Resize(a.width, a.height)
+	a.settingsTab.Resize(a.width, a.height)
 }
 
 func (a *App) buildTabs(be *backend) {
@@ -53,6 +55,7 @@ func (a *App) buildTabs(be *backend) {
 	a.graphTab = NewGraphTab(be)
 	a.driftTab = NewDriftTab(be)
 	a.statusTab = NewStatusTab(be)
+	a.settingsTab = NewSettingsTab(be)
 }
 
 // Init implements tea.Model.
@@ -64,6 +67,7 @@ func (a App) Init() tea.Cmd {
 		a.graphTab.Init(),
 		a.driftTab.Init(),
 		a.statusTab.Init(),
+		a.settingsTab.Init(),
 	)
 }
 
@@ -81,21 +85,33 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
+		// Tab and shift+tab cycle tabs unconditionally, so a focused tab (the
+		// search box, the settings editor) can always be left even when it owns
+		// the arrow keys and digits.
 		switch msg.String() {
-		case "left":
-			if a.activeTab > 0 {
-				a.activeTab--
-			}
+		case "tab":
+			a.activeTab = (a.activeTab + 1) % len(tabNames)
 			return a, nil
-		case "right":
-			if a.activeTab < len(tabNames)-1 {
-				a.activeTab++
-			}
+		case "shift+tab":
+			a.activeTab = (a.activeTab - 1 + len(tabNames)) % len(tabNames)
 			return a, nil
 		}
 
+		// Tab-switching keys are gated behind the active tab's focus so a tab
+		// that owns text input (the settings editor, the search box) receives
+		// arrow keys and digits instead of switching tabs.
 		if !a.activeTabModel().Focused() {
 			switch msg.String() {
+			case "left":
+				if a.activeTab > 0 {
+					a.activeTab--
+				}
+				return a, nil
+			case "right":
+				if a.activeTab < len(tabNames)-1 {
+					a.activeTab++
+				}
+				return a, nil
 			case "1":
 				a.activeTab = TabSearch
 				return a, nil
@@ -110,6 +126,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			case "5":
 				a.activeTab = TabStatus
+				return a, nil
+			case "6":
+				a.activeTab = TabSettings
 				return a, nil
 			}
 		}
@@ -140,6 +159,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.statusTab.Update(msg)
 		a.statusTab = updated.(StatusTab)
 		return a, cmd
+	case settingsActionMsg, settingsCollectionsMsg:
+		updated, cmd := a.settingsTab.Update(msg)
+		a.settingsTab = updated.(SettingsTab)
+		return a, cmd
 	}
 
 	switch a.activeTab {
@@ -163,6 +186,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.statusTab.Update(msg)
 		a.statusTab = updated.(StatusTab)
 		return a, cmd
+	case TabSettings:
+		updated, cmd := a.settingsTab.Update(msg)
+		a.settingsTab = updated.(SettingsTab)
+		return a, cmd
 	}
 
 	return a, nil
@@ -174,6 +201,7 @@ func (a *App) syncFrame() {
 	a.graphTab.frame = a.frame
 	a.driftTab.frame = a.frame
 	a.statusTab.frame = a.frame
+	a.settingsTab.frame = a.frame
 }
 
 // activeTabModel returns the currently active TabModel.
@@ -189,6 +217,8 @@ func (a App) activeTabModel() TabModel {
 		return a.driftTab
 	case TabStatus:
 		return a.statusTab
+	case TabSettings:
+		return a.settingsTab
 	default:
 		return a.searchTab
 	}
@@ -233,6 +263,8 @@ func (a App) View() tea.View {
 		content = a.driftTab.View(a.width, contentHeight)
 	case TabStatus:
 		content = a.statusTab.View(a.width, contentHeight)
+	case TabSettings:
+		content = a.settingsTab.View(a.width, contentHeight)
 	}
 
 	tabStatusLine := a.activeTabModel().StatusLine()

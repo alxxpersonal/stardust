@@ -1,6 +1,7 @@
 package components
 
 import (
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -16,39 +17,48 @@ type TableColumn struct {
 }
 
 const (
-	tableGridInset      = 0
-	tableGridLeftOffset = 2
+	tableGridGap        = "  "
+	tableGridSelected   = "◼ "
+	tableGridUnselected = "◻ "
 )
 
-var gridLineStyle = lipgloss.NewStyle().
-	Foreground(ui.Border)
-
-var gridActiveRowStyle = lipgloss.NewStyle().
-	Foreground(ui.Text).
-	Background(ui.Border).
+var tableHeaderStyle = lipgloss.NewStyle().
+	Foreground(ui.Secondary).
 	Bold(true)
 
-var gridActiveSepStyle = lipgloss.NewStyle().
-	Foreground(ui.Secondary).
-	Background(ui.Border)
+var tableMutedStyle = lipgloss.NewStyle().
+	Foreground(ui.Muted)
 
-var gridSelectedMarkStyle = lipgloss.NewStyle().
+var tablePrimaryStyle = lipgloss.NewStyle().
+	Foreground(ui.Text)
+
+var tableActivePrimaryStyle = lipgloss.NewStyle().
 	Foreground(ui.Accent).
 	Bold(true)
 
+var tableScoreHighStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#34d399")).
+	Bold(true)
+
+var tableScoreMedStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#f59e0b"))
+
+var tableScoreLowStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#ff5555"))
+
 var tableGridActiveRowsEnabled = true
 
-// SetTableGridActiveRowsEnabled toggles active-row highlighting globally.
+// SetTableGridActiveRowsEnabled toggles active-row markers globally.
 func SetTableGridActiveRowsEnabled(enabled bool) {
 	tableGridActiveRowsEnabled = enabled
 }
 
-// TableGrid renders a table-like layout using rounded border glyphs.
+// TableGrid renders a clean aligned list with two-space gaps.
 func TableGrid(columns []TableColumn, rows [][]string, tableWidth int) string {
 	return TableGridWithActiveRow(columns, rows, tableWidth, -1)
 }
 
-// TableGridWithActiveRow highlights one data row by index.
+// TableGridWithActiveRow marks one data row by index.
 func TableGridWithActiveRow(columns []TableColumn, rows [][]string, tableWidth int, activeRow int) string {
 	if !tableGridActiveRowsEnabled {
 		activeRow = -1
@@ -60,172 +70,81 @@ func TableGridWithActiveRow(columns []TableColumn, rows [][]string, tableWidth i
 		return padRight("", tableWidth)
 	}
 
-	border := lipgloss.RoundedBorder()
-	v := border.Left
-	h := border.Top
-	cross := border.Middle
-
-	cols := fitGridColumns(columns, v, tableWidth)
-
+	cols := fitGridColumns(columns, tableWidth, activeRow >= 0 && len(rows) > 0)
 	var out []string
-	out = append(out, renderGridRow(cols, headerCells(cols), v, tableWidth, true, false))
-	out = append(out, renderGridRule(cols, cross, h, tableWidth))
-
+	out = append(out, renderGridHeader(cols))
 	for i, row := range rows {
-		out = append(out, renderGridRow(cols, row, v, tableWidth, false, i == activeRow))
+		out = append(out, renderGridRow(cols, row, i == activeRow, activeRow >= 0))
 	}
-
 	return strings.Join(out, "\n")
 }
 
-func headerCells(columns []TableColumn) []string {
-	hdr := make([]string, len(columns))
-	for i, c := range columns {
-		hdr[i] = SanitizeOneLine(c.Header)
-	}
-	return hdr
-}
-
-func fitGridColumns(columns []TableColumn, sep string, tableWidth int) []TableColumn {
+func fitGridColumns(columns []TableColumn, tableWidth int, withMarker bool) []TableColumn {
 	fitted := make([]TableColumn, len(columns))
 	copy(fitted, columns)
 
-	sepW := lipgloss.Width(sep)
-	if sepW < 1 {
-		sepW = 1
+	available := tableWidth - gridGapWidth(len(fitted))
+	if withMarker {
+		available -= lipgloss.Width(tableGridSelected)
 	}
-	contentWidth := tableWidth - tableGridLeftOffset - (tableGridInset * 2)
-	if contentWidth < len(fitted) {
-		contentWidth = len(fitted)
+	if available < len(fitted) {
+		available = len(fitted)
 	}
 
-	sum := 0
+	widths := make([]int, len(fitted))
+	mins := make([]int, len(fitted))
 	for i := range fitted {
 		if fitted[i].Width < 1 {
 			fitted[i].Width = 1
 		}
-		sum += fitted[i].Width
-	}
-	expected := sum
-	if len(fitted) > 1 {
-		expected += (len(fitted) - 1) * sepW
-	}
-	delta := contentWidth - expected
-	if len(fitted) > 0 && delta > 0 {
-		widest := 0
-		for i := 1; i < len(fitted); i++ {
-			if fitted[i].Width > fitted[widest].Width {
-				widest = i
-			}
+		widths[i] = fitted[i].Width
+		mins[i] = minGridWidth(fitted[i])
+		if widths[i] < mins[i] {
+			widths[i] = mins[i]
 		}
-		fitted[widest].Width += delta
-	} else if len(fitted) > 0 && delta < 0 {
-		deficit := -delta
-		minWidthStrict := make([]int, len(fitted))
-		for i := range fitted {
-			headerMin := lipgloss.Width(SanitizeOneLine(fitted[i].Header)) + 1
-			if headerMin < 2 {
-				headerMin = 2
-			}
-			minWidthStrict[i] = headerMin
-			if fitted[i].Width <= 12 && fitted[i].Width > minWidthStrict[i] {
-				minWidthStrict[i] = fitted[i].Width
-			}
-		}
-		shrinkColumns(fitted, minWidthStrict, deficit)
+	}
+
+	total := sumGridWidths(widths)
+	if total > available {
+		shrinkGridWidths(widths, mins, total-available)
+	}
+
+	for i := range fitted {
+		fitted[i].Width = widths[i]
 	}
 	return fitted
 }
 
-func shrinkColumns(columns []TableColumn, mins []int, deficit int) int {
-	if deficit <= 0 || len(columns) == 0 {
-		return 0
+func renderGridHeader(columns []TableColumn) string {
+	cells := make([]string, 0, len(columns))
+	for _, col := range columns {
+		text := renderGridCell(col.Header, col.Width, col.Align)
+		cells = append(cells, tableHeaderStyle.Render(text))
 	}
-	for deficit > 0 {
-		best := -1
-		bestSpare := 0
-		for i := range columns {
-			spare := columns[i].Width - mins[i]
-			if spare > bestSpare {
-				bestSpare = spare
-				best = i
-			}
-		}
-		if best == -1 || bestSpare <= 0 {
-			break
-		}
-		columns[best].Width--
-		deficit--
-	}
-	return deficit
+	return strings.Join(cells, tableGridGap)
 }
 
-func renderGridRow(columns []TableColumn, cells []string, sep string, tableWidth int, header bool, active bool) string {
-	headerStyle := boxLabelStyle
-	if header {
-		headerStyle = boxLabelStyle.Bold(true)
-	}
-
-	sepStyle := gridLineStyle
-	cellStyle := lipgloss.NewStyle()
-	if active {
-		sepStyle = gridActiveSepStyle
-		cellStyle = gridActiveRowStyle
-	}
-	sepStyled := sepStyle.Inline(true).Render(sep)
-
-	var b strings.Builder
-	b.WriteString(strings.Repeat(" ", tableGridLeftOffset+tableGridInset))
-	for i, col := range columns {
-		if i > 0 {
-			b.WriteString(sepStyled)
+func renderGridRow(columns []TableColumn, cells []string, active bool, withMarker bool) string {
+	parts := make([]string, 0, len(columns)+1)
+	if withMarker {
+		marker := tableGridUnselected
+		style := tableMutedStyle
+		if active {
+			marker = tableGridSelected
+			style = tableActivePrimaryStyle
 		}
-		w := col.Width
+		parts = append(parts, style.Render(marker))
+	}
+	for i, col := range columns {
 		text := ""
 		if i < len(cells) {
 			text = cells[i]
 		}
-
-		rendered := renderGridCell(text, w, col.Align)
-		if header {
-			rendered = headerStyle.Inline(true).Render(rendered)
-		} else if active {
-			rendered = cellStyle.Inline(true).Render(rendered)
-		}
-		if !header {
-			rendered = highlightSelectionMarkers(rendered)
-		}
-		b.WriteString(rendered)
+		rendered := renderGridCell(text, col.Width, col.Align)
+		style := gridCellStyle(i, col, text, active)
+		parts = append(parts, style.Render(rendered))
 	}
-
-	line := b.String()
-	if lipgloss.Width(line) < tableWidth {
-		line = padRight(line, tableWidth)
-	}
-	return line
-}
-
-func renderGridRule(columns []TableColumn, cross, horiz string, tableWidth int) string {
-	if horiz == "" {
-		horiz = "-"
-	}
-	var b strings.Builder
-	b.WriteString(strings.Repeat(" ", tableGridLeftOffset+tableGridInset))
-	for i, col := range columns {
-		w := col.Width
-		if w < 1 {
-			w = 1
-		}
-		b.WriteString(strings.Repeat(horiz, w))
-		if i < len(columns)-1 {
-			b.WriteString(cross)
-		}
-	}
-	line := b.String()
-	if lipgloss.Width(line) < tableWidth {
-		line = padRight(line, tableWidth)
-	}
-	return gridLineStyle.Inline(true).Render(line)
+	return strings.Join(parts, tableGridGap)
 }
 
 func renderGridCell(text string, width int, align lipgloss.Position) string {
@@ -252,8 +171,79 @@ func renderGridCell(text string, width int, align lipgloss.Position) string {
 	}
 }
 
-func highlightSelectionMarkers(value string) string {
-	highlighted := strings.ReplaceAll(value, "[X]", gridSelectedMarkStyle.Render("[X]"))
-	highlighted = strings.ReplaceAll(highlighted, "[x]", gridSelectedMarkStyle.Render("[x]"))
-	return highlighted
+func gridCellStyle(index int, col TableColumn, value string, active bool) lipgloss.Style {
+	if col.Align == lipgloss.Right {
+		return gridNumericStyle(value)
+	}
+	if index == 0 && active {
+		return tableActivePrimaryStyle
+	}
+	if index == 0 {
+		return tablePrimaryStyle
+	}
+	return tableMutedStyle
+}
+
+func gridNumericStyle(value string) lipgloss.Style {
+	raw := strings.TrimSpace(strings.TrimSuffix(value, "%"))
+	n, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return tableMutedStyle
+	}
+	if n > 1 {
+		n /= 100
+	}
+	switch {
+	case n >= 0.75:
+		return tableScoreHighStyle
+	case n >= 0.4:
+		return tableScoreMedStyle
+	default:
+		return tableScoreLowStyle
+	}
+}
+
+func gridGapWidth(columns int) int {
+	if columns <= 1 {
+		return 0
+	}
+	return (columns - 1) * lipgloss.Width(tableGridGap)
+}
+
+func minGridWidth(col TableColumn) int {
+	w := lipgloss.Width(SanitizeOneLine(col.Header))
+	if w < 1 {
+		w = 1
+	}
+	if w > 12 {
+		w = 12
+	}
+	return w
+}
+
+func sumGridWidths(widths []int) int {
+	total := 0
+	for _, width := range widths {
+		total += width
+	}
+	return total
+}
+
+func shrinkGridWidths(widths, mins []int, deficit int) {
+	for deficit > 0 {
+		best := -1
+		bestSpare := 0
+		for i := range widths {
+			spare := widths[i] - mins[i]
+			if spare > bestSpare {
+				bestSpare = spare
+				best = i
+			}
+		}
+		if best == -1 || bestSpare <= 0 {
+			return
+		}
+		widths[best]--
+		deficit--
+	}
 }

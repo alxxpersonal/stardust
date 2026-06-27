@@ -55,7 +55,7 @@ func RenderBannerAnimated(frame int) string {
 	}
 
 	rendered += "\n"
-	subtitleText := "STARDUST local-first markdown context engine"
+	subtitleText := "Local-First Markdown Context Engine"
 	subtitleWidth := lipgloss.Width(subtitleText)
 
 	subtitleStyle := lipgloss.NewStyle().
@@ -91,7 +91,7 @@ func RenderBanner() string {
 	}
 
 	rendered += "\n"
-	subtitleText := "STARDUST local-first markdown context engine"
+	subtitleText := "Local-First Markdown Context Engine"
 	subtitleWidth := lipgloss.Width(subtitleText)
 
 	subtitleStyle := lipgloss.NewStyle().

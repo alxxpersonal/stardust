@@ -10,14 +10,15 @@ import (
 // --- Tab Constants ---
 
 const (
-	TabSearch = 0
-	TabBrowse = 1
-	TabGraph  = 2
-	TabDrift  = 3
-	TabStatus = 4
+	TabSearch   = 0
+	TabBrowse   = 1
+	TabGraph    = 2
+	TabDrift    = 3
+	TabStatus   = 4
+	TabSettings = 5
 )
 
-var tabNames = []string{"Search", "Browse", "Graph", "Drift", "Status"}
+var tabNames = []string{"Search", "Browse", "Graph", "Drift", "Status", "Settings"}
 
 // TabModel is the interface that each tab must implement.
 type TabModel interface {

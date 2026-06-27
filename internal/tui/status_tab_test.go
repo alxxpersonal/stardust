@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/alxxpersonal/stardust/internal/service"
+	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
 
 func TestStatusLoadedStoresVaultStatus(t *testing.T) {
@@ -33,4 +34,18 @@ func TestStatusLoadedStoresVaultStatus(t *testing.T) {
 	require.Equal(t, "/tmp/vault", tab.status.Root)
 	require.Len(t, tab.status.Collections, 2)
 	require.Equal(t, 3, tab.status.Index.Notes)
+}
+
+func TestStatusCollectionsRenderCleanList(t *testing.T) {
+	tab := newStatusTab(nil)
+	tab.status.Collections = []service.CollectionInfo{
+		{Name: "specs", Records: 2, Path: "docs/specs", Description: "system specs"},
+	}
+
+	out := components.SanitizeText(tab.collections(90, 20))
+	require.Contains(t, out, "Collections")
+	require.Contains(t, out, "specs")
+	require.Contains(t, out, "2")
+	require.NotContains(t, out, "|")
+	require.NotContains(t, out, "─")
 }

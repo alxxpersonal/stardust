@@ -287,52 +287,65 @@ func (t BrowseTab) viewCollections(width, height int) string {
 	if len(t.collections) == 0 {
 		return centerOverlay(animatedBox(MutedStyle.Render("no collections configured"), t.frame), width, height)
 	}
-	rows := make([][]string, 0, len(t.collections))
+	rows := make([]cleanListRow, 0, len(t.collections))
 	for _, c := range t.collections {
-		rows = append(rows, []string{
-			c.Name,
+		rows = append(rows, cleanListRow{Cells: []string{
+			components.SanitizeOneLine(c.Name),
 			fmt.Sprintf("%d", c.Records),
-			c.Path,
-			c.Description,
-		})
+			components.SanitizeOneLine(c.Path),
+			components.SanitizeOneLine(c.Description),
+		}})
 	}
 	tableW := tableWidth(width)
-	cols := []components.TableColumn{
-		{Header: "Name", Width: 20, Align: lipgloss.Left},
-		{Header: "Records", Width: 8, Align: lipgloss.Right},
-		{Header: "Path", Width: 30, Align: lipgloss.Left},
-		{Header: "Description", Width: tableW - 64, Align: lipgloss.Left},
+	cols := []cleanListColumn{
+		{Header: "Name", MinWidth: 12, MaxWidth: 24, Primary: true},
+		{Header: "Records", MinWidth: 7, MaxWidth: 8, Align: lipgloss.Right, Count: true},
+		{Header: "Path", MinWidth: 16, MaxWidth: 36, Muted: true, Underline: true},
+		{Header: "Description", MinWidth: 20, MaxWidth: 72, Muted: true},
 	}
-	if cols[3].Width < 24 {
-		cols[3].Width = 24
+	label := ""
+	if t.collectionIndex >= 0 && t.collectionIndex < len(t.collections) {
+		label = t.collections[t.collectionIndex].Name
 	}
-	grid := components.TableGridWithActiveRow(cols, rows, tableW, t.collectionIndex)
-	return centerBlockUniform(animatedDoubleBox("COLLECTIONS", clipLines(grid, height-4), t.frame), width)
+	list := renderCleanList("Collections", label, cols, rows, tableW, t.collectionIndex)
+	return centerBlockUniform(animatedDoubleBox("", clipLines(list, height-4), t.frame), width)
 }
 
 func (t BrowseTab) viewRecords(width, height int) string {
 	if len(t.records.Records) == 0 {
 		return centerOverlay(animatedBox(MutedStyle.Render("no records in collection"), t.frame), width, height)
 	}
-	rows := make([][]string, 0, len(t.records.Records))
+	hasUpdated := false
 	for _, r := range t.records.Records {
-		rows = append(rows, []string{
-			recordTitle(r),
-			r.Path,
-			recordUpdated(r),
-		})
+		if recordUpdated(r) != "" {
+			hasUpdated = true
+			break
+		}
+	}
+
+	rows := make([]cleanListRow, 0, len(t.records.Records))
+	for _, r := range t.records.Records {
+		cells := []string{recordTitle(r)}
+		if hasUpdated {
+			cells = append(cells, recordUpdated(r))
+		}
+		cells = append(cells, components.SanitizeOneLine(r.Path))
+		rows = append(rows, cleanListRow{Cells: cells})
 	}
 	tableW := tableWidth(width)
-	cols := []components.TableColumn{
-		{Header: "Title", Width: 34, Align: lipgloss.Left},
-		{Header: "Path", Width: tableW - 54, Align: lipgloss.Left},
-		{Header: "Updated", Width: 16, Align: lipgloss.Left},
+	cols := []cleanListColumn{
+		{Header: "Title", MinWidth: 22, Primary: true},
 	}
-	if cols[1].Width < 34 {
-		cols[1].Width = 34
+	if hasUpdated {
+		cols = append(cols, cleanListColumn{Header: "Date", MinWidth: 10, MaxWidth: 18, Muted: true})
 	}
-	grid := components.TableGridWithActiveRow(cols, rows, tableW, t.recordIndex)
-	return centerBlockUniform(animatedDoubleBox(strings.ToUpper(t.records.Collection), clipLines(grid, height-4), t.frame), width)
+	cols = append(cols, cleanListColumn{Header: "Path", MinWidth: 20, MaxWidth: 72, Muted: true, Underline: true})
+	label := ""
+	if t.recordIndex >= 0 && t.recordIndex < len(t.records.Records) {
+		label = recordTitle(t.records.Records[t.recordIndex])
+	}
+	list := renderCleanList(t.records.Collection, label, cols, rows, tableW, t.recordIndex)
+	return centerBlockUniform(animatedDoubleBox("", clipLines(list, height-4), t.frame), width)
 }
 
 func (t BrowseTab) viewRecord(width, height int) string {
@@ -357,10 +370,20 @@ func recordTitle(r service.Record) string {
 func recordUpdated(r service.Record) string {
 	for _, key := range []string{"updated_at", "updated", "modified"} {
 		if v, ok := r.Frontmatter[key]; ok && v != nil {
-			return components.SanitizeOneLine(fmt.Sprint(v))
+			return shortDate(components.SanitizeOneLine(fmt.Sprint(v)))
 		}
 	}
 	return ""
+}
+
+// shortDate trims a timestamp to its YYYY-MM-DD date prefix when one is present,
+// so a record date renders as 2026-06-26 instead of 2026-06-26T00:00:00Z.
+func shortDate(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 10 && (s[10] == 'T' || s[10] == ' ') {
+		return s[:10]
+	}
+	return s
 }
 
 func clampIndex(index, length int) int {
