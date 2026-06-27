@@ -18,8 +18,11 @@ Vault: `Stardust`.
 
 ## Docs referencing moved code
 
-- Stardust hooks compose, never clobber `docs/specs/2026-06-25-0345-hooks-compose-not-clobber.md` references `internal/hooks/hooks.go` (3 commits), `internal/cli/hooks.go` (2 commits), `internal/cli/init.go` (2 commits); review
+- Stardust hooks compose, never clobber `docs/specs/2026-06-25-0345-hooks-compose-not-clobber.md` references `internal/hooks/hooks.go` (3 commits), `internal/cli/hooks.go` (2 commits), `internal/cli/init.go` (3 commits); review
+- Fang-styled stardust CLI with the cosmic colorscheme `docs/specs/2026-06-25-2319-fang-cli-cosmic.md` references `internal/cli/root.go` (1 commit), `internal/tui/styles.go` (2 commits); review
 - Doc-code coherence engine `docs/specs/2026-06-26-0418-doc-code-coherence-engine.md` references `internal/convention/check.go` (1 commit), `internal/vault/vault.go` (1 commit), `internal/service/index.go` (1 commit); review
+- Stardust hardening for docs, index, links, and authoring commands `docs/specs/2026-06-26-1849-stardust-hardening.md` references `internal/service/registry.go` (1 commit); review
+- Init auto-detect and a status command `docs/specs/2026-06-26-2104-init-detect-and-status.md` references `internal/service/service.go` (1 commit); review
 
 ## Core conventions
 
