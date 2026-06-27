@@ -181,7 +181,7 @@ func clipLines(s string, n int) string {
 
 func commonHints() []components.HintItem {
 	return []components.HintItem{
-		{Key: "tab", Desc: "tabs"},
+		{Key: "tab/left/right", Desc: "tabs"},
 		{Key: "1-6", Desc: "jump"},
 		{Key: "ctrl+c", Desc: "quit"},
 	}

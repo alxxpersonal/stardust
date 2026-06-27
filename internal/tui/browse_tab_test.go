@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -46,7 +48,45 @@ func TestBrowseNavigatesLoadedMessages(t *testing.T) {
 	})
 	tab = updated.(browseTab)
 	require.Equal(t, levelRecord, tab.level)
-	require.Equal(t, "rendered body", tab.rendered)
+	require.Contains(t, tab.docViewport.GetContent(), "A")
+}
+
+func TestBrowseRecordViewportScrolls(t *testing.T) {
+	tab := newBrowseTab(nil)
+	tab.Resize(120, 12)
+
+	updated, _ := tab.Update(recordLoadedMsg{
+		record:   service.Record{Path: "docs/specs/a.md", Title: "A"},
+		rendered: numberedLines(40),
+	})
+	tab = updated.(browseTab)
+	require.Equal(t, levelRecord, tab.level)
+	require.Greater(t, tab.docViewport.TotalLineCount(), tab.docViewport.VisibleLineCount())
+	require.Zero(t, tab.docViewport.YOffset())
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	tab = updated.(browseTab)
+	require.Equal(t, 1, tab.docViewport.YOffset())
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	tab = updated.(browseTab)
+	require.Greater(t, tab.docViewport.YOffset(), 1)
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	tab = updated.(browseTab)
+	require.Zero(t, tab.docViewport.YOffset())
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+	tab = updated.(browseTab)
+	require.True(t, tab.docViewport.AtBottom())
+
+	updated, _ = tab.Update(recordLoadedMsg{
+		record:   service.Record{Path: "docs/specs/b.md", Title: "B"},
+		rendered: numberedLines(30),
+	})
+	tab = updated.(browseTab)
+	require.Zero(t, tab.docViewport.YOffset())
+	require.Contains(t, tab.docViewport.GetContent(), "line 01")
 }
 
 func TestBrowseRecordsRenderCleanListDropsEmptyUpdated(t *testing.T) {
@@ -66,4 +106,20 @@ func TestBrowseRecordsRenderCleanListDropsEmptyUpdated(t *testing.T) {
 	require.Contains(t, out, "◻")
 	require.Contains(t, out, "docs/specs/alpha.md")
 	require.NotContains(t, out, "Updated")
+}
+
+func numberedLines(count int) string {
+	lines := make([]string, count)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %02d", i+1)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func numberedListItems(count int) string {
+	lines := make([]string, count)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("- line %02d", i+1)
+	}
+	return strings.Join(lines, "\n")
 }

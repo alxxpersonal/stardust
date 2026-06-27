@@ -8,6 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -37,17 +38,21 @@ const searchDebounceDelay = 180 * time.Millisecond
 
 // SearchTab is the interactive query surface over the service search engine.
 type SearchTab struct {
-	be       *backend
-	input    textinput.Model
-	spinner  spinner.Model
-	loading  bool
-	result   service.QueryResult
-	previews map[string]string
-	err      error
-	cursor   int
-	width    int
-	height   int
-	frame    int
+	be              *backend
+	input           textinput.Model
+	spinner         spinner.Model
+	loading         bool
+	result          service.QueryResult
+	previews        map[string]string
+	err             error
+	cursor          int
+	previewViewport viewport.Model
+	previewPath     string
+	previewRendered string
+	previewWidth    int
+	width           int
+	height          int
+	frame           int
 }
 
 type searchTab = SearchTab
@@ -56,7 +61,13 @@ type searchTab = SearchTab
 func NewSearchTab(be *backend) SearchTab {
 	ti := components.NewExoTextInput("search the vault")
 	sp := components.NewExoSpinner()
-	return SearchTab{be: be, input: ti, spinner: sp, previews: map[string]string{}}
+	return SearchTab{
+		be:              be,
+		input:           ti,
+		spinner:         sp,
+		previews:        map[string]string{},
+		previewViewport: components.NewExoViewport(80, 20),
+	}
 }
 
 func newSearchTab(be *backend) SearchTab {
@@ -67,6 +78,7 @@ func newSearchTab(be *backend) SearchTab {
 func (t *SearchTab) Resize(width, height int) {
 	t.width = width
 	t.height = height
+	t.refreshPreviewViewport(false)
 }
 
 // Init focuses the input.
@@ -99,6 +111,7 @@ func (t SearchTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		t.previews = msg.previews
 		t.err = msg.err
 		t.cursor = 0
+		t.refreshPreviewViewport(true)
 		return t, nil
 	case tea.KeyPressMsg:
 		switch msg.String() {
@@ -111,12 +124,17 @@ func (t SearchTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "down":
 			if t.cursor < len(t.result.Hits)-1 {
 				t.cursor++
+				t.refreshPreviewViewport(true)
 			}
 			return t, nil
 		case "up":
 			if t.cursor > 0 {
 				t.cursor--
+				t.refreshPreviewViewport(true)
 			}
+			return t, nil
+		case "pgup", "pgdown", "home", "end":
+			t.updatePreviewViewport(msg)
 			return t, nil
 		}
 	}
@@ -131,6 +149,7 @@ func (t SearchTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	t.cursor = 0
 	t.result = service.QueryResult{Query: after, RetrievalMode: t.result.RetrievalMode, Mode: t.result.Mode}
 	t.previews = map[string]string{}
+	t.clearPreviewViewport()
 	if after == "" {
 		t.loading = false
 		return t, cmd
@@ -174,6 +193,53 @@ func (t SearchTab) runSearch(query string) tea.Cmd {
 		}
 		return searchDoneMsg{query: query, result: result, previews: previews}
 	}
+}
+
+func (t *SearchTab) updatePreviewViewport(msg tea.KeyPressMsg) {
+	t.refreshPreviewViewport(false)
+	switch msg.String() {
+	case "home":
+		t.previewViewport.GotoTop()
+	case "end":
+		t.previewViewport.GotoBottom()
+	case "pgup":
+		t.previewViewport.PageUp()
+	case "pgdown":
+		t.previewViewport.PageDown()
+	}
+}
+
+func (t *SearchTab) refreshPreviewViewport(reset bool) {
+	paneWidth, paneHeight := t.previewPaneSize(t.width, t.height)
+	width := previewViewportWidthFor(paneWidth)
+	height := previewViewportHeightFor(paneHeight)
+	t.previewViewport.SetWidth(width)
+	t.previewViewport.SetHeight(height)
+
+	hit := t.selectedHit()
+	if hit.Path == "" {
+		t.clearPreviewViewport()
+		return
+	}
+
+	oldPath := t.previewPath
+	if t.previewRendered == "" || oldPath != hit.Path || t.previewWidth != width {
+		t.previewRendered = render.GlamourRender(t.previewMarkdown(hit), width)
+		t.previewWidth = width
+		t.previewPath = hit.Path
+		t.previewViewport.SetContent(t.previewRendered)
+	}
+	if reset || oldPath != hit.Path {
+		t.previewViewport.GotoTop()
+	}
+}
+
+func (t *SearchTab) clearPreviewViewport() {
+	t.previewPath = ""
+	t.previewRendered = ""
+	t.previewWidth = 0
+	t.previewViewport.SetContent("")
+	t.previewViewport.GotoTop()
 }
 
 // View renders the input, hit list, retrieval mode, and selected markdown preview.
@@ -272,16 +338,7 @@ func (t SearchTab) emptyHint() string {
 }
 
 func (t SearchTab) renderHorizontalSearchBody(width, height int) string {
-	gapW := 3
-	listW := (width * 40) / 100
-	if listW < 36 {
-		listW = 36
-	}
-	previewW := width - listW - gapW
-	if previewW < 40 {
-		previewW = 40
-		listW = width - previewW - gapW
-	}
+	listW, previewW := horizontalSearchPaneWidths(width)
 	if listW < 24 {
 		return t.renderVerticalSearchBody(width, height)
 	}
@@ -292,15 +349,7 @@ func (t SearchTab) renderHorizontalSearchBody(width, height int) string {
 }
 
 func (t SearchTab) renderVerticalSearchBody(width, height int) string {
-	listH := (height * 45) / 100
-	if listH < 5 {
-		listH = 5
-	}
-	previewH := height - listH - 1
-	if previewH < 3 {
-		previewH = 3
-		listH = height - previewH - 1
-	}
+	listH, previewH := verticalSearchPaneHeights(height)
 	list := fitBlock(t.renderResultsList(width, listH), width, listH)
 	preview := fitBlock(t.renderPreview(width, previewH), width, previewH)
 	return list + "\n" + Divider(width) + "\n" + preview
@@ -311,7 +360,8 @@ func (t SearchTab) Hints() []components.HintItem {
 	return withCommonHints(
 		components.HintItem{Key: "type", Desc: "search"},
 		components.HintItem{Key: "enter", Desc: "run now"},
-		components.HintItem{Key: "up/down", Desc: "preview"},
+		components.HintItem{Key: "up/down", Desc: "results"},
+		components.HintItem{Key: "pgup/pgdn", Desc: "preview"},
 	)
 }
 
@@ -384,8 +434,14 @@ func (t SearchTab) renderPreview(width, height int) string {
 	}
 	header := HeaderStyle.Render(components.SanitizeOneLine(hitTitle(hit))) + "\n"
 	header += MutedStyle.Render(components.SanitizeOneLine(hit.Path)) + "\n\n"
-	rendered := clipLines(render.GlamourRender(md, width-4), height-4)
-	return header + rendered
+	viewport := t.previewViewport
+	viewport.SetWidth(previewViewportWidthFor(width))
+	viewport.SetHeight(previewViewportHeightFor(height))
+	if viewport.GetContent() == "" || t.previewPath != hit.Path || t.previewWidth != viewport.Width() {
+		viewport.SetContent(render.GlamourRender(md, viewport.Width()))
+		viewport.GotoTop()
+	}
+	return header + viewport.View()
 }
 
 func (t SearchTab) selectedHit() index.Hit {
@@ -400,6 +456,99 @@ func (t SearchTab) selectedHit() index.Hit {
 		cursor = len(t.result.Hits) - 1
 	}
 	return t.result.Hits[cursor]
+}
+
+func (t SearchTab) previewMarkdown(hit index.Hit) string {
+	md := t.previews[hit.Path]
+	if strings.TrimSpace(md) == "" {
+		md = hit.Snippet
+	}
+	return md
+}
+
+func (t SearchTab) previewPaneSize(width, height int) (int, int) {
+	if width <= 0 {
+		width = t.width
+	}
+	if height <= 0 {
+		height = t.height
+	}
+	if width < 60 {
+		width = 60
+	}
+	if height < 6 {
+		height = 6
+	}
+
+	boxW := searchBoxWidth(width)
+	contentW := boxW - 6
+	if contentW < 40 {
+		contentW = 40
+	}
+	contentH := height - 4
+	if contentH < 5 {
+		contentH = 5
+	}
+
+	header := t.renderSearchControls(contentW)
+	bodyH := contentH - countViewLines(header) - 1
+	if bodyH < 3 {
+		bodyH = 3
+	}
+
+	if contentW < 92 {
+		_, previewH := verticalSearchPaneHeights(bodyH)
+		return contentW, previewH
+	}
+	listW, previewW := horizontalSearchPaneWidths(contentW)
+	if listW < 24 {
+		_, previewH := verticalSearchPaneHeights(bodyH)
+		return contentW, previewH
+	}
+	return previewW, bodyH
+}
+
+func horizontalSearchPaneWidths(width int) (int, int) {
+	gapW := 3
+	listW := (width * 40) / 100
+	if listW < 36 {
+		listW = 36
+	}
+	previewW := width - listW - gapW
+	if previewW < 40 {
+		previewW = 40
+		listW = width - previewW - gapW
+	}
+	return listW, previewW
+}
+
+func verticalSearchPaneHeights(height int) (int, int) {
+	listH := (height * 45) / 100
+	if listH < 5 {
+		listH = 5
+	}
+	previewH := height - listH - 1
+	if previewH < 3 {
+		previewH = 3
+		listH = height - previewH - 1
+	}
+	return listH, previewH
+}
+
+func previewViewportWidthFor(width int) int {
+	viewportWidth := width - 4
+	if viewportWidth < 20 {
+		viewportWidth = 20
+	}
+	return viewportWidth
+}
+
+func previewViewportHeightFor(height int) int {
+	viewportHeight := height - 4
+	if viewportHeight < 1 {
+		viewportHeight = 1
+	}
+	return viewportHeight
 }
 
 func hitTitle(hit index.Hit) string {

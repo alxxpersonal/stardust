@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -51,6 +52,8 @@ type BrowseTab struct {
 	records         service.RecordList
 	record          service.Record
 	rendered        string
+	renderedWidth   int
+	docViewport     viewport.Model
 	collectionIndex int
 	recordIndex     int
 	loading         bool
@@ -64,7 +67,7 @@ type browseTab = BrowseTab
 
 // NewBrowseTab creates the browse tab.
 func NewBrowseTab(be *backend) BrowseTab {
-	return BrowseTab{be: be}
+	return BrowseTab{be: be, docViewport: components.NewExoViewport(80, 20)}
 }
 
 func newBrowseTab(be *backend) BrowseTab {
@@ -75,6 +78,9 @@ func newBrowseTab(be *backend) BrowseTab {
 func (t *BrowseTab) Resize(width, height int) {
 	t.width = width
 	t.height = height
+	if t.level == levelRecord {
+		t.refreshRecordViewport(false)
+	}
 }
 
 // Init loads the collection list.
@@ -100,8 +106,7 @@ func (t BrowseTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			t.level = levelRecords
 			t.records = msg.records
 			t.recordIndex = 0
-			t.rendered = ""
-			t.record = service.Record{}
+			t.clearRecord()
 		}
 		return t, nil
 	case recordLoadedMsg:
@@ -111,6 +116,8 @@ func (t BrowseTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			t.level = levelRecord
 			t.record = msg.record
 			t.rendered = msg.rendered
+			t.renderedWidth = 0
+			t.refreshRecordViewport(true)
 		}
 		return t, nil
 	case tea.KeyPressMsg:
@@ -140,8 +147,7 @@ func (t BrowseTab) updateKey(msg tea.KeyPressMsg) (TabModel, tea.Cmd) {
 		switch t.level {
 		case levelRecord:
 			t.level = levelRecords
-			t.record = service.Record{}
-			t.rendered = ""
+			t.clearRecord()
 		case levelRecords:
 			t.level = levelCollections
 			t.records = service.RecordList{}
@@ -158,10 +164,23 @@ func (t BrowseTab) updateKey(msg tea.KeyPressMsg) (TabModel, tea.Cmd) {
 		case levelRecord:
 			return t, t.loadRecord(t.record.Path)
 		}
+	case "pgup", "pgdown", "home", "end":
+		if t.level == levelRecord {
+			t.updateRecordViewport(msg)
+		}
+		return t, nil
 	case "down":
+		if t.level == levelRecord {
+			t.updateRecordViewport(msg)
+			return t, nil
+		}
 		t.move(1)
 		return t, nil
 	case "up":
+		if t.level == levelRecord {
+			t.updateRecordViewport(msg)
+			return t, nil
+		}
 		t.move(-1)
 		return t, nil
 	}
@@ -175,6 +194,50 @@ func (t *BrowseTab) move(delta int) {
 	case levelRecords:
 		t.recordIndex = clampIndex(t.recordIndex+delta, len(t.records.Records))
 	}
+}
+
+func (t *BrowseTab) updateRecordViewport(msg tea.KeyPressMsg) {
+	t.refreshRecordViewport(false)
+	switch msg.String() {
+	case "home":
+		t.docViewport.GotoTop()
+	case "end":
+		t.docViewport.GotoBottom()
+	default:
+		t.docViewport, _ = t.docViewport.Update(msg)
+	}
+}
+
+func (t *BrowseTab) refreshRecordViewport(reset bool) {
+	width := t.recordViewportWidth()
+	height := t.recordViewportHeight()
+	t.docViewport.SetWidth(width)
+	t.docViewport.SetHeight(height)
+
+	if t.record.Body != "" && (t.rendered == "" || t.renderedWidth != width) {
+		t.rendered = render.GlamourRender(t.record.Body, width)
+		t.renderedWidth = width
+	}
+	t.docViewport.SetContent(t.rendered)
+	if reset {
+		t.docViewport.GotoTop()
+	}
+}
+
+func (t *BrowseTab) clearRecord() {
+	t.record = service.Record{}
+	t.rendered = ""
+	t.renderedWidth = 0
+	t.docViewport.SetContent("")
+	t.docViewport.GotoTop()
+}
+
+func (t BrowseTab) recordViewportWidth() int {
+	return recordViewportWidthFor(t.width)
+}
+
+func (t BrowseTab) recordViewportHeight() int {
+	return recordViewportHeightFor(t.height)
 }
 
 func (t BrowseTab) loadCollections() tea.Cmd {
@@ -245,13 +308,24 @@ func (t BrowseTab) View(width, height int) string {
 
 // Hints returns the key hints for the browse tab.
 func (t BrowseTab) Hints() []components.HintItem {
-	hints := []components.HintItem{
-		{Key: "enter", Desc: "open"},
-		{Key: "up/down", Desc: "select"},
-		{Key: "r", Desc: "refresh"},
-	}
-	if t.level != levelCollections {
-		hints = append(hints, components.HintItem{Key: "esc", Desc: "back"})
+	var hints []components.HintItem
+	if t.level == levelRecord {
+		hints = []components.HintItem{
+			{Key: "up/down", Desc: "scroll"},
+			{Key: "pgup/pgdn", Desc: "page"},
+			{Key: "home/end", Desc: "top/bottom"},
+			{Key: "r", Desc: "refresh"},
+			{Key: "esc", Desc: "back"},
+		}
+	} else {
+		hints = []components.HintItem{
+			{Key: "enter", Desc: "open"},
+			{Key: "up/down", Desc: "select"},
+			{Key: "r", Desc: "refresh"},
+		}
+		if t.level != levelCollections {
+			hints = append(hints, components.HintItem{Key: "esc", Desc: "back"})
+		}
 	}
 	return withCommonHints(hints...)
 }
@@ -352,12 +426,34 @@ func (t BrowseTab) viewRecord(width, height int) string {
 	title := recordTitle(t.record)
 	header := HeaderStyle.Render(components.SanitizeOneLine(title)) + "\n"
 	header += MutedStyle.Render(components.SanitizeOneLine(t.record.Path)) + "\n\n"
-	body := t.rendered
-	if body == "" {
-		body = render.GlamourRender(t.record.Body, tableWidth(width)-8)
+	viewport := t.docViewport
+	viewport.SetWidth(recordViewportWidthFor(width))
+	viewport.SetHeight(recordViewportHeightFor(height))
+	if viewport.GetContent() == "" && (t.rendered != "" || t.record.Body != "") {
+		body := t.rendered
+		if body == "" {
+			body = render.GlamourRender(t.record.Body, recordViewportWidthFor(width))
+		}
+		viewport.SetContent(body)
 	}
-	content := header + clipLines(body, height-6)
+	content := header + viewport.View()
 	return centerBlockUniform(animatedDoubleBox("", content, t.frame), width)
+}
+
+func recordViewportWidthFor(width int) int {
+	viewportWidth := tableWidth(width) - 6
+	if viewportWidth < 20 {
+		viewportWidth = 20
+	}
+	return viewportWidth
+}
+
+func recordViewportHeightFor(height int) int {
+	viewportHeight := height - 7
+	if viewportHeight < 1 {
+		viewportHeight = 1
+	}
+	return viewportHeight
 }
 
 func recordTitle(r service.Record) string {

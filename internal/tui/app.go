@@ -41,12 +41,13 @@ func newApp(be *backend) App {
 
 // applySize fans the current width and height out to every tab.
 func (a *App) applySize() {
-	a.searchTab.Resize(a.width, a.height)
-	a.browseTab.Resize(a.width, a.height)
-	a.graphTab.Resize(a.width, a.height)
-	a.driftTab.Resize(a.width, a.height)
-	a.statusTab.Resize(a.width, a.height)
-	a.settingsTab.Resize(a.width, a.height)
+	contentHeight := a.contentHeight()
+	a.searchTab.Resize(a.width, contentHeight)
+	a.browseTab.Resize(a.width, contentHeight)
+	a.graphTab.Resize(a.width, contentHeight)
+	a.driftTab.Resize(a.width, contentHeight)
+	a.statusTab.Resize(a.width, contentHeight)
+	a.settingsTab.Resize(a.width, contentHeight)
 }
 
 func (a *App) buildTabs(be *backend) {
@@ -85,50 +86,44 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
-		// Tab and shift+tab cycle tabs unconditionally, so a focused tab (the
-		// search box, the settings editor) can always be left even when it owns
-		// the arrow keys and digits.
+		// Tab and arrow tab keys cycle unconditionally so focused inputs never
+		// trap the user on one tab.
 		switch msg.String() {
-		case "tab":
-			a.activeTab = (a.activeTab + 1) % len(tabNames)
+		case "tab", "right":
+			a.cycleTab(1)
 			return a, nil
-		case "shift+tab":
-			a.activeTab = (a.activeTab - 1 + len(tabNames)) % len(tabNames)
+		case "shift+tab", "left":
+			a.cycleTab(-1)
 			return a, nil
 		}
 
-		// Tab-switching keys are gated behind the active tab's focus so a tab
-		// that owns text input (the settings editor, the search box) receives
-		// arrow keys and digits instead of switching tabs.
+		// Digit jumps stay gated behind focus so text inputs can accept numeric
+		// query and config values.
 		if !a.activeTabModel().Focused() {
 			switch msg.String() {
-			case "left":
-				if a.activeTab > 0 {
-					a.activeTab--
-				}
-				return a, nil
-			case "right":
-				if a.activeTab < len(tabNames)-1 {
-					a.activeTab++
-				}
-				return a, nil
 			case "1":
 				a.activeTab = TabSearch
+				a.applySize()
 				return a, nil
 			case "2":
 				a.activeTab = TabBrowse
+				a.applySize()
 				return a, nil
 			case "3":
 				a.activeTab = TabGraph
+				a.applySize()
 				return a, nil
 			case "4":
 				a.activeTab = TabDrift
+				a.applySize()
 				return a, nil
 			case "5":
 				a.activeTab = TabStatus
+				a.applySize()
 				return a, nil
 			case "6":
 				a.activeTab = TabSettings
+				a.applySize()
 				return a, nil
 			}
 		}
@@ -195,6 +190,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a *App) cycleTab(delta int) {
+	a.activeTab = (a.activeTab + delta + len(tabNames)) % len(tabNames)
+	a.applySize()
+}
+
 func (a *App) syncFrame() {
 	a.searchTab.frame = a.frame
 	a.browseTab.frame = a.frame
@@ -239,17 +239,7 @@ func (a App) View() tea.View {
 	}
 
 	top := banner + "\n" + tabBar + "\n" + header
-	topLines := countViewLines(top)
-	statusBarLines := countViewLines(statusBar)
-
-	extraLines := 3
-	if a.activeTabModel().StatusLine() != "" {
-		extraLines++
-	}
-	contentHeight := a.height - topLines - statusBarLines - extraLines
-	if contentHeight < 3 {
-		contentHeight = 3
-	}
+	contentHeight := a.contentHeight()
 
 	var content string
 	switch a.activeTab {
@@ -276,6 +266,34 @@ func (a App) View() tea.View {
 	v := tea.NewView(top + content + statusLineRendered + "\n" + statusBar)
 	v.AltScreen = true
 	return v
+}
+
+func (a App) contentHeight() int {
+	banner := centerBlockUniform(RenderBannerAnimated(a.frame), a.width)
+	tabBar := renderTabBar(a.activeTab, a.width)
+	statusBar := centerBlockUniform(
+		components.StatusBarFromItems(a.activeTabModel().Hints(), a.width),
+		a.width,
+	)
+
+	header := ""
+	if label := a.activeTabModel().HeaderLabel(); label != "" {
+		header = centerBlockUniform(promptHeaderBox(label, a.frame, tableWidth(a.width)), a.width) + "\n"
+	}
+
+	top := banner + "\n" + tabBar + "\n" + header
+	topLines := countViewLines(top)
+	statusBarLines := countViewLines(statusBar)
+
+	extraLines := 3
+	if a.activeTabModel().StatusLine() != "" {
+		extraLines++
+	}
+	contentHeight := a.height - topLines - statusBarLines - extraLines
+	if contentHeight < 3 {
+		contentHeight = 3
+	}
+	return contentHeight
 }
 
 // --- Helpers ---

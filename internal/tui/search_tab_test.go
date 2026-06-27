@@ -3,6 +3,7 @@ package tui
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/alxxpersonal/stardust/internal/index"
@@ -91,6 +92,44 @@ func TestSearchViewRendersResultsAndPreview(t *testing.T) {
 	require.Contains(t, out, "notes/alpha.md")
 	require.Contains(t, out, "alpha match")
 	require.Contains(t, out, "body preview text")
+}
+
+func TestSearchPreviewViewportScrolls(t *testing.T) {
+	tab := newSearchTab(nil)
+	tab.input.SetValue("alpha")
+	tab.Resize(140, 16)
+
+	updated, _ := tab.Update(searchDoneMsg{
+		query: "alpha",
+		result: service.QueryResult{
+			RetrievalMode: service.RetrievalHybridSemantic,
+			Hits: []index.Hit{
+				{Path: "notes/alpha.md", Title: "Alpha", Snippet: "alpha match snippet", Score: 0.91},
+				{Path: "notes/beta.md", Title: "Beta", Snippet: "beta match snippet", Score: 0.38},
+			},
+		},
+		previews: map[string]string{
+			"notes/alpha.md": numberedListItems(80),
+			"notes/beta.md":  numberedListItems(60),
+		},
+	})
+	tab = updated.(searchTab)
+	require.Greater(t, tab.previewViewport.TotalLineCount(), tab.previewViewport.VisibleLineCount())
+	require.Zero(t, tab.previewViewport.YOffset())
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	tab = updated.(searchTab)
+	require.Greater(t, tab.previewViewport.YOffset(), 0)
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	tab = updated.(searchTab)
+	require.Equal(t, 1, tab.cursor)
+	require.Equal(t, "notes/beta.md", tab.previewPath)
+	require.Zero(t, tab.previewViewport.YOffset())
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+	tab = updated.(searchTab)
+	require.True(t, tab.previewViewport.AtBottom())
 }
 
 func TestSearchViewEmptyStateShowsHint(t *testing.T) {

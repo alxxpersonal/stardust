@@ -35,6 +35,15 @@ func TestAppArrowCycle(t *testing.T) {
 	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	got = model.(App)
 	require.Equal(t, TabStatus, got.activeTab)
+
+	got.activeTab = TabSearch
+	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	got = model.(App)
+	require.Equal(t, TabSettings, got.activeTab)
+
+	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	got = model.(App)
+	require.Equal(t, TabSearch, got.activeTab)
 }
 
 func TestAppHasSixTabs(t *testing.T) {
@@ -50,19 +59,34 @@ func TestAppJumpToSettings(t *testing.T) {
 	require.Equal(t, TabSettings, got.activeTab)
 }
 
-func TestAppFocusedTabGatesTabSwitching(t *testing.T) {
+func TestAppFocusedTabAllowsArrowTabSwitching(t *testing.T) {
 	app := newApp(nil)
+	require.True(t, app.activeTabModel().Focused())
+
+	model, _ := app.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	got := model.(App)
+	require.Equal(t, TabBrowse, got.activeTab)
+
+	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	got = model.(App)
+	require.Equal(t, TabSearch, got.activeTab)
+
+	app = newApp(nil)
 	app.activeTab = TabSettings
 	// drive the settings tab into the inline editor so it reports Focused()
 	updated, _ := app.settingsTab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	app.settingsTab = updated.(SettingsTab)
 	require.True(t, app.activeTabModel().Focused())
 
-	model, _ := app.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
-	got := model.(App)
-	require.Equal(t, TabSettings, got.activeTab) // arrow did not switch tabs
+	model, _ = app.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	got = model.(App)
+	require.Equal(t, TabStatus, got.activeTab)
 
 	model, _ = got.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	got = model.(App)
+	require.Equal(t, TabSettings, got.activeTab)
+
+	model, _ = got.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
 	got = model.(App)
 	require.Equal(t, TabSettings, got.activeTab)
 }
