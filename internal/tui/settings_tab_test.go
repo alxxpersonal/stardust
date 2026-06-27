@@ -1,12 +1,16 @@
 package tui
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/service"
 	"github.com/alxxpersonal/stardust/internal/tui/components"
@@ -95,4 +99,183 @@ func TestSettingsActionBusyGuard(t *testing.T) {
 	tab = updated.(settingsTab)
 	require.Nil(t, cmd) // second action rejected while busy
 	require.True(t, tab.busy)
+}
+
+func TestSettingsCollectionEditingMutatesThroughService(t *testing.T) {
+	ctx := context.Background()
+	root := settingsTestVault(t)
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	tab := newSettingsTab(&backend{svc: svc})
+	tab.sub = settingsCollections
+
+	updated, _ := tab.Update(settingsKey("n"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionFormAdd, tab.collectionForm.mode)
+	require.Equal(t, collectionStepName, tab.collectionForm.step)
+
+	tab.collectionForm.input.SetValue("notes")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionStepPath, tab.collectionForm.step)
+
+	tab.collectionForm.input.SetValue("docs/notes")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionStepDescription, tab.collectionForm.step)
+
+	tab.collectionForm.input.SetValue("quick notes")
+	updated, cmd := tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.True(t, tab.busy)
+	tab = runSettingsCmd(t, tab, cmd)
+	require.False(t, tab.busy)
+	require.Len(t, tab.collections, 1)
+	require.Equal(t, "notes", tab.collections[0].Name)
+
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionFormEdit, tab.collectionForm.mode)
+	require.Equal(t, collectionStepPath, tab.collectionForm.step)
+
+	tab.collectionForm.input.SetValue("docs/notes-edited")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.collectionForm.input.SetValue("edited quick notes")
+	updated, cmd = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err := svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, "docs/notes-edited", got.Path)
+	require.Equal(t, "edited quick notes", got.Description)
+
+	updated, _ = tab.Update(settingsKey("s"))
+	tab = updated.(settingsTab)
+	require.Equal(t, settingsSchema, tab.sub)
+	require.Equal(t, "notes", tab.schemaName)
+
+	updated, _ = tab.Update(settingsKey("n"))
+	tab = updated.(settingsTab)
+	require.Equal(t, fieldFormAdd, tab.fieldForm.mode)
+	require.Equal(t, fieldStepName, tab.fieldForm.step)
+
+	tab.fieldForm.input.SetValue("status")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue(collections.TypeEnum)
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue("true")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, fieldStepEnum, tab.fieldForm.step)
+	tab.fieldForm.input.SetValue("draft, done")
+	updated, cmd = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err = svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, []collections.Field{{
+		Name:     "status",
+		Type:     collections.TypeEnum,
+		Required: true,
+		Enum:     []string{"draft", "done"},
+	}}, got.Fields)
+
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, fieldFormEdit, tab.fieldForm.mode)
+	tab.fieldForm.input.SetValue("state")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue(collections.TypeString)
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue("false")
+	updated, cmd = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err = svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, []collections.Field{{Name: "state", Type: collections.TypeString}}, got.Fields)
+
+	updated, _ = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	require.True(t, tab.confirmingFieldDelete)
+	updated, cmd = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err = svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Empty(t, got.Fields)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "notes-edited"), 0o755))
+	docPath := filepath.Join(root, "docs", "notes-edited", "keep.md")
+	require.NoError(t, os.WriteFile(docPath, []byte("# keep\n"), 0o644))
+
+	updated, _ = tab.Update(settingsKey("esc"))
+	tab = updated.(settingsTab)
+	require.Equal(t, settingsCollections, tab.sub)
+	updated, _ = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	require.True(t, tab.confirmingCollectionDelete)
+	updated, cmd = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	require.Empty(t, tab.collections)
+	_, err = os.Stat(docPath)
+	require.NoError(t, err)
+}
+
+func TestSettingsReferenceCollectionIsNotEditable(t *testing.T) {
+	tab := newSettingsTab(nil)
+	tab.sub = settingsCollections
+	tab.collections = []service.CollectionInfo{{Name: "reference", Path: "docs", Description: "general docs"}}
+
+	updated, _ := tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionFormNone, tab.collectionForm.mode)
+	require.Contains(t, components.SanitizeText(tab.note), "not editable")
+
+	updated, _ = tab.Update(settingsKey("s"))
+	tab = updated.(settingsTab)
+	require.Equal(t, settingsCollections, tab.sub)
+
+	updated, _ = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	require.False(t, tab.confirmingCollectionDelete)
+}
+
+func settingsTestVault(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	return root
+}
+
+func runSettingsCmd(t *testing.T, tab settingsTab, cmd tea.Cmd) settingsTab {
+	t.Helper()
+	require.NotNil(t, cmd)
+	updated, _ := tab.Update(cmd())
+	return updated.(settingsTab)
+}
+
+func settingsKey(s string) tea.KeyPressMsg {
+	switch s {
+	case "enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "esc":
+		return tea.KeyPressMsg{Code: tea.KeyEscape}
+	case "up":
+		return tea.KeyPressMsg{Code: tea.KeyUp}
+	case "down":
+		return tea.KeyPressMsg{Code: tea.KeyDown}
+	default:
+		r := []rune(s)
+		return tea.KeyPressMsg{Text: s, Code: r[0]}
+	}
 }

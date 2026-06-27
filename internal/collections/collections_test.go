@@ -121,3 +121,70 @@ func TestValidateIgnoresUnknownFields(t *testing.T) {
 	fields := []Field{{Name: "company", Type: TypeString, Required: true}}
 	require.NoError(t, Validate(map[string]any{"company": "acme", "extra": 123}, fields))
 }
+
+func TestSaveRoundTripsCollection(t *testing.T) {
+	collectionsDir := t.TempDir()
+	want := Collection{
+		Name: "jobs",
+		Cfg: Config{
+			Path:        "docs/jobs",
+			Description: "job applications",
+			Fields: []Field{
+				{Name: "company", Type: TypeString, Required: true},
+				{Name: "status", Type: TypeEnum, Enum: []string{"open", "closed"}},
+				{Name: "score", Type: TypeNumber},
+				{Name: "tags", Type: TypeTags},
+			},
+		},
+	}
+
+	require.NoError(t, Save(collectionsDir, want))
+
+	got, err := LoadOne(collectionsDir, "jobs")
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+
+	all, err := Load(collectionsDir)
+	require.NoError(t, err)
+	require.Equal(t, []Collection{want}, all)
+
+	data, err := os.ReadFile(filepath.Join(collectionsDir, "jobs", "config.toml"))
+	require.NoError(t, err)
+	require.Contains(t, string(data), "[[fields]]")
+}
+
+func TestSaveRejectsUnsafeNameAndEmptyPath(t *testing.T) {
+	collectionsDir := t.TempDir()
+
+	require.Error(t, Save(collectionsDir, Collection{
+		Name: "../jobs",
+		Cfg:  Config{Path: "docs/jobs"},
+	}))
+	require.Error(t, Save(collectionsDir, Collection{
+		Name: "jobs",
+		Cfg:  Config{},
+	}))
+}
+
+func TestRemoveDeletesConfigButLeavesDocs(t *testing.T) {
+	root := t.TempDir()
+	collectionsDir := filepath.Join(root, ".stardust", "collections")
+	docPath := filepath.Join(root, "docs", "jobs", "acme.md")
+	require.NoError(t, os.MkdirAll(filepath.Dir(docPath), 0o755))
+	require.NoError(t, os.WriteFile(docPath, []byte("# acme\n"), 0o644))
+
+	require.NoError(t, Save(collectionsDir, Collection{
+		Name: "jobs",
+		Cfg: Config{
+			Path:        "docs/jobs",
+			Description: "job applications",
+		},
+	}))
+
+	require.NoError(t, Remove(collectionsDir, "jobs"))
+
+	_, err := os.Stat(filepath.Join(collectionsDir, "jobs"))
+	require.True(t, os.IsNotExist(err))
+	_, err = os.Stat(docPath)
+	require.NoError(t, err)
+}

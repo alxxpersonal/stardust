@@ -53,7 +53,7 @@ type Field struct {
 	Name     string   `toml:"name" json:"name"`
 	Type     string   `toml:"type" json:"type"`
 	Required bool     `toml:"required" json:"required"`
-	Enum     []string `toml:"enum" json:"enum,omitempty"`
+	Enum     []string `toml:"enum,omitempty" json:"enum,omitempty"`
 	Default  any      `toml:"default" json:"default,omitempty"`
 }
 
@@ -123,6 +123,55 @@ func LoadOne(collectionsDir, name string) (Collection, error) {
 	return Collection{Name: name, Cfg: cfg}, nil
 }
 
+// Save writes c to .stardust/collections/<name>/config.toml, replacing any
+// existing schema for that collection. It only writes registration metadata and
+// never writes markdown records.
+func Save(collectionsDir string, c Collection) error {
+	if err := validateCollectionName(c.Name); err != nil {
+		return err
+	}
+	cfg := c.Cfg
+	cfg.Path = strings.TrimSpace(cfg.Path)
+	if err := validateCollectionConfig(c.Name, cfg); err != nil {
+		return err
+	}
+	b, err := toml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal collection %s: %w", c.Name, err)
+	}
+	dir := filepath.Join(collectionsDir, c.Name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create collection %s dir: %w", c.Name, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), b, 0o600); err != nil {
+		return fmt.Errorf("write collection %s: %w", c.Name, err)
+	}
+	return nil
+}
+
+// Remove deletes the collection registration directory for name without
+// deleting markdown records under the collection path.
+func Remove(collectionsDir, name string) error {
+	if err := validateCollectionName(name); err != nil {
+		return err
+	}
+	dir := filepath.Join(collectionsDir, name)
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("collection %s does not exist: %w", name, err)
+		}
+		return fmt.Errorf("stat collection %s: %w", name, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("collection %s is not a directory", name)
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("remove collection %s: %w", name, err)
+	}
+	return nil
+}
+
 // Validate checks a record's frontmatter against a schema's fields: every
 // required field must be present and non-nil, every enum field's value must be a
 // member of its Enum set, and present values must satisfy a basic type check for
@@ -156,6 +205,36 @@ func Validate(frontmatter map[string]any, fields []Field) (err error) {
 }
 
 // --- Helpers ---
+
+// validateCollectionName verifies that name is exactly one safe path segment.
+func validateCollectionName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("collection name is required")
+	}
+	if strings.TrimSpace(name) != name {
+		return fmt.Errorf("collection name %q must be a single path segment", name)
+	}
+	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) || filepath.Clean(name) != name {
+		return fmt.Errorf("collection name %q must be a single path segment", name)
+	}
+	return nil
+}
+
+// validateCollectionConfig verifies that cfg can be loaded again after saving.
+func validateCollectionConfig(name string, cfg Config) error {
+	if strings.TrimSpace(cfg.Path) == "" {
+		return fmt.Errorf("collection %s: path is required", name)
+	}
+	for _, f := range cfg.Fields {
+		if strings.TrimSpace(f.Name) == "" {
+			return fmt.Errorf("collection %s: field with empty name", name)
+		}
+		if !validTypes[f.Type] {
+			return fmt.Errorf("collection %s: field %s has unsupported type %q", name, f.Name, f.Type)
+		}
+	}
+	return nil
+}
 
 // checkType verifies that v is a plausible value for the field's declared type.
 func checkType(f Field, v any) error {

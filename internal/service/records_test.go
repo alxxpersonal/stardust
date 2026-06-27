@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
@@ -156,6 +157,55 @@ func TestCreateRecordUniqueFilenames(t *testing.T) {
 	r2, err := svc.CreateRecord(ctx, "jobs", map[string]any{"company": "Acme", "status": "closed"}, "b")
 	require.NoError(t, err)
 	require.Equal(t, "jobs/acme-2.md", r2.Path) // collision-suffixed
+}
+
+func TestCollectionMutatorsPersistAndReflectThroughList(t *testing.T) {
+	ctx := context.Background()
+	root := emptyVault(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "research"), 0o755))
+	docPath := filepath.Join(root, "docs", "research", "note.md")
+	require.NoError(t, os.WriteFile(docPath, []byte("# note\n"), 0o644))
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	info := service.CollectionInfo{
+		Name:        "research",
+		Path:        "docs/research",
+		Description: "research notes",
+		Fields: []collections.Field{
+			{Name: "status", Type: collections.TypeEnum, Required: true, Enum: []string{"draft", "done"}},
+		},
+	}
+	require.NoError(t, svc.SaveCollection(ctx, info))
+
+	cols, err := svc.ListCollections(ctx)
+	require.NoError(t, err)
+	require.Len(t, cols, 1)
+	require.Equal(t, "research", cols[0].Name)
+	require.Equal(t, "docs/research", cols[0].Path)
+	require.Equal(t, "research notes", cols[0].Description)
+	require.Equal(t, info.Fields, cols[0].Fields)
+
+	info.Description = "edited research notes"
+	info.Fields = append(info.Fields, collections.Field{Name: "owner", Type: collections.TypeString})
+	require.NoError(t, svc.SaveCollection(ctx, info))
+
+	got, err := svc.GetCollection(ctx, "research")
+	require.NoError(t, err)
+	require.Equal(t, "edited research notes", got.Description)
+	require.Len(t, got.Fields, 2)
+
+	require.NoError(t, svc.DeleteCollection(ctx, "research"))
+	cols, err = svc.ListCollections(ctx)
+	require.NoError(t, err)
+	require.Empty(t, cols)
+	_, err = os.Stat(docPath)
+	require.NoError(t, err)
+
+	require.Error(t, svc.DeleteCollection(ctx, "research"))
+	require.Error(t, svc.SaveCollection(ctx, service.CollectionInfo{Name: "../bad", Path: "docs/bad"}))
 }
 
 func TestNoteGetIncludesFrontmatter(t *testing.T) {

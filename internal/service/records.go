@@ -73,6 +73,38 @@ func (s *Service) GetCollection(ctx context.Context, name string) (CollectionInf
 	return s.collectionInfo(ctx, c)
 }
 
+// SaveCollection persists a collection schema under the vault collections
+// directory. It updates registration metadata only and does not reindex.
+func (s *Service) SaveCollection(ctx context.Context, info CollectionInfo) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	c := collections.Collection{
+		Name: info.Name,
+		Cfg: collections.Config{
+			Path:        info.Path,
+			Description: info.Description,
+			Fields:      info.Fields,
+		},
+	}
+	if err := collections.Save(s.Layout.Collections(), c); err != nil {
+		return fmt.Errorf("save collection %s: %w", info.Name, err)
+	}
+	return nil
+}
+
+// DeleteCollection removes a collection registration without deleting markdown
+// records under that collection's path. It does not reindex.
+func (s *Service) DeleteCollection(ctx context.Context, name string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := collections.Remove(s.Layout.Collections(), name); err != nil {
+		return fmt.Errorf("delete collection %s: %w", name, err)
+	}
+	return nil
+}
+
 // ListRecords resolves the named collection to its folder and returns the
 // records under it, filtered by frontmatter predicates and ordered by sort (a
 // frontmatter field, or "path" / "updated_at", with an optional leading "-" for
