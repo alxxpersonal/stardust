@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
@@ -89,6 +90,107 @@ func TestDriftDocsIncludesWikiGovernsFrontmatter(t *testing.T) {
 	require.Equal(t, "internal/wiki.go", res.Docs[0].Bindings[0].File)
 }
 
+func TestDriftDocsUsesSourceRootForWikiGoverns(t *testing.T) {
+	ctx := context.Background()
+	wikiRoot := emptyVault(t)
+	sourceRoot := gitSourceRepo(t)
+	writeSourceFile(t, sourceRoot, "backend/src/auth.py", "def login():\n    return True\n")
+	gitCommitAt(t, sourceRoot, "2026-01-01T10:00:00", "add auth")
+
+	cfg := config.Default()
+	cfg.SourceRoot = sourceRoot
+	require.NoError(t, config.Save(config.Layout{Root: wikiRoot}.Config(), cfg))
+	writeWikiGovernedDoc(t, wikiRoot, "Home.md", "Auth Wiki", "backend/src/auth.py")
+	gitInitNoCommit(t, wikiRoot)
+	gitRemoteAdd(t, wikiRoot, "https://github.com/acme/project.wiki.git")
+	gitCommitAt(t, wikiRoot, "2026-01-02T10:00:00", "add wiki")
+
+	writeSourceFile(t, sourceRoot, "backend/src/auth.py", "def login():\n    return False\n")
+	gitCommitAt(t, sourceRoot, "2026-01-03T10:00:00", "edit auth")
+
+	svc, err := service.Open(ctx, wikiRoot)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.DriftDocs(ctx)
+	require.NoError(t, err)
+	require.Len(t, res.Docs, 1)
+	require.Equal(t, "Home.md", res.Docs[0].DocPath)
+	require.Len(t, res.Docs[0].Bindings, 1)
+	require.Equal(t, "backend/src/auth.py", res.Docs[0].Bindings[0].File)
+	require.Equal(t, "source_repo", res.Docs[0].Bindings[0].Source)
+	require.Greater(t, res.Docs[0].Bindings[0].ChangedCommits, 0)
+	require.Contains(t, res.Markdown, "source repo")
+
+	check, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(check.Issues, "drift"))
+	var driftDetail string
+	for _, issue := range check.Issues {
+		if issue.Kind == "drift" {
+			driftDetail = issue.Detail
+			break
+		}
+	}
+	require.Contains(t, driftDetail, "backend/src/auth.py")
+	require.Contains(t, driftDetail, "source repo")
+}
+
+func TestDriftDocsSourceRootCleanWhenSourceUnmoved(t *testing.T) {
+	ctx := context.Background()
+	wikiRoot := emptyVault(t)
+	sourceRoot := gitSourceRepo(t)
+	writeSourceFile(t, sourceRoot, "backend/src/auth.py", "def login():\n    return True\n")
+	gitCommitAt(t, sourceRoot, "2026-01-01T10:00:00", "add auth")
+
+	cfg := config.Default()
+	cfg.SourceRoot = sourceRoot
+	require.NoError(t, config.Save(config.Layout{Root: wikiRoot}.Config(), cfg))
+	writeWikiGovernedDoc(t, wikiRoot, "Home.md", "Auth Wiki", "backend/src/auth.py")
+	gitInitNoCommit(t, wikiRoot)
+	gitRemoteAdd(t, wikiRoot, "https://github.com/acme/project.wiki.git")
+	gitCommitAt(t, wikiRoot, "2026-01-02T10:00:00", "add wiki")
+
+	svc, err := service.Open(ctx, wikiRoot)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.DriftDocs(ctx)
+	require.NoError(t, err)
+	require.Empty(t, res.Docs)
+
+	check, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(check.Issues, "drift"))
+}
+
+func TestDriftDocsEmptySourceRootKeepsSameRepoResolution(t *testing.T) {
+	ctx := context.Background()
+	wikiRoot := emptyVault(t)
+	writeWikiGovernedDoc(t, wikiRoot, "Home.md", "Auth Wiki", "backend/src/auth.py")
+	gitInitNoCommit(t, wikiRoot)
+	gitRemoteAdd(t, wikiRoot, "https://github.com/acme/project.wiki.git")
+	gitCommitAt(t, wikiRoot, "2026-01-02T10:00:00", "add wiki")
+
+	svc, err := service.Open(ctx, wikiRoot)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.DriftDocs(ctx)
+	require.NoError(t, err)
+	require.Empty(t, res.Docs)
+
+	check, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(check.Issues, "drift"))
+}
+
 // TestCheckSurfacesDriftAsWarning asserts drift reaches the check surface as a
 // warn, never as an error, so it does not fail a --strict gate by itself.
 func TestCheckSurfacesDriftAsWarning(t *testing.T) {
@@ -151,4 +253,26 @@ func gitRemoteAdd(t *testing.T, root, remote string) {
 	cmd := exec.Command("git", "-C", root, "remote", "add", "origin", remote)
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "git remote add: %s", string(out))
+}
+
+func gitSourceRepo(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	gitInitNoCommit(t, root)
+	return root
+}
+
+func gitInitNoCommit(t *testing.T, root string) {
+	t.Helper()
+	gitRun(t, root, "init")
+	gitRun(t, root, "config", "user.email", "t@t")
+	gitRun(t, root, "config", "user.name", "t")
+	gitRun(t, root, "config", "commit.gpgsign", "false")
+}
+
+func writeSourceFile(t *testing.T, root, rel, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

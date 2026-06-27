@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -105,6 +106,30 @@ func LastCommitDate(ctx context.Context, repoRoot string, paths ...string) (stri
 	return strings.TrimSpace(out), nil
 }
 
+// LastCommitUnix returns the unix timestamp of the most recent commit touching
+// paths. It returns zero when paths are untracked or repoRoot is not a git
+// repository.
+func LastCommitUnix(ctx context.Context, repoRoot string, paths ...string) (int64, error) {
+	if !hasHead(ctx, repoRoot) {
+		return 0, nil
+	}
+	args := []string{"log", "-1", "--format=%ct", "--"}
+	args = append(args, paths...)
+	out, err := run(ctx, repoRoot, args...)
+	if err != nil {
+		return 0, fmt.Errorf("last commit unix: %w", err)
+	}
+	out = strings.TrimSpace(out)
+	if out == "" {
+		return 0, nil
+	}
+	unix, err := strconv.ParseInt(out, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse commit unix %q: %w", out, err)
+	}
+	return unix, nil
+}
+
 // Move renames a tracked file from oldPath to newPath via git mv, preserving
 // history. Both paths are relative to repoRoot.
 func Move(ctx context.Context, repoRoot, oldPath, newPath string) error {
@@ -138,6 +163,29 @@ func CommitCountSince(ctx context.Context, repoRoot string, since string, paths 
 	raw, err := run(ctx, repoRoot, args...)
 	if err != nil {
 		return 0, fmt.Errorf("commit count since %s: %w", since, err)
+	}
+	if raw == "" {
+		return 0, nil
+	}
+	var count int
+	if _, err := fmt.Sscanf(raw, "%d", &count); err != nil {
+		return 0, fmt.Errorf("parse commit count %q: %w", raw, err)
+	}
+	return count, nil
+}
+
+// CommitCountSinceUnix counts commits after a unix timestamp that touched paths.
+// It is used when the reference commit lives in another git repository, such as
+// a GitHub wiki documenting a sibling source checkout.
+func CommitCountSinceUnix(ctx context.Context, repoRoot string, since int64, paths ...string) (int, error) {
+	if since == 0 || !IsRepo(ctx, repoRoot) {
+		return 0, nil
+	}
+	args := []string{"rev-list", "--count", fmt.Sprintf("--since=@%d", since), "HEAD", "--"}
+	args = append(args, paths...)
+	raw, err := run(ctx, repoRoot, args...)
+	if err != nil {
+		return 0, fmt.Errorf("commit count since unix %d: %w", since, err)
 	}
 	if raw == "" {
 		return 0, nil

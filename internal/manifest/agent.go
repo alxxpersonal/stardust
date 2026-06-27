@@ -32,6 +32,7 @@ type StaleDoc struct {
 type DriftBinding struct {
 	File           string
 	ChangedCommits int
+	Source         string
 }
 
 // DriftDoc is one doc that references moved code through a related: or inline
@@ -150,11 +151,18 @@ func driftBindingSummary(bindings []DriftBinding) string {
 	}
 	parts := make([]string, len(shown))
 	for i, bind := range shown {
-		parts[i] = fmt.Sprintf("`%s` (%s)", bind.File, commitCount(bind.ChangedCommits))
+		parts[i] = fmt.Sprintf("`%s` (%s)", driftBindingLabel(bind), commitCount(bind.ChangedCommits))
 	}
 	out := strings.Join(parts, ", ")
 	if extra > 0 {
 		out = fmt.Sprintf("%s +%d more", out, extra)
 	}
 	return out
+}
+
+func driftBindingLabel(bind DriftBinding) string {
+	if bind.Source == "source_repo" {
+		return bind.File + " (source repo)"
+	}
+	return bind.File
 }

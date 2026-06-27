@@ -87,7 +87,7 @@ func (s *Service) driftDocRecords(ctx context.Context, limit int) ([]manifest.Dr
 	for _, doc := range res.Docs {
 		bindings := make([]manifest.DriftBinding, len(doc.Bindings))
 		for i, bind := range doc.Bindings {
-			bindings[i] = manifest.DriftBinding{File: bind.File, ChangedCommits: bind.ChangedCommits}
+			bindings[i] = manifest.DriftBinding{File: bind.File, ChangedCommits: bind.ChangedCommits, Source: bind.Source}
 		}
 		out = append(out, manifest.DriftDoc{Title: doc.Title, Path: doc.DocPath, Bindings: bindings})
 		if len(out) == limit {

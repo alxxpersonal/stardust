@@ -3,3 +3,4 @@ ollama_url = 'http://localhost:11434'
 ignore = ['.git', '.obsidian', '.stardust', '.trash', 'node_modules']
 reranker_url = ''
 reranker_model = ''
+source_root = ''

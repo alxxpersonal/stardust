@@ -222,7 +222,7 @@ func (t DriftTab) driftList(width int) string {
 				doc.Type,
 				components.SanitizeOneLine(doc.Title),
 				components.SanitizeOneLine(doc.DocPath),
-				components.SanitizeOneLine(bind.File),
+				components.SanitizeOneLine(driftBindingFile(bind)),
 				fmt.Sprintf("%d", bind.ChangedCommits),
 			}})
 		}
@@ -236,6 +236,13 @@ func (t DriftTab) driftList(width int) string {
 	}
 	label := cleanListCountLabel(len(t.drift.Docs), "doc")
 	return renderCleanList("Drifted Docs", label, cols, rows, width, -1)
+}
+
+func driftBindingFile(bind service.DriftBinding) string {
+	if bind.Source == "source_repo" {
+		return bind.File + " (source repo)"
+	}
+	return bind.File
 }
 
 // staleList renders implemented docs whose governed code changed after the doc.

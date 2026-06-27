@@ -198,6 +198,15 @@ func (s *Service) governingDoc(ctx context.Context, collection string, record Re
 type DriftBinding struct {
 	File           string `json:"file"`
 	ChangedCommits int    `json:"changed_commits"`
+	Source         string `json:"source,omitempty"`
+}
+
+const driftSourceRepo = "source_repo"
+
+type driftRef struct {
+	file   string
+	root   string
+	source string
 }
 
 // DriftDoc is a doc bound to code through a related: or inline-path reference
@@ -220,9 +229,9 @@ type DriftResult struct {
 // DriftDocs reports every doc whose code references moved since the doc's last
 // commit. It binds each doc to code through the reference edges of ADR 0015
 // (related: targets and inline code paths resolving to a non-markdown repo file,
-// captured as the link graph's CodeRefs), then measures commit-distance per bound
-// file. It is the ungated, reference-bound counterpart to StaleDocs; the
-// governs:-plus-Implemented path (StaleDocs) is unchanged.
+// captured as the link graph's CodeRefs) plus governs: frontmatter, then measures
+// commit-distance per bound file. It is the ungated, reference-bound counterpart
+// to StaleDocs; the governs:-plus-Implemented path (StaleDocs) is unchanged.
 func (s *Service) DriftDocs(ctx context.Context) (DriftResult, error) {
 	g, err := graph.Build(s.Layout.Root, s.Config.Ignore)
 	if err != nil {
@@ -232,12 +241,12 @@ func (s *Service) DriftDocs(ctx context.Context) (DriftResult, error) {
 	fallbackType := s.fallbackDriftDocType()
 	for _, node := range g.Nodes {
 		docType, ok := convention.DocTypeForPath(node.Path)
-		refs := codeRefTargets(node.CodeRefs)
-		governedRefs, err := s.governedCodeRefs(node.Path)
+		refs := localDriftRefs(codeRefTargets(node.CodeRefs))
+		governedRefs, err := s.governedDriftRefs(node.Path)
 		if err != nil {
 			return DriftResult{}, err
 		}
-		refs = appendUniqueStrings(refs, governedRefs...)
+		refs = appendUniqueDriftRefs(refs, governedRefs...)
 		if !ok {
 			if len(governedRefs) == 0 {
 				continue
@@ -275,7 +284,7 @@ func (s *Service) fallbackDriftDocType() string {
 	return "vault"
 }
 
-func (s *Service) governedCodeRefs(path string) ([]string, error) {
+func (s *Service) governedDriftRefs(path string) ([]driftRef, error) {
 	note, err := vault.Parse(s.Layout.Root, path)
 	if err != nil {
 		return nil, err
@@ -284,13 +293,39 @@ func (s *Service) governedCodeRefs(path string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("doc %s: %w", path, err)
 	}
-	var refs []string
+	var refs []driftRef
 	for _, pattern := range governs {
-		_, files, err := doclinks.MatchGovernedPath(s.Layout.Root, pattern, stalePathSentinel)
+		matches, err := s.matchGovernedDriftRefs(pattern)
 		if err != nil {
 			return nil, err
 		}
-		refs = appendUniqueStrings(refs, files...)
+		refs = appendUniqueDriftRefs(refs, matches...)
+	}
+	return refs, nil
+}
+
+func (s *Service) matchGovernedDriftRefs(pattern string) ([]driftRef, error) {
+	_, files, err := doclinks.MatchGovernedPath(s.Layout.Root, pattern, stalePathSentinel)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) > 0 {
+		return localDriftRefs(files), nil
+	}
+	sourceRoot, err := s.Config.ResolveSourceRoot(s.Layout.Root)
+	if err != nil {
+		return nil, err
+	}
+	if sourceRoot == "" {
+		return nil, nil
+	}
+	_, files, err = doclinks.MatchGovernedPath(sourceRoot, pattern, stalePathSentinel)
+	if err != nil {
+		return nil, err
+	}
+	refs := make([]driftRef, 0, len(files))
+	for _, file := range files {
+		refs = append(refs, driftRef{file: file, root: sourceRoot, source: driftSourceRepo})
 	}
 	return refs, nil
 }
@@ -299,7 +334,7 @@ func (s *Service) governedCodeRefs(path string) ([]string, error) {
 // file, the number of commits to it since the doc's last commit, keeping only
 // files that moved. It returns nil outside a git repo, when the doc is untracked,
 // or when no referenced file moved, so a non-repo or fresh doc never drifts.
-func (s *Service) docDrift(ctx context.Context, docPath string, codeRefs []string) ([]DriftBinding, error) {
+func (s *Service) docDrift(ctx context.Context, docPath string, codeRefs []driftRef) ([]DriftBinding, error) {
 	if len(codeRefs) == 0 {
 		return nil, nil
 	}
@@ -310,17 +345,43 @@ func (s *Service) docDrift(ctx context.Context, docPath string, codeRefs []strin
 	if docCommit == "" {
 		return nil, nil
 	}
+	var docUnix int64
+	if hasSourceRepoRef(codeRefs) {
+		docUnix, err = gitx.LastCommitUnix(ctx, s.Layout.Root, docPath)
+		if err != nil {
+			return nil, fmt.Errorf("last doc commit time %s: %w", docPath, err)
+		}
+		if docUnix == 0 {
+			return nil, nil
+		}
+	}
 	var out []DriftBinding
 	for _, ref := range codeRefs {
-		count, err := gitx.CommitCountSince(ctx, s.Layout.Root, docCommit, ref)
+		count, err := s.driftCount(ctx, docCommit, docUnix, ref)
 		if err != nil {
-			return nil, fmt.Errorf("drift count for %s referencing %s: %w", docPath, ref, err)
+			return nil, fmt.Errorf("drift count for %s referencing %s: %w", docPath, ref.file, err)
 		}
 		if count > 0 {
-			out = append(out, DriftBinding{File: ref, ChangedCommits: count})
+			out = append(out, DriftBinding{File: ref.file, ChangedCommits: count, Source: ref.source})
 		}
 	}
 	return out, nil
+}
+
+func (s *Service) driftCount(ctx context.Context, docCommit string, docUnix int64, ref driftRef) (int, error) {
+	if ref.source == driftSourceRepo {
+		return gitx.CommitCountSinceUnix(ctx, ref.root, docUnix, ref.file)
+	}
+	return gitx.CommitCountSince(ctx, s.Layout.Root, docCommit, ref.file)
+}
+
+func hasSourceRepoRef(refs []driftRef) bool {
+	for _, ref := range refs {
+		if ref.source == driftSourceRepo {
+			return true
+		}
+	}
+	return false
 }
 
 // codeRefTargets returns the unique target paths of a node's code references.
@@ -337,24 +398,51 @@ func codeRefTargets(edges []graph.Edge) []string {
 	return out
 }
 
-func appendUniqueStrings(items []string, more ...string) []string {
+func localDriftRefs(paths []string) []driftRef {
+	refs := make([]driftRef, 0, len(paths))
+	for _, path := range paths {
+		refs = append(refs, driftRef{file: path})
+	}
+	return refs
+}
+
+func appendUniqueDriftRefs(items []driftRef, more ...driftRef) []driftRef {
 	seen := make(map[string]bool, len(items)+len(more))
-	out := make([]string, 0, len(items)+len(more))
+	out := make([]driftRef, 0, len(items)+len(more))
 	for _, item := range items {
-		if item == "" || seen[item] {
+		if item.file == "" {
 			continue
 		}
-		seen[item] = true
+		key := driftRefKey(item)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		out = append(out, item)
 	}
 	for _, item := range more {
-		if item == "" || seen[item] {
+		if item.file == "" {
 			continue
 		}
-		seen[item] = true
+		key := driftRefKey(item)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		out = append(out, item)
 	}
 	return out
+}
+
+func driftRefKey(ref driftRef) string {
+	return ref.source + "\x00" + ref.root + "\x00" + ref.file
+}
+
+func driftBindingLabel(bind DriftBinding) string {
+	if bind.Source == driftSourceRepo {
+		return bind.File + " (source repo)"
+	}
+	return bind.File
 }
 
 // renderDriftMarkdown renders the drifted-docs report, one row per moved binding.
@@ -369,7 +457,7 @@ func renderDriftMarkdown(result DriftResult) string {
 	fmt.Fprintln(&b, "|---|---|---|---|---|")
 	for _, doc := range result.Docs {
 		for _, bind := range doc.Bindings {
-			fmt.Fprintf(&b, "| %s | %s | `%s` | `%s` | %d |\n", doc.Type, doc.Title, doc.DocPath, bind.File, bind.ChangedCommits)
+			fmt.Fprintf(&b, "| %s | %s | `%s` | `%s` | %d |\n", doc.Type, doc.Title, doc.DocPath, driftBindingLabel(bind), bind.ChangedCommits)
 		}
 	}
 	return b.String()

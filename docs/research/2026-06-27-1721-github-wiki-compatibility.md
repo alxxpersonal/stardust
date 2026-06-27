@@ -43,7 +43,7 @@ GitHub documents a soft limit of 5,000 total wiki files. That is still well insi
 | Orphan detection | Caveat | `_Sidebar.md`, `_Footer.md`, and `Home.md` could be flagged as orphans even though GitHub uses them structurally. | Implemented special-page exemption |
 | Frontmatter and docs conventions | Breaks in plain wiki repos with `docs/` | `CheckDocs` enforced docs/specs/plans/adr/research naming and frontmatter for any matching path, even when `init` would classify the directory as a plain vault. | Implemented docs-convention gating |
 | Collections as structured records | Caveat | Works only when the user explicitly registers collections. Plain wiki pages have `{}` frontmatter and are not records. | Same |
-| Doc-code drift engine | Mostly not applicable | A standalone wiki repo is separate from source, so `governs` and inline code refs usually cannot bind to real source paths. | Proposal: optional wiki-to-code bindings |
+| Doc-code drift engine | Mostly not applicable | A standalone wiki repo is separate from source, so `governs` and inline code refs usually cannot bind to real source paths. | Implemented for `governs:` through explicit `source_root` |
 | Special pages in PageRank | Caveat | Structural pages still exist as graph nodes. That is acceptable for search and graph context, but they should not become cleanup warnings. | Orphan warning fixed |
 | Init behavior | Works | `init` already detects markdown-dominant repos as plain vaults and skips docs collections unless `--docs` is passed. | Preserved |
 
@@ -98,7 +98,7 @@ GitHub documents a soft limit of 5,000 total wiki files. That is still well insi
    - Change: allow a wiki page to declare source bindings such as `governs` or a lightweight comment marker, with paths resolved against a sibling source checkout or configured root.
    - Value: brings Stardust's strongest angle to wikis: "this page claims to document this code, and the code moved."
    - Effort: larger, needs product design.
-   - Status: proposal.
+   - Status: implemented for explicit `source_root` plus `governs:`.
 
 9. Support non-Markdown wiki pages deliberately.
    - Change: decide whether to index `.rst`, `.textile`, `.adoc`, and other GitHub Markup formats as plain text or with format-aware conversion.
@@ -119,10 +119,11 @@ Implemented:
 - `internal/service`: made `check` use filename-title tolerance for plain vaults and made `get_note` resolve wiki slug candidates.
 - Tests: added focused coverage for wiki slug resolution, pipe fallback, structural pages, plain wiki checks, and docs-convention gating.
 - Follow-up pass: added Markdown relative links as graph edges, explicit `github-wiki` detection, path-aware foldered wiki resolution, and same-repo wiki or vault `governs` drift bindings.
+- Follow-up pass: added explicit `source_root` config for cross-repo wiki-to-code drift. When a `governs:` path is absent from the wiki checkout and present under the configured source repo, Stardust counts source repo commits after the wiki page's last commit time and labels the binding as source repo drift.
 
 Left as proposals:
 
-- Cross-repo `.wiki.git` to source-checkout coherence binding.
+- Auto-detecting a sibling source checkout for `.wiki.git` clones.
 - Non-Markdown wiki format indexing.
 
 </details>
@@ -134,6 +135,6 @@ Left as proposals:
 - Stardust still lowercases link keys. Live GitHub URL checks accepted lower-case wiki page URLs for a public wiki, and current Stardust behavior already depended on lowercasing. This is a compatible tolerance, not a claim that every underlying Git operation is case-insensitive.
 - Relative Markdown links are now checked when they target Markdown wiki pages. External URLs, anchors, images, and static assets are skipped.
 - Structural pages are only exempt from orphan reporting. They remain indexed and can still participate in search and PageRank.
-- Same-repo `governs` bindings work for wiki and vault pages. A standalone `.wiki.git` repo still needs an explicit source-root configuration before it can govern a sibling source checkout.
+- Same-repo `governs` bindings work for wiki and vault pages. A standalone `.wiki.git` repo can now govern a sibling source checkout when `.stardust/config.toml` sets `source_root`; empty `source_root` preserves same-repo behavior.
 
 </details>

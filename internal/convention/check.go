@@ -39,6 +39,11 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		return nil, err
 	}
 	docsActive := DocsConventionActive(root)
+	cfg := checkConfig(root)
+	sourceRoot, err := cfg.ResolveSourceRoot(root)
+	if err != nil {
+		return nil, err
+	}
 	var issues []ConventionIssue
 	for _, rel := range paths {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
@@ -58,9 +63,17 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		if !ok {
 			continue
 		}
-		issues = append(issues, checkDocFile(root, rel, docType)...)
+		issues = append(issues, checkDocFile(root, rel, docType, sourceRoot)...)
 	}
 	return issues, nil
+}
+
+func checkConfig(root string) config.Config {
+	cfg, err := config.Load(config.Layout{Root: root}.Config())
+	if err != nil {
+		return config.Default()
+	}
+	return cfg
 }
 
 // registeredDocFolders returns the registered markdown collection folders under
@@ -147,7 +160,7 @@ func CheckSkills(root string) ([]ConventionIssue, error) {
 	return issues, nil
 }
 
-func checkDocFile(root, rel, docType string) []ConventionIssue {
+func checkDocFile(root, rel, docType, sourceRoot string) []ConventionIssue {
 	var issues []ConventionIssue
 	name := filepath.Base(rel)
 	if !validDocName(docType, name) {
@@ -162,7 +175,7 @@ func checkDocFile(root, rel, docType string) []ConventionIssue {
 		issues = append(issues, checkDocFieldsSchema(rel, docType, fm, fields)...)
 	}
 	issues = append(issues, checkRelated(root, rel, fm)...)
-	governsIssues, matched := checkGoverns(root, rel, fm)
+	governsIssues, matched := checkGoverns(root, rel, fm, sourceRoot)
 	issues = append(issues, governsIssues...)
 	if fmString(fm, "status") == "Implemented" && len(matched) > 0 {
 		issues = append(issues, checkStale(root, rel, matched)...)
@@ -252,7 +265,7 @@ func checkRelated(root, rel string, fm map[string]any) []ConventionIssue {
 	return issues
 }
 
-func checkGoverns(root, rel string, fm map[string]any) ([]ConventionIssue, []string) {
+func checkGoverns(root, rel string, fm map[string]any, sourceRoot string) ([]ConventionIssue, []string) {
 	governs, err := StringList(fm, "governs")
 	if err != nil {
 		return []ConventionIssue{{Severity: "error", Kind: "governs-no-match", Path: rel, Detail: err.Error()}}, nil
@@ -266,6 +279,9 @@ func checkGoverns(root, rel string, fm map[string]any) ([]ConventionIssue, []str
 			continue
 		}
 		if len(files) == 0 {
+			if sourceMatchesGoverns(sourceRoot, pattern) {
+				continue
+			}
 			issues = append(issues, ConventionIssue{Severity: "error", Kind: "governs-no-match", Path: rel, Detail: pattern + " matches no files"})
 			continue
 		}
@@ -277,6 +293,14 @@ func checkGoverns(root, rel string, fm map[string]any) ([]ConventionIssue, []str
 		}
 	}
 	return issues, matched
+}
+
+func sourceMatchesGoverns(sourceRoot, pattern string) bool {
+	if sourceRoot == "" {
+		return false
+	}
+	files, err := filepath.Glob(filepath.Join(sourceRoot, filepath.FromSlash(pattern)))
+	return err == nil && len(files) > 0
 }
 
 func checkStale(root, rel string, matched []string) []ConventionIssue {

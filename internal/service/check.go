@@ -30,7 +30,7 @@ type CheckResult struct {
 // Check validates the vault: broken wikilinks and malformed frontmatter are
 // errors; orphan notes, missing titles, and duplicate note names are warnings.
 // It derives most of this from the link graph, so it is cheap.
-func (s *Service) Check(_ context.Context) (CheckResult, error) {
+func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 	var issues []Issue
 
 	g, err := graph.Build(s.Layout.Root, s.Config.Ignore)
@@ -93,6 +93,11 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	issues = append(issues, mapConventionIssues(skillIssues)...)
+	sourceDriftIssues, err := s.sourceDriftIssues(ctx)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	issues = append(issues, sourceDriftIssues...)
 
 	sort.SliceStable(issues, func(i, j int) bool {
 		if issues[i].Severity != issues[j].Severity {
@@ -119,6 +124,35 @@ func mapConventionIssues(in []convention.ConventionIssue) []Issue {
 		out = append(out, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
 	}
 	return out
+}
+
+func (s *Service) sourceDriftIssues(ctx context.Context) ([]Issue, error) {
+	sourceRoot, err := s.Config.ResolveSourceRoot(s.Layout.Root)
+	if err != nil {
+		return nil, err
+	}
+	if sourceRoot == "" {
+		return nil, nil
+	}
+	drift, err := s.DriftDocs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var issues []Issue
+	for _, doc := range drift.Docs {
+		for _, bind := range doc.Bindings {
+			if bind.Source != driftSourceRepo {
+				continue
+			}
+			issues = append(issues, Issue{
+				Severity: "warn",
+				Kind:     "drift",
+				Path:     doc.DocPath,
+				Detail:   fmt.Sprintf("references `%s` in source repo, which moved %s since this doc was last touched; review", bind.File, pluralCommits(bind.ChangedCommits)),
+			})
+		}
+	}
+	return issues, nil
 }
 
 func renderCheck(res CheckResult) string {

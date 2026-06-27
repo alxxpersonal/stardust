@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -23,6 +24,7 @@ type Config struct {
 	Ignore        []string `toml:"ignore"`
 	RerankerURL   string   `toml:"reranker_url"`   // optional cross-encoder endpoint; empty = disabled
 	RerankerModel string   `toml:"reranker_model"` // optional model name passed to the reranker
+	SourceRoot    string   `toml:"source_root"`    // optional source repo root for wiki or vault docs; empty = same repo only
 }
 
 // Default returns the default configuration.
@@ -33,7 +35,25 @@ func Default() Config {
 		Ignore:        []string{".git", ".obsidian", ".stardust", ".trash", "node_modules"},
 		RerankerURL:   "",
 		RerankerModel: "",
+		SourceRoot:    "",
 	}
+}
+
+// ResolveSourceRoot returns SourceRoot as an absolute filesystem path, resolving
+// relative values against vaultRoot. An empty SourceRoot returns an empty path.
+func (c Config) ResolveSourceRoot(vaultRoot string) (string, error) {
+	raw := strings.TrimSpace(c.SourceRoot)
+	if raw == "" {
+		return "", nil
+	}
+	if filepath.IsAbs(raw) {
+		return filepath.Clean(raw), nil
+	}
+	abs, err := filepath.Abs(filepath.Join(vaultRoot, filepath.FromSlash(raw)))
+	if err != nil {
+		return "", fmt.Errorf("resolve source root: %w", err)
+	}
+	return abs, nil
 }
 
 // Load reads and parses config.toml at path, falling back to defaults for any

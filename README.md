@@ -21,6 +21,8 @@ Building from source needs Go 1.26+. Semantic (vector) search needs a local [Oll
 
 Optional reranking: set `reranker_url` in `.stardust/config.toml` to a cross-encoder endpoint (e.g. `bge-reranker-v2-m3` served by `llama-server --reranking`, exposing `/v1/rerank`) to re-rank the top hybrid hits. Absent or unreachable, query serves raw hybrid results unchanged.
 
+Wiki-to-code drift: set `source_root` in `.stardust/config.toml` when a GitHub wiki or docs vault documents a separate source repository. The value may be absolute or relative to the vault root. When a `governs:` path is not found in the vault, Stardust resolves it under `source_root` and counts source-repo commits after the wiki page was last touched.
+
 ## Quickstart
 
 ```sh
@@ -232,7 +234,7 @@ Git is the change feed - no extra infrastructure. `stardust digest` summarizes w
 ## Layout (`.stardust/` inside a vault)
 
 ```
-config.toml        # committed: embed model, ollama url, ignore globs
+config.toml        # committed: embed model, ollama url, ignore globs, source root
 manifest.md        # committed: the always-pinned agent context (L0 keystone)
 INDEX.md           # committed: generated table of contents
 sync.toml          # committed: agent skill/source/target sync config

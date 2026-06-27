@@ -59,6 +59,7 @@ var settingsRows = []settingsRow{
 	{"ollama_url", "Ollama URL", rowText},
 	{"reranker_url", "Reranker URL", rowText},
 	{"reranker_model", "Reranker model", rowText},
+	{"source_root", "Source root", rowText},
 	{"ignore", "Ignore list", rowAction},
 	{"reindex", "Reindex", rowAction},
 	{"rebuild", "Rebuild index", rowAction},
@@ -1257,6 +1258,8 @@ func settingsValueRaw(key string, cfg config.Config) string {
 		return cfg.RerankerURL
 	case "reranker_model":
 		return cfg.RerankerModel
+	case "source_root":
+		return cfg.SourceRoot
 	}
 	return ""
 }
@@ -1272,6 +1275,8 @@ func setField(cfg *config.Config, key, val string) {
 		cfg.RerankerURL = val
 	case "reranker_model":
 		cfg.RerankerModel = val
+	case "source_root":
+		cfg.SourceRoot = val
 	}
 }
 

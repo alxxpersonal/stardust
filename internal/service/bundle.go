@@ -120,10 +120,10 @@ func (s *Service) Bundle(ctx context.Context, task string, budgetTokens int) (Bu
 
 	// Index each node's doc-to-code references so a bundled note that trails its
 	// referenced code can carry the drift binding (ADR 0018).
-	codeRefsByPath := map[string][]string{}
+	codeRefsByPath := map[string][]driftRef{}
 	for _, node := range g.Nodes {
 		if len(node.CodeRefs) > 0 {
-			codeRefsByPath[node.Path] = codeRefTargets(node.CodeRefs)
+			codeRefsByPath[node.Path] = localDriftRefs(codeRefTargets(node.CodeRefs))
 		}
 	}
 
@@ -235,7 +235,7 @@ func driftNote(bindings []DriftBinding) string {
 	}
 	parts := make([]string, 0, len(bindings))
 	for _, bind := range bindings {
-		parts = append(parts, fmt.Sprintf("`%s` moved %s", bind.File, pluralCommits(bind.ChangedCommits)))
+		parts = append(parts, fmt.Sprintf("`%s` moved %s", driftBindingLabel(bind), pluralCommits(bind.ChangedCommits)))
 	}
 	return strings.Join(parts, ", ")
 }

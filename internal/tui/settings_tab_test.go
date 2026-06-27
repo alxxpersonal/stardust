@@ -23,11 +23,14 @@ func TestSettingsRendersConfigValues(t *testing.T) {
 		OllamaURL:   "http://localhost:11434",
 		Ignore:      []string{".git"},
 		RerankerURL: "",
+		SourceRoot:  "../source",
 	}
 	out := components.SanitizeText(tab.View(120, 40))
 	require.Contains(t, out, "Embed model")
 	require.Contains(t, out, "bge-m3")
 	require.Contains(t, out, "(disabled)") // empty reranker url
+	require.Contains(t, out, "Source root")
+	require.Contains(t, out, "../source")
 }
 
 func TestSettingsCursorMoves(t *testing.T) {
@@ -46,7 +49,7 @@ func TestSettingsEditFocuses(t *testing.T) {
 
 func TestSettingsCollectionsSubViewTransitions(t *testing.T) {
 	tab := newSettingsTab(nil)
-	tab.cursor = 8 // "Manage collections" action row
+	tab.cursor = 9 // "Manage collections" action row
 	updated, _ := tab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	tab = updated.(settingsTab)
 	require.True(t, tab.Focused())
@@ -116,7 +119,7 @@ func TestSettingsMainHintsFollowFocusedSection(t *testing.T) {
 func TestSettingsActionBusyGuard(t *testing.T) {
 	tab := newSettingsTab(nil)
 	tab.busy = true
-	tab.cursor = 5 // "Reindex" action row
+	tab.cursor = 6 // "Reindex" action row
 	updated, cmd := tab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	tab = updated.(settingsTab)
 	require.Nil(t, cmd) // second action rejected while busy
