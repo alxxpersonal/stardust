@@ -72,6 +72,21 @@ func (s *Service) Close() error {
 	return s.store.Close()
 }
 
+// --- Config mutation ---
+
+// SetConfig persists cfg to the vault's config.toml and updates the live
+// service, rebuilding the embed and rerank clients so later reads use the new
+// model, Ollama URL, and reranker settings without reopening the service.
+func (s *Service) SetConfig(cfg config.Config) error {
+	if err := config.Save(s.Layout.Config(), cfg); err != nil {
+		return err
+	}
+	s.Config = cfg
+	s.embed = embed.New(cfg.OllamaURL, cfg.EmbedModel)
+	s.rerank = rerank.New(cfg.RerankerURL, cfg.RerankerModel)
+	return nil
+}
+
 // --- Read operations ---
 
 // Retrieval modes announced on read results so a consumer never mistakes a

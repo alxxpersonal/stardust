@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -15,6 +16,28 @@ import (
 // adrCollection is the collection name whose records are ordered by number
 // ascending and rendered with a numbered table instead of a dated one.
 const adrCollection = "adr"
+
+// defaultRegistryOrder is the fixed collection order for the docs registry,
+// mirroring the CLI registry command.
+var defaultRegistryOrder = []string{"specs", "plans", "adr", "research"}
+
+// RegenerateRegistry regenerates docs/INDEX.md from the docs collections and
+// refreshes the pinned agent manifest, mirroring `stardust registry`. It writes
+// to docs/INDEX.md under the vault root.
+func (s *Service) RegenerateRegistry(ctx context.Context) error {
+	groups, err := s.Registry(defaultRegistryOrder)
+	if err != nil {
+		return err
+	}
+	out := filepath.Join(s.Layout.Root, "docs", "INDEX.md")
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("create registry dir: %w", err)
+	}
+	if err := manifest.WriteRegistry(out, groups); err != nil {
+		return err
+	}
+	return s.RefreshManifest(ctx)
+}
 
 // filenameDateRe matches a leading YYYY-MM-DD date in a filename.
 var filenameDateRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})`)
