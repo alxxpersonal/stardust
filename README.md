@@ -10,12 +10,14 @@ Full architecture and research notes: [SPEC.md](./SPEC.md).
 ## Install
 
 ```sh
+brew install alxxpersonal/tap/stardust
+# or with Go:
 go install github.com/alxxpersonal/stardust/cmd/stardust@latest
-# or, inside this repo:
-make build && make install   # builds ./build/stardust and go-installs it
+# or from source, inside this repo:
+make build && make install
 ```
 
-Requires Go 1.26+. Semantic (vector) search needs a local [Ollama](https://ollama.com) with an embedding model (`ollama pull bge-m3`). Without it, search degrades gracefully to FTS5 keyword-only.
+Building from source needs Go 1.26+. Semantic (vector) search needs a local [Ollama](https://ollama.com) with an embedding model (`ollama pull bge-m3`). Without it, search degrades gracefully to FTS5 keyword-only.
 
 Optional reranking: set `reranker_url` in `.stardust/config.toml` to a cross-encoder endpoint (e.g. `bge-reranker-v2-m3` served by `llama-server --reranking`, exposing `/v1/rerank`) to re-rank the top hybrid hits. Absent or unreachable, query serves raw hybrid results unchanged.
 
