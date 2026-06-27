@@ -1,0 +1,56 @@
+version: 2
+
+project_name: stardust
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: stardust
+    main: ./cmd/stardust
+    binary: stardust
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/alxxpersonal/stardust/internal/cli.version={{ .Version }}
+
+archives:
+  - id: stardust
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+
+brews:
+  - name: stardust
+    repository:
+      owner: alxxpersonal
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/alxxpersonal/stardust"
+    description: "Local-first, git-backed, markdown-truth context engine for AI agents"
+    license: MIT
+    commit_author:
+      name: alxxpersonal
+      email: personal@alxx.dev
+    install: |
+      bin.install "stardust"
+    test: |
+      system "#{bin}/stardust", "--version"
