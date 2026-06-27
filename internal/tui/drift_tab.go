@@ -227,7 +227,8 @@ func (t DriftTab) summaryLine(width int) string {
 // can pass an empty title and no duplicate header appears.
 func (t DriftTab) driftList(width int) string {
 	if len(t.drift.Docs) == 0 {
-		return renderCleanListHeader("Drifted Docs", "", width) + "\n\n" + SuccessStyle.Render("no drifted docs")
+		body := renderCleanListHeader("Drifted Docs", "", width) + "\n\n" + SuccessStyle.Render("no drifted docs")
+		return lipgloss.NewStyle().Width(width).Render(body)
 	}
 	var rows []cleanListRow
 	for _, doc := range t.drift.Docs {
@@ -257,7 +258,8 @@ func (t DriftTab) driftList(width int) string {
 // a one-line section, not a full-height box.
 func (t DriftTab) staleList(width int) string {
 	if len(t.stale.Docs) == 0 {
-		return renderCleanListHeader("Stale Docs", "", width) + "\n\n" + SuccessStyle.Render("no stale docs")
+		body := renderCleanListHeader("Stale Docs", "", width) + "\n\n" + SuccessStyle.Render("no stale docs")
+		return lipgloss.NewStyle().Width(width).Render(body)
 	}
 	rows := make([]cleanListRow, 0, len(t.stale.Docs))
 	for _, doc := range t.stale.Docs {
