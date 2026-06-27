@@ -17,6 +17,10 @@ jobs:
         with:
           go-version: "1.26.x"
           cache: true
+      - name: git identity
+        run: |
+          git config --global user.email "ci@stardust.local"
+          git config --global user.name "stardust ci"
       - name: build
         run: go build ./...
       - name: vet
