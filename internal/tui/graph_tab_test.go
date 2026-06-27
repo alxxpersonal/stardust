@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,7 +56,22 @@ func TestGraphListsRenderCleanSections(t *testing.T) {
 	require.Contains(t, out, "PageRank")
 	require.Contains(t, out, "Orphans")
 	require.Contains(t, out, "Broken Links")
+	require.Contains(t, out, "most-referenced notes by inbound links")
+	require.Contains(t, out, "notes with no links in or out")
+	require.Contains(t, out, "links pointing to a note that does not exist")
 	require.Contains(t, out, "0.8800")
 	require.NotContains(t, out, "|")
 	require.NotContains(t, out, "─")
+}
+
+func TestGraphEmptyListsRenderDescriptions(t *testing.T) {
+	tab := newGraphTab(nil)
+
+	out := components.SanitizeText(tab.pageRankBox(80, 20) + "\n" + tab.orphansBox(80, 20) + "\n" + tab.brokenBox(80, 20))
+	require.Contains(t, out, "most-referenced notes by inbound links")
+	require.Contains(t, out, "notes with no links in or out")
+	require.Contains(t, out, "links pointing to a note that does not exist")
+	require.Equal(t, 1, strings.Count(out, "PageRank"))
+	require.Equal(t, 1, strings.Count(out, "Orphans"))
+	require.Equal(t, 1, strings.Count(out, "Broken Links"))
 }

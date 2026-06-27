@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -147,8 +148,9 @@ func (t GraphTab) HeaderLabel() string {
 }
 
 func (t GraphTab) pageRankBox(width, height int) string {
+	description := "most-referenced notes by inbound links"
 	if len(t.report.PageRank) == 0 {
-		return clipLines(lipgloss.NewStyle().Width(width).Render(renderCleanListHeader("PageRank", "", width)+"\n\n"+MutedStyle.Render("none")), height)
+		return clipLines(renderGraphEmptyBox("PageRank", "", description, MutedStyle.Render("none"), width), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.PageRank))
 	for i, entry := range t.report.PageRank {
@@ -169,12 +171,13 @@ func (t GraphTab) pageRankBox(width, height int) string {
 		{Header: "Path", MinWidth: 10, MaxWidth: 34, Muted: true, Underline: true},
 		{Header: "Rank", MinWidth: 6, MaxWidth: 8, Align: lipgloss.Right, Numeric: true},
 	}
-	return clipLines(renderCleanList("PageRank", cleanListCountLabel(len(t.report.PageRank), "note"), cols, rows, width, -1), height)
+	return clipLines(renderCleanListWithDescription("PageRank", cleanListCountLabel(len(t.report.PageRank), "note"), description, cols, rows, width, -1), height)
 }
 
 func (t GraphTab) orphansBox(width, height int) string {
+	description := "notes with no links in or out"
 	if len(t.report.Orphans) == 0 {
-		return clipLines(lipgloss.NewStyle().Width(width).Render(renderCleanListHeader("Orphans", "", width)+"\n\n"+SuccessStyle.Render("none")), height)
+		return clipLines(renderGraphEmptyBox("Orphans", "", description, SuccessStyle.Render("none"), width), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.Orphans))
 	for i, path := range t.report.Orphans {
@@ -184,12 +187,13 @@ func (t GraphTab) orphansBox(width, height int) string {
 		{Header: "#", MinWidth: 2, MaxWidth: 3, Align: lipgloss.Right, Muted: true},
 		{Header: "Path", MinWidth: 20, Primary: true, Underline: true},
 	}
-	return clipLines(renderCleanList("Orphans", cleanListCountLabel(len(t.report.Orphans), "note"), cols, rows, width, -1), height)
+	return clipLines(renderCleanListWithDescription("Orphans", cleanListCountLabel(len(t.report.Orphans), "note"), description, cols, rows, width, -1), height)
 }
 
 func (t GraphTab) brokenBox(width, height int) string {
+	description := "links pointing to a note that does not exist"
 	if len(t.report.Broken) == 0 {
-		return clipLines(lipgloss.NewStyle().Width(width).Render(renderCleanListHeader("Broken links", "", width)+"\n\n"+SuccessStyle.Render("none")), height)
+		return clipLines(renderGraphEmptyBox("Broken Links", "", description, SuccessStyle.Render("none"), width), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.Broken))
 	for _, broken := range t.report.Broken {
@@ -202,5 +206,15 @@ func (t GraphTab) brokenBox(width, height int) string {
 		{Header: "From", MinWidth: 24, Primary: true, Underline: true},
 		{Header: "Target", MinWidth: 18, MaxWidth: 64, Warning: true},
 	}
-	return clipLines(renderCleanList("Broken Links", cleanListCountLabel(len(t.report.Broken), "link"), cols, rows, width, -1), height)
+	return clipLines(renderCleanListWithDescription("Broken Links", cleanListCountLabel(len(t.report.Broken), "link"), description, cols, rows, width, -1), height)
+}
+
+func renderGraphEmptyBox(title, label, description, empty string, width int) string {
+	lines := []string{
+		renderCleanListHeader(title, label, width),
+		MutedStyle.Render(components.SanitizeOneLine(description)),
+		"",
+		empty,
+	}
+	return lipgloss.NewStyle().Width(width).Render(strings.Join(lines, "\n"))
 }

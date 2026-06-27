@@ -104,12 +104,12 @@ func (t DriftTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	return t, nil
 }
 
-// View renders the coherence report as a clean full-width vertical stack: a
-// summary line, then DRIFTED DOCS, STALE DOCS, and CHECK FINDINGS, each a single-
-// header clean-list box. Each box renders the typed result slices (not the
-// service Markdown) and carries its own keycap header, so the box wrappers pass
-// an empty title and exactly one header shows per section. Boxes are sized to
-// their content (an empty list stays one line, never a full-height box).
+// View renders the coherence report as a clean full-width vertical stack:
+// DRIFTED DOCS, STALE DOCS, and CHECK FINDINGS, each a single-header clean-list
+// box. Each box renders the typed result slices (not the service Markdown) and
+// carries its own keycap header, so the box wrappers pass an empty title and
+// exactly one header shows per section. Boxes are sized to their content (an
+// empty list stays one line, never a full-height box).
 func (t DriftTab) View(width, height int) string {
 	if width <= 0 {
 		width = t.width
@@ -138,8 +138,6 @@ func (t DriftTab) View(width, height int) string {
 		avail, 3)
 
 	var b strings.Builder
-	b.WriteString(t.summaryLine(cardW))
-	b.WriteString("\n\n")
 	b.WriteString(animatedDoubleBox("", clipLines(drift, heights[0]), t.frame))
 	b.WriteString("\n\n")
 	b.WriteString(animatedDoubleBox("", clipLines(stale, heights[1]), t.frame))
@@ -209,19 +207,6 @@ func (t DriftTab) HeaderLabel() string {
 	return "drift · coherence checks"
 }
 
-// summaryLine renders the one-line coherence summary, colored by worst severity.
-func (t DriftTab) summaryLine(width int) string {
-	_ = width
-	style := MutedStyle
-	if t.check.Errors > 0 {
-		style = ErrorStyle
-	} else if t.check.Warnings > 0 || len(t.drift.Docs) > 0 || len(t.stale.Docs) > 0 {
-		style = WarningStyle
-	}
-	return style.Render(fmt.Sprintf("%d errors · %d warnings · %d drifted · %d stale",
-		t.check.Errors, t.check.Warnings, len(t.drift.Docs), len(t.stale.Docs)))
-}
-
 // driftList renders drifted docs, one row per moved binding, in fitted columns.
 // It always emits exactly one keycap header (even when empty) so the box wrapper
 // can pass an empty title and no duplicate header appears.
@@ -284,56 +269,134 @@ func (t DriftTab) staleList(width int) string {
 	return renderCleanList("Stale Docs", label, cols, rows, width, -1)
 }
 
-// checkSummary groups check findings by kind with a count and a sample, errors
-// first, so the report is scannable instead of one row per finding. It always
-// emits a single keycap header so the box wrapper passes an empty title.
+// checkSummary renders check findings with wrapped messages. It groups exact
+// severity, kind, and message matches for a compact count while preserving every
+// distinct full message.
 func (t DriftTab) checkSummary(width int) string {
 	if len(t.check.Issues) == 0 {
-		return renderCleanListHeader("Check Findings", "", width) + "\n\n" + SuccessStyle.Render("clean")
+		return lipgloss.NewStyle().Width(width).Render(renderCleanListHeader("Check Findings", "", width) + "\n\n" + SuccessStyle.Render("clean"))
 	}
 	type group struct {
 		severity string
 		kind     string
-		sample   string
+		detail   string
 		count    int
 	}
-	order := []string{}
-	byKind := map[string]*group{}
+	order := make([]string, 0, len(t.check.Issues))
+	byFinding := map[string]*group{}
 	for _, is := range t.check.Issues {
-		g, ok := byKind[is.Kind]
+		severity := components.SanitizeOneLine(is.Severity)
+		kind := components.SanitizeOneLine(is.Kind)
+		detail := components.SanitizeOneLine(is.Detail)
+		key := severity + "\x00" + kind + "\x00" + detail
+		g, ok := byFinding[key]
 		if !ok {
-			g = &group{severity: is.Severity, kind: is.Kind, sample: is.Detail}
-			byKind[is.Kind] = g
-			order = append(order, is.Kind)
+			g = &group{severity: severity, kind: kind, detail: detail}
+			byFinding[key] = g
+			order = append(order, key)
 		}
 		g.count++
-		if is.Severity == "error" {
-			g.severity = "error"
-		}
 	}
 	sort.SliceStable(order, func(i, j int) bool {
-		gi, gj := byKind[order[i]], byKind[order[j]]
-		if (gi.severity == "error") != (gj.severity == "error") {
-			return gi.severity == "error"
+		gi, gj := byFinding[order[i]], byFinding[order[j]]
+		if isErrorSeverity(gi.severity) != isErrorSeverity(gj.severity) {
+			return isErrorSeverity(gi.severity)
 		}
-		return order[i] < order[j]
+		if gi.kind != gj.kind {
+			return gi.kind < gj.kind
+		}
+		return gi.detail < gj.detail
 	})
-	rows := make([]cleanListRow, 0, len(order))
+
+	var body strings.Builder
 	for _, k := range order {
-		g := byKind[k]
-		rows = append(rows, cleanListRow{Cells: []string{
-			g.severity,
-			g.kind,
-			fmt.Sprintf("%d", g.count),
-			components.SanitizeOneLine(g.sample),
-		}})
+		g := byFinding[k]
+		if body.Len() > 0 {
+			body.WriteString("\n\n")
+		}
+		body.WriteString(checkFindingPrefix(g.severity, g.kind, g.count))
+		body.WriteString("\n")
+		body.WriteString(renderWrappedCheckDetail(g.detail, width, 2))
 	}
-	cols := []cleanListColumn{
-		{Header: "Severity", MinWidth: 5, MaxWidth: 8, Severity: true},
-		{Header: "Kind", MinWidth: 10, MaxWidth: 20, Muted: true},
-		{Header: "Count", MinWidth: 5, MaxWidth: 7, Align: lipgloss.Right, Count: true},
-		{Header: "Example", MinWidth: 16, Primary: true},
-	}
+
 	label := fmt.Sprintf("%d error / %d warn", t.check.Errors, t.check.Warnings)
-	return renderCleanList("Check Findings", label, cols, rows, width, -1)
+	return lipgloss.NewStyle().Width(width).Render(renderCleanListHeader("Check Findings", label, width) + "\n\n" + body.String())
+}
+
+func isErrorSeverity(severity string) bool {
+	return strings.EqualFold(strings.TrimSpace(severity), "error")
+}
+
+func checkFindingPrefix(severity, kind string, count int) string {
+	sev := components.SanitizeOneLine(severity)
+	if sev == "" {
+		sev = "warn"
+	}
+	return severityStyle(sev).Render(sev) + "  " +
+		MutedStyle.Render(components.SanitizeOneLine(kind)) + "  " +
+		countValueStyle(fmt.Sprintf("%d", count)).Render(fmt.Sprintf("%d", count))
+}
+
+func renderWrappedCheckDetail(detail string, width int, indent int) string {
+	if indent < 0 {
+		indent = 0
+	}
+	available := width - indent
+	if available < 8 {
+		available = 8
+	}
+	prefix := strings.Repeat(" ", indent)
+	lines := wrapDisplayWords(components.SanitizeOneLine(detail), available)
+	for i := range lines {
+		lines[i] = prefix + NormalStyle.Render(lines[i])
+	}
+	return strings.Join(lines, "\n")
+}
+
+func wrapDisplayWords(text string, width int) []string {
+	if width <= 0 {
+		return []string{text}
+	}
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{""}
+	}
+	lines := []string{}
+	current := ""
+	for _, word := range words {
+		if current == "" {
+			lines = appendLongWord(lines, word, width, &current)
+			continue
+		}
+		next := current + " " + word
+		if lipgloss.Width(next) <= width {
+			current = next
+			continue
+		}
+		lines = append(lines, current)
+		current = ""
+		lines = appendLongWord(lines, word, width, &current)
+	}
+	if current != "" {
+		lines = append(lines, current)
+	}
+	return lines
+}
+
+func appendLongWord(lines []string, word string, width int, current *string) []string {
+	if lipgloss.Width(word) <= width {
+		*current = word
+		return lines
+	}
+	var b strings.Builder
+	for _, r := range word {
+		next := b.String() + string(r)
+		if lipgloss.Width(next) > width && b.Len() > 0 {
+			lines = append(lines, b.String())
+			b.Reset()
+		}
+		b.WriteRune(r)
+	}
+	*current = b.String()
+	return lines
 }

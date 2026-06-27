@@ -60,6 +60,26 @@ func TestDriftRendersSingleHeaders(t *testing.T) {
 	require.Contains(t, out, "Plan B")
 }
 
+func TestDriftAppRendersCoherenceSummaryOnce(t *testing.T) {
+	app := newApp(nil)
+	app.width = 140
+	app.height = 40
+	app.activeTab = TabDrift
+	app.driftTab.loaded = true
+	app.driftTab.check = service.CheckResult{Errors: 1, Warnings: 2}
+	app.driftTab.drift = service.DriftResult{Docs: []service.DriftDoc{
+		{DocPath: "docs/specs/a.md", Title: "Spec A", Type: "spec",
+			Bindings: []service.DriftBinding{{File: "internal/a.go", ChangedCommits: 3}}},
+	}}
+	app.driftTab.stale = service.StaleResult{Docs: []service.GovernedDoc{
+		{DocPath: "docs/plans/b.md", Title: "Plan B", Type: "plan", Status: "Implemented",
+			ChangedCommits: 2, Matched: []string{"internal/b.go"}},
+	}}
+
+	out := components.SanitizeText(app.View().Content)
+	require.Equal(t, 1, strings.Count(out, "1 errors · 2 warnings"))
+}
+
 func TestDriftEmptyStaleStaysCompact(t *testing.T) {
 	tab := newDriftTab(nil)
 	tab.loaded = true
@@ -107,4 +127,21 @@ func TestDriftCheckSummaryGroups(t *testing.T) {
 	require.Contains(t, out, "broken-link")
 	require.Contains(t, out, "orphan")
 	require.NotContains(t, out, "|")
+}
+
+func TestDriftCheckSummaryWrapsFullFindingMessage(t *testing.T) {
+	longDetail := `note name "skills/skill" is shared by 8 files (docs/skills/brand-check/SKILL.md, docs/skills/component-search/SKILL.md, docs/skills/doc-add-adr/SKILL.md, docs/skills/doc-add-plan/SKILL.md, docs/skills/doc-check/SKILL.md, docs/skills/doc-governance/SKILL.md, docs/skills/doc-link/SKILL.md, docs/skills/doc-status/SKILL.md); wikilinks to it are ambiguous`
+	tab := newDriftTab(nil)
+	tab.loaded = true
+	tab.check = service.CheckResult{Warnings: 1, Issues: []service.Issue{
+		{Severity: "warn", Kind: "duplicate-name", Path: "docs/skills/brand-check/SKILL.md", Detail: longDetail},
+	}}
+
+	out := components.SanitizeText(tab.checkSummary(88))
+	require.Contains(t, strings.Join(strings.Fields(out), " "), longDetail)
+	require.Contains(t, out, "duplicate-name")
+	require.Contains(t, out, "warn")
+	require.Contains(t, out, "1")
+	require.NotContains(t, out, "…")
+	require.NotContains(t, out, "...")
 }

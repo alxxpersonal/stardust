@@ -44,11 +44,23 @@ var cleanListLabelStyle = lipgloss.NewStyle().
 	Padding(0, 1)
 
 func renderCleanList(title, label string, columns []cleanListColumn, rows []cleanListRow, width int, activeRow int) string {
+	return renderCleanListWithDescription(title, label, "", columns, rows, width, activeRow)
+}
+
+func renderCleanListWithDescription(
+	title string,
+	label string,
+	description string,
+	columns []cleanListColumn,
+	rows []cleanListRow,
+	width int,
+	activeRow int,
+) string {
 	if width <= 0 {
 		return ""
 	}
 	if len(columns) == 0 {
-		return renderCleanListHeader(title, label, width)
+		return cleanListHeaderBlock(title, label, description, width)
 	}
 
 	withMarker := activeRow >= 0 && len(rows) > 0
@@ -70,7 +82,16 @@ func renderCleanList(title, label string, columns []cleanListColumn, rows []clea
 	if maxW := maxLineWidth(bodyStr); maxW > headerW {
 		headerW = maxW
 	}
-	return renderCleanListHeader(title, label, headerW) + "\n\n" + bodyStr
+	return cleanListHeaderBlock(title, label, description, headerW) + "\n\n" + bodyStr
+}
+
+func cleanListHeaderBlock(title, label, description string, width int) string {
+	header := renderCleanListHeader(title, label, width)
+	description = components.SanitizeOneLine(description)
+	if description == "" {
+		return header
+	}
+	return header + "\n" + MutedStyle.Render(description)
 }
 
 func renderCleanListHeader(title, label string, width int) string {
