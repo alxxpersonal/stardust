@@ -63,8 +63,15 @@ var settingsRows = []settingsRow{
 	{"reindex", "Reindex", rowAction},
 	{"rebuild", "Rebuild index", rowAction},
 	{"registry", "Regenerate registry", rowAction},
-	{"collections", "Inspect collections", rowAction},
+	{"collections", "Manage collections", rowAction},
 }
+
+type settingsMainFocus int
+
+const (
+	settingsFocusConfig settingsMainFocus = iota
+	settingsFocusCollections
+)
 
 type settingsSub int
 
@@ -141,6 +148,7 @@ type SettingsTab struct {
 	be     *backend
 	cfg    config.Config
 	cursor int
+	focus  settingsMainFocus
 	note   string
 	busy   bool
 
@@ -148,11 +156,12 @@ type SettingsTab struct {
 	editKey   string
 	editInput textinput.Model
 
-	sub          settingsSub
-	collections  []service.CollectionInfo
-	colCursor    int
-	schemaName   string
-	schemaCursor int
+	sub            settingsSub
+	collections    []service.CollectionInfo
+	colCursor      int
+	schemaName     string
+	schemaCursor   int
+	schemaFromMain bool
 
 	collectionForm             collectionFormState
 	confirmingCollectionDelete bool
@@ -266,17 +275,55 @@ func (t SettingsTab) handleKey(msg tea.KeyPressMsg) (TabModel, tea.Cmd) {
 }
 
 func (t SettingsTab) handleListKey(msg tea.KeyPressMsg) (TabModel, tea.Cmd) {
+	if t.collectionForm.mode != collectionFormNone {
+		return t.handleCollectionFormKey(msg)
+	}
+	if t.focus == settingsFocusCollections && t.confirmingCollectionDelete && msg.String() != "d" {
+		t.confirmingCollectionDelete = false
+	}
 	switch msg.String() {
+	case "esc":
+		if t.focus == settingsFocusCollections {
+			t.focus = settingsFocusConfig
+			t.confirmingCollectionDelete = false
+		}
 	case "up":
-		if t.cursor > 0 {
+		if t.focus == settingsFocusCollections {
+			if len(t.collections) > 0 && t.colCursor > 0 {
+				t.colCursor--
+			} else {
+				t.focus = settingsFocusConfig
+				t.cursor = len(settingsRows) - 1
+			}
+		} else if t.cursor > 0 {
 			t.cursor--
 		}
 	case "down":
-		if t.cursor < len(settingsRows)-1 {
+		if t.focus == settingsFocusConfig && t.cursor < len(settingsRows)-1 {
 			t.cursor++
+		} else if t.focus == settingsFocusConfig {
+			t.focus = settingsFocusCollections
+			t.clampCollectionCursors()
+		} else if t.colCursor < len(t.collections)-1 {
+			t.colCursor++
 		}
 	case "enter":
+		if t.focus == settingsFocusCollections {
+			return t.startCollectionEdit()
+		}
 		return t.activateRow()
+	case "n":
+		if t.focus == settingsFocusCollections {
+			return t.startCollectionAdd()
+		}
+	case "s":
+		if t.focus == settingsFocusCollections {
+			return t.openSelectedSchema()
+		}
+	case "d":
+		if t.focus == settingsFocusCollections {
+			return t.deleteSelectedCollection()
+		}
 	case "r":
 		return t, t.loadCollections()
 	}
@@ -300,6 +347,7 @@ func (t SettingsTab) activateRow() (TabModel, tea.Cmd) {
 			return t, nil
 		case "collections":
 			t.sub = settingsCollections
+			t.schemaFromMain = false
 			t.colCursor = 0
 			return t, t.loadCollections()
 		case "reindex":
@@ -459,7 +507,7 @@ func (t SettingsTab) handleSchemaKey(msg tea.KeyPressMsg) (TabModel, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "esc":
-		t.sub = settingsCollections
+		t.leaveSchema()
 		t.confirmingFieldDelete = false
 	case "up":
 		if t.schemaCursor > 0 {
@@ -584,6 +632,7 @@ func (t SettingsTab) openSelectedSchema() (TabModel, tea.Cmd) {
 	}
 	t.schemaName = c.Name
 	t.schemaCursor = 0
+	t.schemaFromMain = t.sub == settingsNone
 	t.sub = settingsSchema
 	t.confirmingCollectionDelete = false
 	return t, nil
@@ -930,7 +979,7 @@ func (t SettingsTab) configRows(width int) string {
 	for i, row := range settingsRows {
 		cursor := MutedStyle.Render("  ")
 		label := MutedStyle.Render(padRightCell(row.label, 20))
-		if i == t.cursor {
+		if t.focus == settingsFocusConfig && i == t.cursor {
 			cursor = AccentStyle.Bold(true).Render("> ")
 			label = AccentStyle.Bold(true).Render(padRightCell(row.label, 20))
 		}
@@ -962,7 +1011,7 @@ func (t SettingsTab) rowValue(row settingsRow) string {
 		case "ignore":
 			return MutedStyle.Render(fmt.Sprintf("manage (%d)", len(t.cfg.Ignore)))
 		case "collections":
-			return MutedStyle.Render("inspect")
+			return MutedStyle.Render("manage")
 		default:
 			if t.busy {
 				return MutedStyle.Render("run (busy)")
@@ -974,10 +1023,27 @@ func (t SettingsTab) rowValue(row settingsRow) string {
 }
 
 func (t SettingsTab) collectionsList(width, height int) string {
-	if len(t.collections) == 0 {
-		return clipLines(renderCleanListHeader("Collections", "", width)+"\n\n"+MutedStyle.Render("no collections configured"), height)
+	var b strings.Builder
+	if t.collectionForm.mode != collectionFormNone {
+		b.WriteString(t.collectionFormLine())
+		b.WriteString("\n\n")
 	}
-	return clipLines(t.renderCollections(width, -1), height)
+	if len(t.collections) == 0 {
+		b.WriteString(renderCleanListHeader("Collections", "", width))
+		b.WriteString("\n\n")
+		empty := MutedStyle.Render("no collections configured")
+		if t.focus == settingsFocusCollections && t.collectionForm.mode == collectionFormNone {
+			empty = AccentStyle.Render("no collections configured")
+		}
+		b.WriteString(empty)
+		return clipLines(b.String(), height)
+	}
+	active := -1
+	if t.focus == settingsFocusCollections && t.collectionForm.mode == collectionFormNone {
+		active = t.colCursor
+	}
+	b.WriteString(t.renderCollections(width, active))
+	return clipLines(b.String(), height)
 }
 
 func (t SettingsTab) collectionsView(width, height int) string {
@@ -1113,15 +1179,7 @@ func (t SettingsTab) Hints() []components.HintItem {
 				{Key: "esc", Desc: "cancel"},
 			}
 		}
-		return []components.HintItem{
-			{Key: "up/down", Desc: "select"},
-			{Key: "n", Desc: "add"},
-			{Key: "enter", Desc: "edit"},
-			{Key: "s", Desc: "schema"},
-			{Key: "d", Desc: "delete"},
-			{Key: "r", Desc: "refresh"},
-			{Key: "esc", Desc: "back"},
-		}
+		return collectionHints(true)
 	case settingsSchema:
 		if t.fieldForm.mode != fieldFormNone {
 			return []components.HintItem{
@@ -1133,10 +1191,19 @@ func (t SettingsTab) Hints() []components.HintItem {
 			{Key: "up/down", Desc: "select"},
 			{Key: "n", Desc: "add"},
 			{Key: "enter", Desc: "edit"},
-			{Key: "d", Desc: "delete"},
+			{Key: "dd", Desc: "delete"},
 			{Key: "r", Desc: "refresh"},
 			{Key: "esc", Desc: "back"},
 		}
+	}
+	if t.collectionForm.mode != collectionFormNone {
+		return []components.HintItem{
+			{Key: "enter", Desc: "next/save"},
+			{Key: "esc", Desc: "cancel"},
+		}
+	}
+	if t.focus == settingsFocusCollections {
+		return withCommonHints(collectionHints(false)...)
 	}
 	return withCommonHints(
 		components.HintItem{Key: "up/down", Desc: "select"},
@@ -1145,9 +1212,26 @@ func (t SettingsTab) Hints() []components.HintItem {
 	)
 }
 
+func collectionHints(back bool) []components.HintItem {
+	hints := []components.HintItem{
+		{Key: "up/down", Desc: "select"},
+		{Key: "n", Desc: "add"},
+		{Key: "enter", Desc: "edit"},
+		{Key: "s", Desc: "schema"},
+		{Key: "dd", Desc: "delete"},
+		{Key: "r", Desc: "refresh"},
+	}
+	if back {
+		hints = append(hints, components.HintItem{Key: "esc", Desc: "back"})
+	}
+	return hints
+}
+
 // Focused reports whether the settings tab owns keyboard text, true while the
 // inline editor or any sub-view is active, so the app stops switching tabs.
-func (t SettingsTab) Focused() bool { return t.editing || t.sub != settingsNone }
+func (t SettingsTab) Focused() bool {
+	return t.editing || t.sub != settingsNone || t.collectionForm.mode != collectionFormNone
+}
 
 // StatusLine returns the settings tab status text.
 func (t SettingsTab) StatusLine() string {
@@ -1243,6 +1327,16 @@ func (t SettingsTab) schemaCollection() (service.CollectionInfo, bool) {
 	return service.CollectionInfo{}, false
 }
 
+func (t *SettingsTab) leaveSchema() {
+	if t.schemaFromMain {
+		t.sub = settingsNone
+		t.focus = settingsFocusCollections
+	} else {
+		t.sub = settingsCollections
+	}
+	t.schemaFromMain = false
+}
+
 func collectionIsEditable(c service.CollectionInfo) bool {
 	return strings.TrimSpace(c.Name) != "" && !strings.EqualFold(c.Name, "reference")
 }
@@ -1264,7 +1358,7 @@ func (t *SettingsTab) clampCollectionCursors() {
 		return
 	}
 	if t.sub == settingsSchema {
-		t.sub = settingsCollections
+		t.leaveSchema()
 	}
 	t.schemaCursor = 0
 }

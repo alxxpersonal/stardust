@@ -154,7 +154,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.statusTab.Update(msg)
 		a.statusTab = updated.(StatusTab)
 		return a, cmd
-	case settingsActionMsg, settingsCollectionsMsg:
+	case settingsActionMsg, settingsCollectionsMsg, settingsCollectionMutationMsg:
 		updated, cmd := a.settingsTab.Update(msg)
 		a.settingsTab = updated.(SettingsTab)
 		return a, cmd

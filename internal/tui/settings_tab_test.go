@@ -46,7 +46,7 @@ func TestSettingsEditFocuses(t *testing.T) {
 
 func TestSettingsCollectionsSubViewTransitions(t *testing.T) {
 	tab := newSettingsTab(nil)
-	tab.cursor = 8 // "Inspect collections" action row
+	tab.cursor = 8 // "Manage collections" action row
 	updated, _ := tab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	tab = updated.(settingsTab)
 	require.True(t, tab.Focused())
@@ -56,6 +56,14 @@ func TestSettingsCollectionsSubViewTransitions(t *testing.T) {
 	tab = updated.(settingsTab)
 	require.False(t, tab.Focused())
 	require.Equal(t, settingsNone, tab.sub)
+}
+
+func TestSettingsCollectionsRowLabelIsManage(t *testing.T) {
+	tab := newSettingsTab(nil)
+	out := components.SanitizeText(tab.View(120, 40))
+	require.Contains(t, out, "Manage collections")
+	require.NotContains(t, out, "In"+"spect collections")
+	require.NotContains(t, strings.ToLower(out), "in"+"spect")
 }
 
 func TestSettingsCollectionsMsgStores(t *testing.T) {
@@ -91,6 +99,20 @@ func TestSettingsEmptyCollectionsStillLabeled(t *testing.T) {
 	require.Contains(t, out, "no collections configured")
 }
 
+func TestSettingsMainHintsFollowFocusedSection(t *testing.T) {
+	tab := newSettingsTab(nil)
+	requireSettingsHint(t, tab.Hints(), "enter", "edit/run")
+	require.False(t, hasSettingsHint(tab.Hints(), "s", "schema"))
+
+	tab = moveSettingsToCollections(t, tab)
+	hints := tab.Hints()
+	requireSettingsHint(t, hints, "n", "add")
+	requireSettingsHint(t, hints, "enter", "edit")
+	requireSettingsHint(t, hints, "s", "schema")
+	requireSettingsHint(t, hints, "dd", "delete")
+	require.False(t, hasSettingsHint(hints, "enter", "edit/run"))
+}
+
 func TestSettingsActionBusyGuard(t *testing.T) {
 	tab := newSettingsTab(nil)
 	tab.busy = true
@@ -99,6 +121,96 @@ func TestSettingsActionBusyGuard(t *testing.T) {
 	tab = updated.(settingsTab)
 	require.Nil(t, cmd) // second action rejected while busy
 	require.True(t, tab.busy)
+}
+
+func TestSettingsMainCollectionsNavigateAndMutateThroughService(t *testing.T) {
+	ctx := context.Background()
+	root := settingsTestVault(t)
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	tab := newSettingsTab(&backend{svc: svc})
+	tab = moveSettingsToCollections(t, tab)
+	require.Equal(t, settingsFocusCollections, tab.focus)
+	require.Equal(t, 0, tab.colCursor)
+
+	updated, _ := tab.Update(settingsKey("n"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionFormAdd, tab.collectionForm.mode)
+	require.True(t, tab.Focused())
+
+	tab.collectionForm.input.SetValue("notes")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.collectionForm.input.SetValue("docs/notes")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.collectionForm.input.SetValue("quick notes")
+	updated, cmd := tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	require.False(t, tab.busy)
+	require.Equal(t, settingsFocusCollections, tab.focus)
+	got, err := svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, "docs/notes", got.Path)
+
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	require.Equal(t, collectionFormEdit, tab.collectionForm.mode)
+	tab.collectionForm.input.SetValue("docs/notes-edited")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.collectionForm.input.SetValue("edited quick notes")
+	updated, cmd = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err = svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, "docs/notes-edited", got.Path)
+	require.Equal(t, "edited quick notes", got.Description)
+
+	updated, _ = tab.Update(settingsKey("s"))
+	tab = updated.(settingsTab)
+	require.Equal(t, settingsSchema, tab.sub)
+	require.True(t, tab.schemaFromMain)
+	require.Equal(t, "notes", tab.schemaName)
+
+	updated, _ = tab.Update(settingsKey("n"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue("state")
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue(collections.TypeString)
+	updated, _ = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab.fieldForm.input.SetValue("false")
+	updated, cmd = tab.Update(settingsKey("enter"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	got, err = svc.GetCollection(ctx, "notes")
+	require.NoError(t, err)
+	require.Equal(t, []collections.Field{{Name: "state", Type: collections.TypeString}}, got.Fields)
+
+	updated, _ = tab.Update(settingsKey("esc"))
+	tab = updated.(settingsTab)
+	require.Equal(t, settingsNone, tab.sub)
+	require.Equal(t, settingsFocusCollections, tab.focus)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "notes-edited"), 0o755))
+	docPath := filepath.Join(root, "docs", "notes-edited", "keep.md")
+	require.NoError(t, os.WriteFile(docPath, []byte("# keep\n"), 0o644))
+
+	updated, _ = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	require.True(t, tab.confirmingCollectionDelete)
+	updated, cmd = tab.Update(settingsKey("d"))
+	tab = updated.(settingsTab)
+	tab = runSettingsCmd(t, tab, cmd)
+	require.Empty(t, tab.collections)
+	_, err = os.Stat(docPath)
+	require.NoError(t, err)
 }
 
 func TestSettingsCollectionEditingMutatesThroughService(t *testing.T) {
@@ -262,6 +374,30 @@ func runSettingsCmd(t *testing.T, tab settingsTab, cmd tea.Cmd) settingsTab {
 	require.NotNil(t, cmd)
 	updated, _ := tab.Update(cmd())
 	return updated.(settingsTab)
+}
+
+func moveSettingsToCollections(t *testing.T, tab settingsTab) settingsTab {
+	t.Helper()
+	for range settingsRows {
+		updated, _ := tab.Update(settingsKey("down"))
+		tab = updated.(settingsTab)
+	}
+	require.Equal(t, settingsFocusCollections, tab.focus)
+	return tab
+}
+
+func requireSettingsHint(t *testing.T, hints []components.HintItem, key, desc string) {
+	t.Helper()
+	require.True(t, hasSettingsHint(hints, key, desc), "missing hint %s %s in %#v", key, desc, hints)
+}
+
+func hasSettingsHint(hints []components.HintItem, key, desc string) bool {
+	for _, hint := range hints {
+		if hint.Key == key && hint.Desc == desc {
+			return true
+		}
+	}
+	return false
 }
 
 func settingsKey(s string) tea.KeyPressMsg {
