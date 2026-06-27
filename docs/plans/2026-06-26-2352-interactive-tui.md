@@ -29,7 +29,7 @@ The old TUI is three concrete tabs (Search, Status, Graph) over `index.Store`/`e
 - `internal/ui/palette.go` - cosmic tokens (`ui.Primary`, `ui.Accent`, `ui.Text`, `ui.Muted`, `ui.Border`, `ui.Secondary`, `ui.CodeBg`, `ui.Bg`).
 - `internal/render/glamour.go` - `render.GlamourRender(md, width)`, the only markdown renderer.
 - `internal/service/service.go` - `Query`, `GetNote`, `Status`, `Graph`. `records.go` - `ListCollections`, `ListRecords`, `GetRecord`, `CollectionInfo`, `Record`, `RecordList`. `governs.go` - `DriftDocs`, `StaleDocs`, `DriftResult`, `StaleResult`. `check.go` - `Check`, `CheckResult`. `status_report.go` - `GatherStatus`, `VaultStatus`.
-- Exo source (copy from, do not import): `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/` and its `components/`.
+- Exo source (copy from, do not import): `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/` and its `components/`.
 
 ### Execution rules
 

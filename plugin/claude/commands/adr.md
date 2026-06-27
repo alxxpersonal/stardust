@@ -1,16 +1,16 @@
 ---
-description: Record one architectural decision inline - the doc-forge skill with type fixed to adr.
+description: Record one architectural decision inline with the type fixed to adr.
 argument-hint: "[decision to document]"
 allowed-tools: Bash, Read, Write, Edit
 ---
 
-You are `/stardust:adr`, the ADR shorthand for the complete doc-forge skill. Treat the doc type as `adr` and author the ADR inline in this turn. Do not print a second slash command for the user to run. For a research note or runbook use `/stardust:doc`; for a full spec plus plan use `/stardust:spec` or `/stardust:execute`.
+You are `/stardust:adr`, the ADR shorthand for the convention doc workflow. Treat the doc type as `adr` and author the ADR inline in this turn. Do not print a second slash command for the user to run. For a research note or runbook use `/stardust:doc`; for a full spec plus plan use `/stardust:spec` or `/stardust:execute`.
 
-First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the decision to record; if it is empty, ask the user to name it and stop. Then run the skill below verbatim from `${ROOT}`, with the doc type fixed to `adr`.
+First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the decision to record; if it is empty, ask the user to name it and stop. Then run the workflow below verbatim from `${ROOT}`, with the doc type fixed to `adr`.
 
-# Doc Forge
+# Convention doc workflow
 
-Add one convention-correct document to a repo's `docs/` folder: an ADR, a research note, or a runbook. The lightweight sibling of spec-forge. Where spec-forge writes a full spec plus plan plus ADRs for a whole feature, doc-forge adds a single doc and regenerates the index. This command is the ADR variant, so the type is `adr`.
+Add one convention-correct document to a repo's `docs/` folder: an ADR, a research note, or a runbook. A lightweight single-doc workflow. Where the full spec workflow writes a spec plus plan plus ADRs for a whole feature, this adds a single doc and regenerates the index. This command is the ADR variant, so the type is `adr`.
 
 ## When to use
 
@@ -21,7 +21,7 @@ This entrypoint writes ADRs only; for a research note or runbook use `/stardust:
 - Writing an operational procedure (runbook).
 - Any single quick doc that should live in `docs/` under the convention.
 
-Do NOT use for a full feature spec plus implementation plan. Use spec-forge for that.
+Do NOT use for a full feature spec plus implementation plan. Use /stardust:spec or /stardust:execute for that.
 
 ## Doc types
 
@@ -37,7 +37,7 @@ Do not skip steps.
 
 ### 1. Pick the type and explore
 
-- The type is `adr`. If the work is a whole feature needing a spec and a plan, stop and use spec-forge.
+- The type is `adr`. If the work is a whole feature needing a spec and a plan, stop and use /stardust:spec or /stardust:execute.
 - `stardust query "<topic>"` to find related or superseded docs. For an ADR, check whether an existing one already covers the decision or should be superseded.
 - Get the real date and time: `date "+%Y-%m-%d-%H%M"`. For an ADR, find the next zero-padded four-digit number by listing `docs/adr/`.
 

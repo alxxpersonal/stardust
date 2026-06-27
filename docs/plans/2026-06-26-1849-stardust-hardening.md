@@ -130,12 +130,12 @@ Files:
 
 Interfaces:
 
-- Consumes: canonical skill workflows from `/Users/alxx/.claude/skills/spec-forge/SKILL.md` and `/Users/alxx/.claude/skills/doc-forge/SKILL.md`
-- Produces: commands with `allowed-tools: Bash, Read, Write` and no `/spec-forge` or `/doc-forge` handoff lines
+- Consumes: canonical skill workflows from `the spec authoring workflow` and `the doc authoring workflow`
+- Produces: commands with `allowed-tools: Bash, Read, Write` and no `/the spec workflow` or `/the doc workflow` handoff lines
 
 Steps:
 
-- [x] Write grep checks that fail on missing `Write` or any `/spec-forge` or `/doc-forge` in command files.
+- [x] Write grep checks that fail on missing `Write` or any `/the spec workflow` or `/the doc workflow` in command files.
 - [x] Run the grep checks and confirm red.
 - [x] Rewrite command bodies to embed the full workflows inline.
 - [x] Update README and plugin metadata descriptions.

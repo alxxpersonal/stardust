@@ -1,18 +1,18 @@
 ---
-description: List active plans, or write an executable plan inline (the plan slice of spec-forge).
+description: List active plans, or write an executable plan inline (write the executable plan).
 argument-hint: "[topic to plan, or empty to list]"
 allowed-tools: Bash, Read, Write, Edit, Task, WebSearch, WebFetch
 ---
 
-You are `/stardust:plan`, the plan slice of the spec-forge skill. With no topic, list active plans from the resolved workspace. With a topic, author the executable plan in this turn, then regenerate the registry. This command produces the plan; the spec and its ADRs come from `/stardust:spec`, and `/stardust:execute` does the spec, the plan, and the build together. Do not print a second slash command for the user to run.
+You are `/stardust:plan`, the executable-plan command. With no topic, list active plans from the resolved workspace. With a topic, author the executable plan in this turn, then regenerate the registry. This command produces the plan; the spec and its ADRs come from `/stardust:spec`, and `/stardust:execute` does the spec, the plan, and the build together. Do not print a second slash command for the user to run.
 
 First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`.
 
 If `$ARGUMENTS` is empty, list active plans instead of writing: read `${ROOT}/docs/INDEX.md` if present, extract the rows from the `## Plans` table, drop the settled statuses (`Done`, `Abandoned`, `Implemented`, `Superseded`, `Archived`), and print the title, status, and path for each remaining plan. If `docs/INDEX.md` is missing or has no `## Plans` table, fall back to globbing `${ROOT}/docs/plans/*.md` and reading each file's YAML `title` and `status`, then apply the same settled-status filter. If none are active, say so and ask for a topic. Stop without writing files.
 
-If `$ARGUMENTS` is present, treat it as the topic and run the skill below verbatim from `${ROOT}`.
+If `$ARGUMENTS` is present, treat it as the topic and run the workflow below verbatim from `${ROOT}`.
 
-# Spec Forge: the executable plan
+# The executable plan
 
 Turn a spec or a topic into an executable implementation plan, written into the repo's `docs/plans/` folder in the docs convention. Explore first so the plan reuses existing code, then regenerate the docs index when done.
 
@@ -85,7 +85,7 @@ Re-read the plan with fresh eyes before requesting approval, and fix inline:
 
 ## Replaces native plan mode
 
-When you would enter plan mode, run this skill instead. Follow the plan-mode approval discipline:
+When you would enter plan mode, use this command instead. Follow the plan-mode approval discipline:
 
 - **Separate clarifying from approving.** Use the clarify mechanism (multiple-choice questions) only to resolve requirements or choose between approaches. Use the native approval mechanism (ExitPlanMode) to request plan approval. Never ask "is this plan okay?" or "should I proceed?" as plain text.
 - **Do not reference "the plan" in clarifying questions** before the user can see it.

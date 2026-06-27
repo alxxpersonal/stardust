@@ -1,16 +1,16 @@
 ---
-description: Add one convention-correct doc inline - an ADR, research note, or runbook (the full doc-forge skill).
+description: Add one convention-correct doc inline - an ADR, research note, or runbook.
 argument-hint: "[adr|research|runbook] [topic]"
 allowed-tools: Bash, Read, Write, Edit
 ---
 
-You are `/stardust:doc`, running the complete doc-forge skill inline for one convention-correct document. Do not invoke the unrelated Microsoft `.docx` tooling. Do not print a second slash command for the user to run. Author the doc in this turn, regenerate the registry, and stop gracefully when the workspace cannot be resolved. For the ADR-only shorthand use `/stardust:adr`; for a full spec plus plan of non-trivial work, use `/stardust:spec` or `/stardust:execute` instead.
+You are `/stardust:doc`, running the complete convention doc workflow inline for one document. Do not invoke the unrelated Microsoft `.docx` tooling. Do not print a second slash command for the user to run. Author the doc in this turn, regenerate the registry, and stop gracefully when the workspace cannot be resolved. For the ADR-only shorthand use `/stardust:adr`; for a full spec plus plan of non-trivial work, use `/stardust:spec` or `/stardust:execute` instead.
 
-First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Parse `$ARGUMENTS`: the first token is the doc type (`adr`, `research`, or `runbook`), the rest is the topic. If the type is invalid, print the valid set and stop. If the topic is empty, ask the user to name it and stop. Then run the skill below verbatim from `${ROOT}`.
+First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Parse `$ARGUMENTS`: the first token is the doc type (`adr`, `research`, or `runbook`), the rest is the topic. If the type is invalid, print the valid set and stop. If the topic is empty, ask the user to name it and stop. Then run the workflow below verbatim from `${ROOT}`.
 
-# Doc Forge
+# Convention doc workflow
 
-Add one convention-correct document to a repo's `docs/` folder: an ADR, a research note, or a runbook. The lightweight sibling of spec-forge. Where spec-forge writes a full spec plus plan plus ADRs for a whole feature, doc-forge adds a single doc and regenerates the index.
+Add one convention-correct document to a repo's `docs/` folder: an ADR, a research note, or a runbook. A lightweight single-doc workflow. Where the full spec workflow writes a spec plus plan plus ADRs for a whole feature, this adds a single doc and regenerates the index.
 
 ## When to use
 
@@ -19,7 +19,7 @@ Add one convention-correct document to a repo's `docs/` folder: an ADR, a resear
 - Writing an operational procedure (runbook).
 - Any single quick doc that should live in `docs/` under the convention.
 
-Do NOT use for a full feature spec plus implementation plan. Use spec-forge for that.
+Do NOT use for a full feature spec plus implementation plan. Use /stardust:spec or /stardust:execute for that.
 
 ## Doc types
 
@@ -35,7 +35,7 @@ Do not skip steps.
 
 ### 1. Pick the type and explore
 
-- Confirm which doc type fits. If the work is a whole feature needing a spec and a plan, stop and use spec-forge.
+- Confirm which doc type fits. If the work is a whole feature needing a spec and a plan, stop and use /stardust:spec or /stardust:execute.
 - `stardust query "<topic>"` to find related or superseded docs. For an ADR, check whether an existing one already covers the decision or should be superseded.
 - Get the real date and time: `date "+%Y-%m-%d-%H%M"`. For an ADR, find the next zero-padded four-digit number by listing `docs/adr/`.
 

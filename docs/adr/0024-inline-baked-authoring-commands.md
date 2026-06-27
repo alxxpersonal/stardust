@@ -13,7 +13,7 @@ related:
   - plugin/claude/commands/adr.md
 ---
 
-The plugin authoring commands now embed the complete forge workflows inline and no longer hand off to `/spec-forge` or `/doc-forge`.
+The plugin authoring commands now embed the complete forge workflows inline and no longer hand off to `/the spec workflow` or `/the doc workflow`.
 
 <details>
 <summary><b>Context</b></summary>
@@ -33,11 +33,11 @@ Supersede ADR 0020 and ADR 0021.
 
 The four authoring commands embed the forge process inline:
 
-- `/stardust:spec` and `/stardust:plan` embed the full spec-forge workflow.
-- `/stardust:doc` and `/stardust:adr` embed the full doc-forge workflow.
+- `/stardust:spec` and `/stardust:plan` embed the full the spec workflow workflow.
+- `/stardust:doc` and `/stardust:adr` embed the full the doc workflow workflow.
 - `/stardust:adr` defaults the doc type to `adr`.
 - `allowed-tools` includes `Bash, Read, Write`.
-- Command files contain no `/spec-forge` or `/doc-forge` handoff line.
+- Command files contain no `/the spec workflow` or `/the doc workflow` handoff line.
 - The unrelated Microsoft `.docx` `doc` skill is not referenced.
 
 </details>
@@ -67,8 +67,8 @@ The four authoring commands embed the forge process inline:
 <summary><b>References</b></summary>
 <br>
 
-- `/Users/alxx/.claude/skills/spec-forge/SKILL.md`
-- `/Users/alxx/.claude/skills/doc-forge/SKILL.md`
+- `the spec authoring workflow`
+- `the doc authoring workflow`
 - `docs/specs/2026-06-26-1849-stardust-hardening.md`
 - `docs/adr/0020-authoring-commands-reference-canonical-forge-skills.md`
 - `docs/adr/0021-authoring-commands-delegate-never-reimplement.md`

@@ -14,8 +14,8 @@ ADR 0029 allowed the exo-jobs TUI framework to be copied and adapted. That left 
 
 The source of truth is now the exo-jobs visual framework itself:
 
-- `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui`
-- `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/anim`
+- `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui`
+- `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/anim`
 
 ## Decision
 

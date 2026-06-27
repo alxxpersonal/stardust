@@ -29,7 +29,7 @@ Five small gaps compound into drift:
 2. `internal/vault/vault.go` extracts wikilinks from raw markdown. Links inside inline code or fenced code become graph edges and broken-link errors.
 3. Incremental indexing handles explicit delete paths from git diff, but a rename can leave an old indexed row until `stardust rebuild`.
 4. The docs convention says one canonical collection per doc, but the checker does not reject markdown placed in mirror folders or loose in `docs/`.
-5. The Claude plugin authoring commands route to `/spec-forge` and `/doc-forge` as a second step. The required behavior is full inline baking: the command prompt itself embeds the workflow and writes docs in the same turn.
+5. The Claude plugin authoring commands route to `/the spec workflow` and `/the doc workflow` as a second step. The required behavior is full inline baking: the command prompt itself embeds the workflow and writes docs in the same turn.
 
 </details>
 
@@ -45,7 +45,7 @@ Five small gaps compound into drift:
 
 `internal/convention/check.go` recognizes only `docs/specs/`, `docs/plans/`, `docs/adr/`, and `docs/research/` as governed docs. Other markdown under `docs/` is scanned for forbidden dash characters but not rejected as stray.
 
-The plugin command files currently say they never write docs and end with `/spec-forge` or `/doc-forge` handoff lines. ADR 0020 and ADR 0021 chose that delegation. The new requirement supersedes those decisions.
+The plugin command files currently say they never write docs and end with `/the spec workflow` or `/the doc workflow` handoff lines. ADR 0020 and ADR 0021 chose that delegation. The new requirement supersedes those decisions.
 
 </details>
 
@@ -57,7 +57,7 @@ The plugin command files currently say they never write docs and end with `/spec
 - Markdown extraction MUST ignore wikilinks and inline path refs inside inline code spans and fenced code blocks, while preserving prose links.
 - Incremental indexing MUST prune indexed paths that no longer exist on disk during the same pass.
 - Strict docs checks MUST error on markdown under `docs/` outside registered collection folders, except `docs/INDEX.md` and `docs/templates/`.
-- Plugin authoring commands MUST embed the full spec-forge or doc-forge workflow inline, gain `Write`, keep resolve-root graceful degradation, and remove all `/spec-forge` and `/doc-forge` handoff lines.
+- Plugin authoring commands MUST embed the full the spec workflow or the doc workflow workflow inline, gain `Write`, keep resolve-root graceful degradation, and remove all `/the spec workflow` and `/the doc workflow` handoff lines.
 
 </details>
 
@@ -109,8 +109,8 @@ Stray docs:
 Inline plugin commands:
 
 - Replace the four command bodies with embedded, executable instructions copied from the canonical skill processes, adjusted to the command mapping.
-- `/stardust:spec` and `/stardust:plan` embed the complete spec-forge flow.
-- `/stardust:doc` and `/stardust:adr` embed the complete doc-forge flow, with `/stardust:adr` defaulting type to `adr`.
+- `/stardust:spec` and `/stardust:plan` embed the complete the spec workflow flow.
+- `/stardust:doc` and `/stardust:adr` embed the complete the doc workflow flow, with `/stardust:adr` defaulting type to `adr`.
 - Set `allowed-tools: Bash, Read, Write`.
 - Preserve the `resolve-root.sh` precondition and the no-workspace graceful stop.
 - Update the plugin README and plugin metadata to state that commands now author docs directly.
@@ -188,8 +188,8 @@ Inline plugin commands:
 <summary><b>References</b></summary>
 <br>
 
-- `/Users/alxx/.claude/skills/spec-forge/SKILL.md`
-- `/Users/alxx/.claude/skills/doc-forge/SKILL.md`
+- `the spec authoring workflow`
+- `the doc authoring workflow`
 - `docs/specs/2026-06-26-0418-plugin-authoring-commands.md`
 - `docs/adr/0020-authoring-commands-reference-canonical-forge-skills.md`
 - `docs/adr/0021-authoring-commands-delegate-never-reimplement.md`

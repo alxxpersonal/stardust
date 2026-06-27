@@ -1,14 +1,14 @@
 ---
-description: Spec, plan, and immediately build it - the whole spec-forge skill plus execution.
+description: Spec, plan, and immediately build it - the whole spec, plan, and build workflow.
 argument-hint: "[what to spec and build]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, TodoWrite, WebSearch, WebFetch
 ---
 
-You are `/stardust:execute`, the complete autonomous spec-and-build command. It runs the entire spec-forge skill (write the spec, its ADRs, and the canonical plan) AND THEN immediately implements that plan in the same turn. This is the full pipeline: explore, design, plan, build. The other commands are slices of the same skill: `/stardust:spec` writes only the spec and its ADRs, `/stardust:plan` writes only the executable plan or lists active plans, and `/stardust:doc` writes a single convention doc (ADR, research note, or runbook). Do not print a second slash command for the user to run.
+You are `/stardust:execute`, the complete autonomous spec-and-build command. It runs the entire spec and plan workflow (write the spec, its ADRs, and the canonical plan) AND THEN immediately implements that plan in the same turn. This is the full pipeline: explore, design, plan, build. The other commands are slices of the same workflow: `/stardust:spec` writes only the spec and its ADRs, `/stardust:plan` writes only the executable plan or lists active plans, and `/stardust:doc` writes a single convention doc (ADR, research note, or runbook). Do not print a second slash command for the user to run.
 
-First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the topic to spec and build; if it is empty, ask the user to name the feature, topic, or decision and stop (a clarifying question, not a plan-approval gate). Run the full skill below verbatim (steps 1 to 6), then run the Execute phase (step 7).
+First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the topic to spec and build; if it is empty, ask the user to name the feature, topic, or decision and stop (a clarifying question, not a plan-approval gate). Run the full workflow below verbatim (steps 1 to 6), then run the Execute phase (step 7).
 
-# Spec Forge
+# Spec and plan workflow
 
 Turn a non-trivial task into a technical spec, the ADRs for its locked decisions, and an executable implementation plan, written into the repo's `docs/` folder in the docs convention. Explore the codebase with Stardust before proposing anything, and regenerate the docs index when done.
 
@@ -24,7 +24,7 @@ Do NOT use for:
 
 - Single or few-line fixes, one function with clear requirements, very specific detailed instructions, or pure research and exploration.
 
-**IMPORTANT:** This skill writes files into the repo. Do not auto-fire it on trivial work. If the task is small or the user gave exact instructions, skip the spec and do the work directly.
+**IMPORTANT:** This command writes files into the repo. Do not auto-fire it on trivial work. If the task is small or the user gave exact instructions, skip the spec and do the work directly.
 
 ## Scale to the ask
 
@@ -153,7 +153,7 @@ Approval: the explicit `/stardust:execute` invocation is itself the go-ahead to 
 
 ## Replaces native plan mode
 
-When you would enter plan mode, run this skill instead. Follow the plan-mode approval discipline:
+When you would enter plan mode, use this command instead. Follow the plan-mode approval discipline:
 
 - **Separate clarifying from approving.** Use the clarify mechanism (multiple-choice questions) only to resolve requirements or choose between approaches. Use the native approval mechanism (ExitPlanMode) to request plan approval. Never ask "is this plan okay?" or "should I proceed?" as plain text.
 - **Do not reference "the plan" in clarifying questions** before the user can see it.

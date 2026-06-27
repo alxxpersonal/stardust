@@ -39,5 +39,5 @@ The copied component tests (`sanitize_test.go`, `box_test.go`, `tablegrid_test.g
 ## References
 
 - Spec: `docs/specs/2026-06-26-2352-interactive-tui.md`.
-- Source: `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`.
+- Source: `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`.
 - ADR 0011 stardust-cosmic-colorscheme (palette the copy is recolored to).

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPluginAuthoringCommandsBakeForgeWorkflows(t *testing.T) {
+func TestPluginAuthoringCommandsAreInline(t *testing.T) {
 	root := repoRootFromCaller(t)
 	commands := []string{"spec.md", "plan.md", "doc.md", "adr.md"}
 
@@ -21,10 +21,9 @@ func TestPluginAuthoringCommandsBakeForgeWorkflows(t *testing.T) {
 			body := string(data)
 
 			require.Contains(t, body, "allowed-tools: Bash, Read, Write")
-			require.NotContains(t, body, "/spec-forge")
-			require.NotContains(t, body, "/doc-forge")
 			require.Contains(t, body, "resolve-root.sh")
 			require.Contains(t, body, "stardust registry")
+			require.Contains(t, body, "Do not print a second slash command")
 		})
 	}
 }
@@ -46,7 +45,7 @@ func TestPluginMetadataDescribesInlineAuthoring(t *testing.T) {
 
 	pluginJSON := read("plugin/claude/.claude-plugin/plugin.json")
 	require.Contains(t, pluginJSON, "run the docs write workflows inline")
-	require.NotContains(t, pluginJSON, "delegate to the canonical spec-forge and doc-forge skills")
+	require.NotContains(t, pluginJSON, "delegate to")
 }
 
 func repoRootFromCaller(t *testing.T) string {

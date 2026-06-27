@@ -171,21 +171,21 @@ The post-commit hook regenerates `docs/INDEX.md` on every commit (after the incr
 `stardust sync` discovers skills and agents from configured sources, routes them by frontmatter `targets`, and plans links or copies into Claude, Codex, and Gemini tool directories. Dry-run first, then use check mode as a drift gate:
 
 ```sh
-stardust sync init --canonical ~/Code/Self/forge-private --profile alxx --dry-run
+stardust sync init --canonical a private skills repo --profile alxx --dry-run
 stardust sync --dry-run --scope repo --tool claude
 stardust sync --check --scope all
 stardust sync --repair
 stardust sync report
 ```
 
-The sync config lives at `.stardust/sync.toml`. The alxx migration profile treats `~/Code/Self/forge-private/skills` and `~/Code/Self/forge-private/agents` as canonical, while `~/Code/Self/forge/skills`, `~/.agents/skills`, and loose `~/.claude` assets are import-only sources for the report.
+The sync config lives at `.stardust/sync.toml`. The alxx migration profile treats `a private skills repo/skills` and `a private skills repo/agents` as canonical, while `~/Code/Self/forge/skills`, `~/.agents/skills`, and loose `~/.claude` assets are import-only sources for the report.
 
 ```toml
 default_targets = ["claude", "codex", "gemini"]
 
 [[sources]]
 name = "canonical-skills"
-path = "~/Code/Self/forge-private/skills"
+path = "a private skills repo/skills"
 kind = "skill"
 priority = 0
 

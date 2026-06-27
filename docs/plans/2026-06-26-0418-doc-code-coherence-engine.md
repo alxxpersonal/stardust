@@ -308,7 +308,7 @@ Deliverable: any doc that references moved code announces itself in `check`, the
 
 ## Verification (whole plan)
 
-Run from `/Users/alxx/Desktop/Stardust`:
+Run from `~/Desktop/Stardust`:
 
 - Build and gates: `go build ./...`, `go test ./...`, `go vet ./...`, `gofmt -l .` empty, `make lint` clean, and a repo-wide scan for U+2014 and U+2013 returns nothing.
 - Schema: `stardust new spec "Probe"` then `stardust check` reports zero; remove `type` and `stardust check --fix` restores it; remove `title` and it stays reported.

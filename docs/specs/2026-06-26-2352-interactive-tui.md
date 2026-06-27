@@ -50,7 +50,7 @@ The core library is `internal/service` (ADR 0003: one core, thin surfaces). It e
 
 Palette source of truth is `internal/ui/palette.go` (ADR 0011): `Primary #a78bfa`, `Secondary #c4b5fd`, `Accent #f0abfc`, `Text #e9e7ff`, `Muted #7c7ca0`, `Border #4c4c6d`, `CodeBg #16161e`, `Bg #0a0a12`. Markdown rendering is already cosmic via `internal/render.GlamourRender`, shared by the CLI and the TUI, so the new TUI reuses it and drops the exo-jobs glamour style block entirely.
 
-Exo-jobs framework source (reference only, copied not imported): `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`. Its domain-neutral files are `app.go`, `tabs.go`, `banner.go`, `styles.go`, and `components/{box,statusbar,tablegrid,sanitize,charm_adapters}.go`. Its jobs-domain files (`agent_tab.go`, `jobs_tab.go`, `crons_tab.go`, the other `*_tab.go`, and `internal/{agent,store,propose,scorer}`) are left behind.
+Exo-jobs framework source (reference only, copied not imported): `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`. Its domain-neutral files are `app.go`, `tabs.go`, `banner.go`, `styles.go`, and `components/{box,statusbar,tablegrid,sanitize,charm_adapters}.go`. Its jobs-domain files (`agent_tab.go`, `jobs_tab.go`, `crons_tab.go`, the other `*_tab.go`, and `internal/{agent,store,propose,scorer}`) are left behind.
 
 </details>
 
@@ -276,6 +276,6 @@ A multi-line stardust ASCII wordmark with a cosmic motif (a star glyph plus the 
 - ADR 0029 copy-adapt-exo-jobs-tui-framework, ADR 0030 five-tab-stardust-tui-model, ADR 0031 additive-default-path-tui, ADR 0032 tui-reads-through-service-layer.
 - ADR 0003 one-method-registry-multi-transport (the service is the one core), ADR 0011 stardust-cosmic-colorscheme (palette source of truth).
 - `internal/cli/root.go:79-89` (launch gate), `internal/tui/run.go` (backend), `internal/service/service.go` and `internal/service/{records,governs,status_report,check}.go` (tab data), `internal/render/glamour.go` (shared renderer), `internal/ui/palette.go` (tokens).
-- Exo-jobs framework source: `/Users/alxx/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`.
+- Exo-jobs framework source: `~/Desktop/Exo Jobs/10-Code/Worktrees/10-Active/exo-jobs/cli/src/internal/ui/`.
 
 </details>

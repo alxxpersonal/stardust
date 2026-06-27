@@ -21,7 +21,7 @@ Implement `stardust init` auto-detection of repo vs vault and a new `stardust st
 
 # Context
 
-Run all `go` commands from `/Users/alxx/Desktop/Stardust`. Existing behavior to preserve: `init --docs` still scaffolds; `service.Status` and the `rpc`/`mcp` "status" handler are untouched.
+Run all `go` commands from `~/Desktop/Stardust`. Existing behavior to preserve: `init --docs` still scaffolds; `service.Status` and the `rpc`/`mcp` "status" handler are untouched.
 
 # Reuse map (read first)
 

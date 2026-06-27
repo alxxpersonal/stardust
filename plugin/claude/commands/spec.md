@@ -1,14 +1,14 @@
 ---
-description: Write a technical spec and its ADRs inline (the spec slice of spec-forge).
+description: Write a technical spec and its ADRs inline .
 argument-hint: "[what to spec]"
 allowed-tools: Bash, Read, Write, Edit, Task, WebSearch, WebFetch
 ---
 
-You are `/stardust:spec`, the spec slice of the spec-forge skill. Author the spec and its ADRs in this turn, then regenerate the registry. This command produces the design (the spec plus its ADRs); to write the executable plan use `/stardust:plan`, and to spec, plan, and build it all in one turn use `/stardust:execute`. Do not print a second slash command for the user to run.
+You are `/stardust:spec`, the spec authoring command. Author the spec and its ADRs in this turn, then regenerate the registry. This command produces the design (the spec plus its ADRs); to write the executable plan use `/stardust:plan`, and to spec, plan, and build it all in one turn use `/stardust:execute`. Do not print a second slash command for the user to run.
 
-First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the topic to spec; if it is empty, ask the user to name the feature, topic, or decision and stop (a clarifying question, not a plan-approval gate). Then run the skill below verbatim from `${ROOT}`, through the spec and its ADRs.
+First resolve the workspace: run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-root.sh"` and read the `MODE` and `ROOT` lines. If `MODE` is `none`, report that no workspace resolved and stop; in a docs-convention repo the user can run `stardust init --docs`, and for a vault point them to `/stardust:setup`. Run every `date`, `stardust`, and file operation from `${ROOT}`. Treat `$ARGUMENTS` as the topic to spec; if it is empty, ask the user to name the feature, topic, or decision and stop (a clarifying question, not a plan-approval gate). Then run the workflow below verbatim from `${ROOT}`, through the spec and its ADRs.
 
-# Spec Forge
+# Spec and plan workflow
 
 Turn a non-trivial task into a technical spec and the ADRs for its locked decisions, written into the repo's `docs/` folder in the docs convention. Explore the codebase with Stardust before proposing anything, and regenerate the docs index when done. The executable plan is written by `/stardust:plan`; `/stardust:execute` does the spec, the plan, and the build together.
 
@@ -24,7 +24,7 @@ Do NOT use for:
 
 - Single or few-line fixes, one function with clear requirements, very specific detailed instructions, or pure research and exploration.
 
-**IMPORTANT:** This skill writes files into the repo. Do not auto-fire it on trivial work. If the task is small or the user gave exact instructions, skip the spec and do the work directly.
+**IMPORTANT:** This command writes files into the repo. Do not auto-fire it on trivial work. If the task is small or the user gave exact instructions, skip the spec and do the work directly.
 
 ## Scale to the ask
 
@@ -121,7 +121,7 @@ Re-read the spec with fresh eyes before requesting approval, and fix inline:
 
 ## Replaces native plan mode
 
-When you would enter plan mode, run this skill instead. Follow the plan-mode approval discipline:
+When you would enter plan mode, use this command instead. Follow the plan-mode approval discipline:
 
 - **Separate clarifying from approving.** Use the clarify mechanism (multiple-choice questions) only to resolve requirements or choose between approaches. Use the native approval mechanism (ExitPlanMode) to request approval. Never ask "is this okay?" or "should I proceed?" as plain text.
 - **Do not reference "the plan" in clarifying questions** before the user can see it.
