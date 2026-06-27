@@ -132,6 +132,53 @@ func TestSearchPreviewViewportScrolls(t *testing.T) {
 	require.True(t, tab.previewViewport.AtBottom())
 }
 
+func TestSearchEnterOpensSelectedResultFullscreenAndEscReturns(t *testing.T) {
+	tab := newSearchTab(nil)
+	tab.input.SetValue("alpha")
+	tab.Resize(140, 32)
+	tab.result = service.QueryResult{
+		RetrievalMode: service.RetrievalHybridSemantic,
+		Hits: []index.Hit{
+			{Path: "notes/alpha.md", Title: "Alpha", Snippet: "alpha match snippet", Score: 0.91},
+			{Path: "notes/beta.md", Title: "Beta", Snippet: "beta match snippet", Score: 0.38},
+		},
+	}
+	tab.previews = map[string]string{
+		"notes/alpha.md": "# Alpha\n\nalpha body text",
+		"notes/beta.md":  "# Beta\n\nbeta full document body",
+	}
+	tab.cursor = 1
+	tab.refreshPreviewViewport(true)
+
+	updated, _ := tab.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	tab = updated.(searchTab)
+
+	require.Equal(t, searchViewDocument, tab.mode)
+	require.Equal(t, "notes/beta.md", tab.docHit.Path)
+	require.Zero(t, tab.docViewport.YOffset())
+	require.Contains(t, components.SanitizeText(tab.docViewport.View()), "beta full document body")
+
+	out := components.SanitizeText(tab.View(140, 32))
+	require.Contains(t, out, "Beta")
+	require.Contains(t, out, "notes/beta.md")
+	require.Contains(t, out, "beta full document body")
+	require.NotContains(t, out, "retrieval: hybrid")
+	require.NotContains(t, out, "Results")
+
+	updated, _ = tab.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	tab = updated.(searchTab)
+
+	require.Equal(t, searchViewSplit, tab.mode)
+	require.Equal(t, "alpha", tab.input.Value())
+	require.Equal(t, 1, tab.cursor)
+	require.Equal(t, "notes/beta.md", tab.selectedHit().Path)
+
+	out = components.SanitizeText(tab.View(140, 32))
+	require.Contains(t, out, "retrieval: hybrid")
+	require.Contains(t, out, "Results")
+	require.Contains(t, out, "beta full document body")
+}
+
 func TestSearchViewEmptyStateShowsHint(t *testing.T) {
 	tab := newSearchTab(nil)
 
