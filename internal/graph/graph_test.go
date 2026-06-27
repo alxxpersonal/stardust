@@ -107,6 +107,44 @@ func TestCollectionScopedLinkResolution(t *testing.T) {
 	require.NotContains(t, g.Nodes[specKey].In, refKey)
 }
 
+func TestGitHubWikiSlugResolution(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, content string) {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("Home.md", "# Home\n\nsee [[Page Name]] and [[Install guide|Install Guide]]")
+	write("Page-Name.md", "# Page Name\n")
+	write("Install-Guide.md", "# Install Guide\n")
+
+	g, err := graph.Build(root, nil)
+	require.NoError(t, err)
+
+	require.Empty(t, g.BrokenLinks())
+	require.Contains(t, g.Nodes[vault.NormalizeLink("Page-Name.md")].In, vault.NormalizeLink("Home.md"))
+	require.Contains(t, g.Nodes[vault.NormalizeLink("Install-Guide.md")].In, vault.NormalizeLink("Home.md"))
+}
+
+func TestWikiStructuralPagesAreNotOrphans(t *testing.T) {
+	root := t.TempDir()
+	write := func(name string) {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("# "+name+"\n"), 0o644))
+	}
+	write("Home.md")
+	write("_Sidebar.md")
+	write("_Footer.md")
+	write("Loose.md")
+
+	g, err := graph.Build(root, nil)
+	require.NoError(t, err)
+
+	require.NotContains(t, g.Orphans(), "Home.md")
+	require.NotContains(t, g.Orphans(), "_Sidebar.md")
+	require.NotContains(t, g.Orphans(), "_Footer.md")
+	require.Contains(t, g.Orphans(), "Loose.md")
+}
+
 func TestTopPageRankLimitAndEmpty(t *testing.T) {
 	root := t.TempDir()
 	for _, n := range []string{"a", "b", "c"} {

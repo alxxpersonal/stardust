@@ -38,6 +38,7 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 	if err != nil {
 		return nil, err
 	}
+	docsActive := DocsConventionActive(root)
 	var issues []ConventionIssue
 	for _, rel := range paths {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
@@ -46,6 +47,9 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		}
 		if strings.ContainsRune(string(raw), '\u2014') || strings.ContainsRune(string(raw), '\u2013') {
 			issues = append(issues, ConventionIssue{Severity: "error", Kind: "forbidden-dash", Path: rel, Detail: "contains a forbidden unicode dash"})
+		}
+		if !docsActive {
+			continue
 		}
 		if issue, ok := checkStrayDoc(rel, allowedDocFolders); ok {
 			issues = append(issues, issue)

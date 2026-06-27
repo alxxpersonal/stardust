@@ -38,6 +38,7 @@ func TestCommandBearingErrorsCarrySuggestion(t *testing.T) {
 				_, err := scaffoldVault(t.Context(), root, "off", false)
 				require.NoError(t, err)
 				t.Setenv("STARDUST_VAULT", root)
+				require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/probe\n"), 0o644))
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 				require.NoError(t, os.WriteFile(
 					filepath.Join(root, "docs", "specs", "bad-name.md"),

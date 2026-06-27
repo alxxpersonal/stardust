@@ -29,7 +29,7 @@ type Note struct {
 
 var (
 	frontmatterRe  = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---\r?\n?`)
-	wikilinkRe     = regexp.MustCompile(`\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]`)
+	wikilinkRe     = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
 	hashtagRe      = regexp.MustCompile(`(?m)(?:^|\s)#([a-zA-Z][\w/-]+)`)
 	h1Re           = regexp.MustCompile(`(?m)^#\s+(.+)$`)
 	repoPathRe     = regexp.MustCompile(`^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`)
@@ -61,11 +61,13 @@ func ContentHash(b []byte) string {
 
 // ExtractLinks returns the unique normalized wikilink targets in body.
 func ExtractLinks(body string) []string {
-	body = maskMarkdownCode(body)
 	seen := map[string]bool{}
 	var out []string
-	for _, m := range wikilinkRe.FindAllStringSubmatch(body, -1) {
-		key := NormalizeLink(m[1])
+	for _, candidates := range ExtractWikilinkCandidates(body) {
+		if len(candidates) == 0 {
+			continue
+		}
+		key := candidates[0]
 		if key == "" || seen[key] {
 			continue
 		}
@@ -73,6 +75,61 @@ func ExtractLinks(body string) []string {
 		out = append(out, key)
 	}
 	return out
+}
+
+// ExtractWikilinkCandidates returns normalized target candidates for each
+// wikilink in body. Candidate zero preserves the existing Obsidian-style
+// target-before-pipe behavior. When a pipe is present, candidate one is the
+// Gollum/GitHub target-after-pipe form so graph resolution can fall back to it.
+func ExtractWikilinkCandidates(body string) [][]string {
+	body = maskMarkdownCode(body)
+	var out [][]string
+	for _, m := range wikilinkRe.FindAllStringSubmatch(body, -1) {
+		candidates := wikilinkCandidates(m[1])
+		if len(candidates) > 0 {
+			out = append(out, candidates)
+		}
+	}
+	return out
+}
+
+func wikilinkCandidates(raw string) []string {
+	parts := strings.SplitN(raw, "|", 2)
+	candidates := make([]string, 0, len(parts))
+	add := func(target string) {
+		target = stripWikilinkAnchor(target)
+		if isExternalWikilink(target) {
+			return
+		}
+		key := normalizeWikilinkTarget(target)
+		if key == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if existing == key {
+				return
+			}
+		}
+		candidates = append(candidates, key)
+	}
+	add(parts[0])
+	if len(parts) == 2 {
+		add(parts[1])
+	}
+	return candidates
+}
+
+func stripWikilinkAnchor(target string) string {
+	target = strings.TrimSpace(target)
+	if i := strings.Index(target, "#"); i >= 0 {
+		target = target[:i]
+	}
+	return strings.TrimSpace(target)
+}
+
+func isExternalWikilink(target string) bool {
+	t := strings.ToLower(strings.TrimSpace(target))
+	return strings.HasPrefix(t, "http://") || strings.HasPrefix(t, "https://")
 }
 
 // ExtractEdges returns the typed outbound references in a note: wikilinks from
@@ -98,7 +155,10 @@ func ExtractEdges(root string, note Note) []Edge {
 
 	visibleBody := maskMarkdownCode(note.Body)
 	for _, m := range wikilinkRe.FindAllStringSubmatch(visibleBody, -1) {
-		add(normalizeWikilinkTarget(m[1]), EdgeWikilink)
+		candidates := wikilinkCandidates(m[1])
+		if len(candidates) > 0 {
+			add(candidates[0], EdgeWikilink)
+		}
 	}
 	for _, target := range fmStringList(note.Frontmatter, "related") {
 		add(strings.TrimSpace(target), EdgeRelated)
@@ -294,6 +354,34 @@ func NormalizeLink(t string) string {
 		t = t[i+1:]
 	}
 	return strings.ToLower(strings.TrimSpace(t))
+}
+
+// GitHubWikiDisplayAlias returns the display-title key for a normalized wiki
+// page key whose filename slug uses hyphens for spaces. The collection prefix,
+// when present, is preserved.
+func GitHubWikiDisplayAlias(key string) string {
+	prefix := ""
+	base := key
+	if i := strings.Index(key, "/"); i >= 0 {
+		prefix = key[:i+1]
+		base = key[i+1:]
+	}
+	alias := strings.ReplaceAll(base, "-", " ")
+	if alias == base {
+		return ""
+	}
+	return prefix + alias
+}
+
+// IsWikiStructuralPage reports whether rel is a GitHub wiki structural page
+// that should not be treated as an orphan note.
+func IsWikiStructuralPage(rel string) bool {
+	switch strings.ToLower(filepath.Base(filepath.ToSlash(rel))) {
+	case "_sidebar.md", "_footer.md", "home.md":
+		return true
+	default:
+		return false
+	}
 }
 
 // --- Collection-scoped keys ---

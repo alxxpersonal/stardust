@@ -62,10 +62,38 @@ func TestCheckCleanVault(t *testing.T) {
 	require.Equal(t, 0, res.Warnings) // both linked, both titled, no dupes
 }
 
+func TestCheckPlainWikiVault(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("Home.md", "see [[Page Name]] and [[Plain Wiki Doc]]")
+	write("Page-Name.md", "plain wiki page with filename title")
+	write("_Sidebar.md", "[Home](Home)")
+	write("docs/specs/Plain-Wiki-Doc.md", "plain nested wiki page")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(res.Issues, "broken-link"))
+	require.False(t, hasCheckIssue(res.Issues, "missing-title"))
+	require.False(t, hasCheckIssue(res.Issues, "stray-doc"))
+	require.False(t, hasCheckIssue(res.Issues, "missing-doc-field"))
+	require.False(t, hasCheckIssue(res.Issues, "orphan"))
+}
+
 func TestCheckIncludesConventionIssues(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
 	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/probe\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "specs", "bad-name.md"), []byte("---\ntitle: Bad\ntype: spec\nstatus: Weird\ncreated: 2026-06-22\nupdated: 2026-06-22\n---\n# Bad\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "skills", "foo"), 0o755))
@@ -86,6 +114,7 @@ func TestRelatedEdgeParticipatesInGraph(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
 	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/probe\n"), 0o644))
 	write := func(rel, content string) {
 		p := filepath.Join(root, filepath.FromSlash(rel))
 		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))

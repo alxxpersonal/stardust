@@ -21,6 +21,7 @@ func fixVault(t *testing.T) string {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
 	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/probe\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "docs", "specs"), 0o755))
 	return root
 }

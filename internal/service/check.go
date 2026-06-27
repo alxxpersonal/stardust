@@ -49,8 +49,11 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	nameToPaths := map[string][]string{}
+	requireExplicitTitle := convention.DocsConventionActive(s.Layout.Root)
 	for _, rel := range paths {
-		probs, err := vault.CheckFile(s.Layout.Root, rel)
+		probs, err := vault.CheckFileWithOptions(s.Layout.Root, rel, vault.CheckOptions{
+			RequireExplicitTitle: requireExplicitTitle,
+		})
 		if err != nil {
 			continue
 		}

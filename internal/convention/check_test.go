@@ -8,6 +8,7 @@ import (
 
 func TestCheckDocsReportsConventionIssues(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/probe\n")
 	writeFile(t, root, "docs/specs/bad-name.md", "---\ntitle: Bad\ntype: spec\nstatus: Weird\ncreated: 2026-06-22\nupdated: 2026-06-22\nrelated: [\"docs/adr/0001-missing.md\"]\ngoverns: [\"internal/missing/*.go\"]\n---\n# Bad\n"+string(rune(0x2014))+"\n")
 
 	issues, err := CheckDocs(root, nil)
@@ -39,6 +40,7 @@ func TestCheckSkillsReportsBadTargets(t *testing.T) {
 // config the default schema still enforces required fields and the status enum.
 func TestCheckDocFileDefaultSchemaFires(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/probe\n")
 	// missing created, invalid status
 	writeFile(t, root, "docs/specs/2026-06-22-1000-probe.md", "---\ntitle: Probe\ntype: spec\nstatus: Bogus\nupdated: 2026-06-22\n---\n# Probe\n")
 
@@ -51,6 +53,26 @@ func TestCheckDocFileDefaultSchemaFires(t *testing.T) {
 	}
 	if !hasConventionIssue(issues, "bad-doc-status") {
 		t.Fatalf("expected bad-doc-status via schema, got %#v", issues)
+	}
+}
+
+func TestCheckDocsPlainVaultSkipsDocsConvention(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "docs/specs/plain-page.md", "# Plain Page\n")
+	writeFile(t, root, "docs/loose.md", "# Loose\n")
+
+	issues, err := CheckDocs(root, nil)
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+	if hasConventionIssue(issues, "bad-doc-name") {
+		t.Fatalf("plain vault must not enforce doc names, got %#v", issues)
+	}
+	if hasConventionIssue(issues, "missing-doc-field") {
+		t.Fatalf("plain vault must not enforce frontmatter schema, got %#v", issues)
+	}
+	if hasConventionIssue(issues, "stray-doc") {
+		t.Fatalf("plain vault must not report stray docs, got %#v", issues)
 	}
 }
 

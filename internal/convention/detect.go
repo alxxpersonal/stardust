@@ -42,6 +42,18 @@ func (k Kind) Describe() string {
 	return "detected a plain vault, skipping the docs convention (use --docs to scaffold)"
 }
 
+// DocsConventionActive reports whether root should enforce the Stardust docs
+// convention. Committed docs collection configs opt in explicitly; otherwise it
+// follows the same code-repo detection used by init.
+func DocsConventionActive(root string) bool {
+	folders, err := registeredDocFolders(root)
+	if err == nil && len(folders) > 0 {
+		return true
+	}
+	kind, err := DetectKind(root)
+	return err == nil && kind.WantsDocs()
+}
+
 // sourceManifests are the top-level manifest files that mark a code repo.
 var sourceManifests = map[string]bool{
 	"go.mod":       true,

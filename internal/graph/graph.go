@@ -52,6 +52,7 @@ func Build(root string, ignore []string) (*Graph, error) {
 		return nil, err
 	}
 	g := &Graph{Nodes: make(map[string]Node, len(paths))}
+	wikilinkCandidates := make(map[string]map[string][]string, len(paths))
 
 	for _, rel := range paths {
 		note, err := vault.Parse(root, rel)
@@ -59,6 +60,7 @@ func Build(root string, ignore []string) (*Graph, error) {
 			return nil, err
 		}
 		key := vault.CollectionKey(rel)
+		wikilinkCandidates[key] = candidateMap(note.Body)
 		out, codeRefs := classifyEdges(root, vault.ExtractEdges(root, note))
 		g.Nodes[key] = Node{Path: note.Path, Title: note.Title, Out: out, CodeRefs: codeRefs}
 	}
@@ -72,7 +74,13 @@ func Build(root string, ignore []string) (*Graph, error) {
 		coll := collectionOfKey(key)
 		resolved := make([]Edge, 0, len(node.Out))
 		for _, e := range node.Out {
-			target, _ := idx.resolve(coll, e.Target)
+			candidates := []string{e.Target}
+			if e.Kind == vault.EdgeWikilink {
+				if cs := wikilinkCandidates[key][e.Target]; len(cs) > 0 {
+					candidates = cs
+				}
+			}
+			target, _ := idx.resolveAny(coll, candidates)
 			resolved = append(resolved, Edge{Target: target, Kind: e.Kind})
 		}
 		node.Out = resolved
@@ -93,19 +101,50 @@ func Build(root string, ignore []string) (*Graph, error) {
 // resolveIndex resolves a link target to a node key. It holds the set of node
 // keys and an index from bare basename to the keys that carry it.
 type resolveIndex struct {
-	keys   map[string]bool
-	byBase map[string][]string
+	keys    map[string]bool
+	byBase  map[string][]string
+	aliases map[string][]string
 }
 
 // newResolveIndex builds the resolution index over a graph's node keys.
 func newResolveIndex(g *Graph) resolveIndex {
-	idx := resolveIndex{keys: make(map[string]bool, len(g.Nodes)), byBase: map[string][]string{}}
+	idx := resolveIndex{
+		keys:    make(map[string]bool, len(g.Nodes)),
+		byBase:  map[string][]string{},
+		aliases: map[string][]string{},
+	}
 	for key := range g.Nodes {
 		idx.keys[key] = true
 		base := baseOfKey(key)
 		idx.byBase[base] = append(idx.byBase[base], key)
+		idx.addAlias(vault.GitHubWikiDisplayAlias(key), key)
+		idx.addAlias(vault.GitHubWikiDisplayAlias(base), key)
 	}
 	return idx
+}
+
+func (idx resolveIndex) addAlias(alias, key string) {
+	if alias == "" || alias == key {
+		return
+	}
+	for _, existing := range idx.aliases[alias] {
+		if existing == key {
+			return
+		}
+	}
+	idx.aliases[alias] = append(idx.aliases[alias], key)
+}
+
+func (idx resolveIndex) resolveAny(sourceColl string, candidates []string) (string, bool) {
+	if len(candidates) == 0 {
+		return "", false
+	}
+	for _, target := range candidates {
+		if resolved, ok := idx.resolve(sourceColl, target); ok {
+			return resolved, true
+		}
+	}
+	return candidates[0], false
 }
 
 // resolve maps a link target to a node key. A collection-qualified target (one
@@ -118,20 +157,60 @@ func (idx resolveIndex) resolve(sourceColl, target string) (string, bool) {
 		if idx.keys[target] {
 			return target, true
 		}
+		if k, ok := idx.resolveAlias(target); ok {
+			return k, true
+		}
 		return target, false
 	}
 	if sourceColl != "" {
 		if k := sourceColl + "/" + target; idx.keys[k] {
 			return k, true
 		}
+		if k, ok := idx.resolveAlias(sourceColl + "/" + target); ok {
+			return k, true
+		}
 	}
 	if idx.keys[target] {
 		return target, true
+	}
+	if k, ok := idx.resolveAlias(target); ok {
+		return k, true
 	}
 	if ks := idx.byBase[target]; len(ks) == 1 {
 		return ks[0], true
 	}
 	return target, false
+}
+
+func (idx resolveIndex) resolveAlias(alias string) (string, bool) {
+	if ks := idx.aliases[alias]; len(ks) == 1 {
+		return ks[0], true
+	}
+	return "", false
+}
+
+func candidateMap(body string) map[string][]string {
+	out := map[string][]string{}
+	for _, candidates := range vault.ExtractWikilinkCandidates(body) {
+		if len(candidates) == 0 {
+			continue
+		}
+		primary := candidates[0]
+		seen := map[string]bool{}
+		merged := out[primary]
+		for _, existing := range merged {
+			seen[existing] = true
+		}
+		for _, candidate := range candidates {
+			if seen[candidate] {
+				continue
+			}
+			seen[candidate] = true
+			merged = append(merged, candidate)
+		}
+		out[primary] = merged
+	}
+	return out
 }
 
 // collectionOfKey returns the collection prefix of a node key, or "" when the key
@@ -190,6 +269,9 @@ func classifyEdges(root string, edges []Edge) (out []Edge, codeRefs []Edge) {
 func (g *Graph) Orphans() []string {
 	var out []string
 	for _, node := range g.Nodes {
+		if vault.IsWikiStructuralPage(node.Path) {
+			continue
+		}
 		if len(node.In) == 0 && len(node.Out) == 0 {
 			out = append(out, node.Path)
 		}

@@ -38,6 +38,14 @@ func TestExtractLinks(t *testing.T) {
 	require.ElementsMatch(t, []string{"foo bar", "baz", "qux"}, ExtractLinks(body))
 }
 
+func TestExtractWikilinkCandidates(t *testing.T) {
+	body := "see [[notes/Baz|Alias]] and [[Install|Install Guide]] and [[https://example.com]]"
+	require.Equal(t, [][]string{
+		{"baz", "alias"},
+		{"install", "install guide"},
+	}, ExtractWikilinkCandidates(body))
+}
+
 func TestExtractLinksIgnoresMarkdownCode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -95,6 +103,8 @@ func TestNormalizeLink(t *testing.T) {
 	require.Equal(t, "foo", NormalizeLink("Foo.md"))
 	require.Equal(t, "bar", NormalizeLink("notes/Bar"))
 	require.Equal(t, "baz", NormalizeLink("  BAZ  "))
+	require.Equal(t, "page name", GitHubWikiDisplayAlias("page-name"))
+	require.Equal(t, "specs/page name", GitHubWikiDisplayAlias("specs/page-name"))
 }
 
 func TestCollectionKey(t *testing.T) {

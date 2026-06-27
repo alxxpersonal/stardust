@@ -200,31 +200,47 @@ func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	targets, err := s.resolveLinks(n.Links)
+	targets, err := s.resolveLinkCandidates(vault.ExtractWikilinkCandidates(n.Body))
 	if err != nil {
 		return Note{}, err
 	}
 	return Note{Path: n.Path, Title: n.Title, Tags: n.Tags, Links: n.Links, LinkTargets: targets, Frontmatter: n.Frontmatter, Body: n.Body}, nil
 }
 
-// resolveLinks maps each normalized wikilink to the vault-relative path of the
-// note it resolves to, using the same normalized-name keying as the link graph.
-// Unresolved links keep an empty path. Order follows the input links.
-func (s *Service) resolveLinks(links []string) ([]LinkTarget, error) {
-	out := make([]LinkTarget, 0, len(links))
-	if len(links) == 0 {
+// resolveLinkCandidates maps each wikilink candidate group to the vault-relative
+// path of the first candidate that resolves. Unresolved links keep an empty path.
+// Order follows the input links.
+func (s *Service) resolveLinkCandidates(groups [][]string) ([]LinkTarget, error) {
+	out := make([]LinkTarget, 0, len(groups))
+	if len(groups) == 0 {
 		return out, nil
 	}
 	paths, err := vault.Scan(s.Layout.Root, s.Config.Ignore)
 	if err != nil {
 		return nil, err
 	}
-	byName := make(map[string]string, len(paths))
+	byName := make(map[string]string, len(paths)*2)
 	for _, rel := range paths {
-		byName[vault.NormalizeLink(rel)] = filepath.ToSlash(rel)
+		key := vault.NormalizeLink(rel)
+		byName[key] = filepath.ToSlash(rel)
+		if alias := vault.GitHubWikiDisplayAlias(key); alias != "" {
+			if _, exists := byName[alias]; !exists {
+				byName[alias] = filepath.ToSlash(rel)
+			}
+		}
 	}
-	for _, link := range links {
-		out = append(out, LinkTarget{Link: link, Path: byName[vault.NormalizeLink(link)]})
+	for _, candidates := range groups {
+		if len(candidates) == 0 {
+			continue
+		}
+		target := LinkTarget{Link: candidates[0]}
+		for _, candidate := range candidates {
+			if path := byName[vault.NormalizeLink(candidate)]; path != "" {
+				target.Path = path
+				break
+			}
+		}
+		out = append(out, target)
 	}
 	return out, nil
 }
