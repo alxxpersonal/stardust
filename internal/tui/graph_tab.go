@@ -148,7 +148,7 @@ func (t GraphTab) HeaderLabel() string {
 
 func (t GraphTab) pageRankBox(width, height int) string {
 	if len(t.report.PageRank) == 0 {
-		return MutedStyle.Render("none")
+		return clipLines(renderCleanListHeader("PageRank", "", width)+"\n\n"+MutedStyle.Render("none"), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.PageRank))
 	for i, entry := range t.report.PageRank {
@@ -174,7 +174,7 @@ func (t GraphTab) pageRankBox(width, height int) string {
 
 func (t GraphTab) orphansBox(width, height int) string {
 	if len(t.report.Orphans) == 0 {
-		return SuccessStyle.Render("none")
+		return clipLines(renderCleanListHeader("Orphans", "", width)+"\n\n"+SuccessStyle.Render("none"), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.Orphans))
 	for i, path := range t.report.Orphans {
@@ -189,7 +189,7 @@ func (t GraphTab) orphansBox(width, height int) string {
 
 func (t GraphTab) brokenBox(width, height int) string {
 	if len(t.report.Broken) == 0 {
-		return SuccessStyle.Render("none")
+		return clipLines(renderCleanListHeader("Broken links", "", width)+"\n\n"+SuccessStyle.Render("none"), height)
 	}
 	rows := make([]cleanListRow, 0, len(t.report.Broken))
 	for _, broken := range t.report.Broken {
