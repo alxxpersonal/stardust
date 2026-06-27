@@ -27,7 +27,7 @@ default_targets = ["claude"]
 
 [[sources]]
 name = "canonical"
-path = "~/Code/Self/forge-private/skills"
+path = "~/skills"
 kind = "skill"
 priority = 10
 
@@ -47,7 +47,7 @@ mode = "copy"
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	if got, want := cfg.Sources[0].Path, filepath.Join(home, "Code/Self/forge-private/skills"); got != want {
+	if got, want := cfg.Sources[0].Path, filepath.Join(home, "skills"); got != want {
 		t.Fatalf("source path = %q, want %q", got, want)
 	}
 	if got, want := cfg.Targets[0].SkillsPath, filepath.Join(root, ".claude/skills"); got != want {

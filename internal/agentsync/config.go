@@ -76,15 +76,13 @@ func DefaultConfig(home, root string) Config {
 	}
 }
 
-// AlxxMigrationConfig returns the opinionated migration layout for alxx's
-// canonical forge-private agent infrastructure source.
-func AlxxMigrationConfig(home, root string) Config {
-	canonical := filepath.Join(home, "Code", "Self", "forge-private")
+// DefaultMigrationConfig returns a generic migration layout for adopting
+// existing agent assets into a neutral home-level canonical source.
+func DefaultMigrationConfig(home, root string) Config {
 	cfg := DefaultConfig(home, root)
 	cfg.Sources = []Source{
-		{Name: "canonical-skills", Path: filepath.Join(canonical, "skills"), Kind: "skill", Priority: 0},
-		{Name: "canonical-agents", Path: filepath.Join(canonical, "agents"), Kind: "agent", Priority: 0},
-		{Name: "forge-skills", Path: filepath.Join(home, "Code", "Self", "forge", "skills"), Kind: "skill", Priority: 20, ImportOnly: true},
+		{Name: "canonical-skills", Path: filepath.Join(home, "skills"), Kind: "skill", Priority: 0},
+		{Name: "canonical-agents", Path: filepath.Join(home, "agents"), Kind: "agent", Priority: 0},
 		{Name: "shared-agent-skills", Path: filepath.Join(home, ".agents", "skills"), Kind: "skill", Priority: 30, ImportOnly: true},
 		{Name: "claude-global-skills", Path: filepath.Join(home, ".claude", "skills"), Kind: "skill", Priority: 40, ImportOnly: true},
 		{Name: "claude-global-agents", Path: filepath.Join(home, ".claude", "agents"), Kind: "agent", Priority: 40, ImportOnly: true},

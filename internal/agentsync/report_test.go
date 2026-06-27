@@ -5,20 +5,19 @@ import (
 	"testing"
 )
 
-func TestAlxxMigrationConfigIncludesCanonicalAndImportSources(t *testing.T) {
-	cfg := AlxxMigrationConfig("/Users/alxx", "/vault")
+func TestDefaultMigrationConfigIncludesCanonicalAndImportSources(t *testing.T) {
+	cfg := DefaultMigrationConfig("/home/user", "/vault")
 
-	if got, want := cfg.Sources[0].Path, "/Users/alxx/Code/Self/forge-private/skills"; got != want {
+	if got, want := cfg.Sources[0].Path, "/home/user/skills"; got != want {
 		t.Fatalf("canonical skills path = %q, want %q", got, want)
 	}
-	if got, want := cfg.Sources[1].Path, "/Users/alxx/Code/Self/forge-private/agents"; got != want {
+	if got, want := cfg.Sources[1].Path, "/home/user/agents"; got != want {
 		t.Fatalf("canonical agents path = %q, want %q", got, want)
 	}
 
 	wantImport := map[string]bool{
-		"/Users/alxx/Code/Self/forge/skills": true,
-		"/Users/alxx/.agents/skills":         true,
-		"/Users/alxx/.claude/skills":         true,
+		"/home/user/.agents/skills": true,
+		"/home/user/.claude/skills": true,
 	}
 	for _, src := range cfg.Sources {
 		if wantImport[src.Path] && !src.ImportOnly {
@@ -33,7 +32,7 @@ func TestAlxxMigrationConfigIncludesCanonicalAndImportSources(t *testing.T) {
 
 func TestMigrationReportClassifiesLooseClaudeSkillsAsAdoptable(t *testing.T) {
 	root := t.TempDir()
-	canonical := filepath.Join(root, "forge-private", "skills")
+	canonical := filepath.Join(root, "canonical", "skills")
 	loose := filepath.Join(root, ".claude", "skills")
 	writeSkill(t, loose, "loose", "---\nname: loose\n---\n# Loose\n")
 

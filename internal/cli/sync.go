@@ -93,8 +93,8 @@ func newSyncInitCmd() *cobra.Command {
 			cfg := agentsync.DefaultConfig(home, vc.Layout.Root)
 			switch profile {
 			case "", "default":
-			case "alxx":
-				cfg = agentsync.AlxxMigrationConfig(home, vc.Layout.Root)
+			case "migration":
+				cfg = agentsync.DefaultMigrationConfig(home, vc.Layout.Root)
 			default:
 				return fmt.Errorf("unsupported sync profile %q", profile)
 			}
@@ -121,7 +121,7 @@ func newSyncInitCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&profile, "profile", "default", "profile: default, alxx")
+	cmd.Flags().StringVar(&profile, "profile", "default", "profile: default, migration")
 	cmd.Flags().StringVar(&canonical, "canonical", "", "canonical agent infrastructure root")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print sync.toml without writing")
 	return cmd
