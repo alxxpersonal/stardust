@@ -422,8 +422,11 @@ func (t SettingsTab) saveConfig(cfg config.Config) error {
 
 // --- View ---
 
-// View renders the config box, the read-only collections box, or the active
-// sub-view.
+// View renders the config and collections boxes as a tidy matched-width full-
+// width stack, or the active sub-view. CONFIG is the only box with a wrapper
+// title because its content is plain rows; every clean-list box (COLLECTIONS and
+// the sub-views) carries its own keycap header, so those wrappers pass an empty
+// title and exactly one header shows per section.
 func (t SettingsTab) View(width, height int) string {
 	if width <= 0 {
 		width = t.width
@@ -434,26 +437,32 @@ func (t SettingsTab) View(width, height int) string {
 	cardW := tableWidth(width)
 	switch t.sub {
 	case settingsIgnore:
-		return centerBlockUniform(animatedDoubleBox("IGNORE LIST", t.ignoreView(cardW, height-4), t.frame), width)
+		return centerBlockUniform(animatedDoubleBox("", t.ignoreView(cardW, height-4), t.frame), width)
 	case settingsCollections:
-		return centerBlockUniform(animatedDoubleBox("COLLECTIONS", t.collectionsView(cardW, height-4), t.frame), width)
+		return centerBlockUniform(animatedDoubleBox("", t.collectionsView(cardW, height-4), t.frame), width)
 	case settingsSchema:
-		return centerBlockUniform(animatedDoubleBox("SCHEMA", t.schemaView(cardW, height-4), t.frame), width)
+		return centerBlockUniform(animatedDoubleBox("", t.schemaView(cardW, height-4), t.frame), width)
 	}
 
-	colH := height / 3
+	configBox := animatedDoubleBox("CONFIG", t.configRows(cardW), t.frame)
+	avail := height - 6
+	if avail < 12 {
+		avail = 12
+	}
+	colH := avail - countViewLines(configBox)
 	if colH < 6 {
 		colH = 6
 	}
 	var b strings.Builder
-	b.WriteString(animatedDoubleBox("CONFIG", t.configRows(cardW), t.frame))
+	b.WriteString(configBox)
 	b.WriteString("\n\n")
-	b.WriteString(animatedRoundedBox("COLLECTIONS", t.collectionsList(cardW, colH), t.frame))
+	b.WriteString(animatedRoundedBox("", t.collectionsList(cardW, colH), t.frame))
 	return centerBlockUniform(b.String(), width)
 }
 
+// configRows renders the editable config rows, padding each line to width so the
+// CONFIG box matches the COLLECTIONS box width for a tidy aligned stack.
 func (t SettingsTab) configRows(width int) string {
-	_ = width
 	var b strings.Builder
 	for i, row := range settingsRows {
 		cursor := MutedStyle.Render("  ")
@@ -466,7 +475,7 @@ func (t SettingsTab) configRows(width int) string {
 		if t.editing && t.editKey == row.key {
 			value = t.editInput.View()
 		}
-		b.WriteString(cursor + label + value)
+		b.WriteString(padRightCell(cursor+label+value, width))
 		if i < len(settingsRows)-1 {
 			b.WriteString("\n")
 		}
@@ -503,14 +512,14 @@ func (t SettingsTab) rowValue(row settingsRow) string {
 
 func (t SettingsTab) collectionsList(width, height int) string {
 	if len(t.collections) == 0 {
-		return MutedStyle.Render("no collections configured")
+		return clipLines(renderCleanListHeader("Collections", "", width)+"\n\n"+MutedStyle.Render("no collections configured"), height)
 	}
 	return clipLines(t.renderCollections(width, -1), height)
 }
 
 func (t SettingsTab) collectionsView(width, height int) string {
 	if len(t.collections) == 0 {
-		return MutedStyle.Render("no collections configured")
+		return clipLines(renderCleanListHeader("Collections", "", width)+"\n\n"+MutedStyle.Render("no collections configured"), height)
 	}
 	return clipLines(t.renderCollections(width, t.colCursor), height)
 }
@@ -543,6 +552,8 @@ func (t SettingsTab) ignoreView(width, height int) string {
 		b.WriteString("\n\n")
 	}
 	if len(t.cfg.Ignore) == 0 {
+		b.WriteString(renderCleanListHeader("Ignore", "", width))
+		b.WriteString("\n\n")
 		b.WriteString(MutedStyle.Render("no ignore patterns"))
 		return clipLines(b.String(), height)
 	}
@@ -568,7 +579,8 @@ func (t SettingsTab) schemaView(width, height int) string {
 		}
 	}
 	if idx < 0 || len(t.collections[idx].Fields) == 0 {
-		return MutedStyle.Render("no fields in " + components.SanitizeOneLine(t.schemaName))
+		return renderCleanListHeader(t.schemaName+" schema", "", width) + "\n\n" +
+			MutedStyle.Render("no fields in "+components.SanitizeOneLine(t.schemaName))
 	}
 	fields := t.collections[idx].Fields
 	rows := make([]cleanListRow, 0, len(fields))

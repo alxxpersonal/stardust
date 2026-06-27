@@ -25,6 +25,11 @@ const (
 	levelRecord
 )
 
+// recordsSortNewestFirst orders records by descending path. Record filenames are
+// date-prefixed, so this reliably surfaces the newest document at the top for
+// every dated collection, matching the docs registry's own ordering.
+const recordsSortNewestFirst = "-path"
+
 type collectionsLoadedMsg struct {
 	collections []service.CollectionInfo
 	err         error
@@ -261,7 +266,11 @@ func (t BrowseTab) loadRecords(name string) tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		list, err := be.svc.ListRecords(ctx, name, nil, "-updated_at", 200, 0)
+		// "-path" sorts newest-first: record filenames are date-prefixed
+		// (YYYY-MM-DD-...), so descending path order puts the newest at the top.
+		// The catalog updated_at is the last-indexed time (uniform across a run),
+		// not the document date, so it cannot order records by recency.
+		list, err := be.svc.ListRecords(ctx, name, nil, recordsSortNewestFirst, 200, 0)
 		return recordsLoadedMsg{collection: name, records: list, err: err}
 	}
 }

@@ -104,9 +104,12 @@ func (t DriftTab) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	return t, nil
 }
 
-// View renders the coherence report as a vertical stack of clean lists. Each box
-// renders the typed result slices (not the service Markdown), so exactly one
-// keycap header is emitted per list and duplicate headers are impossible.
+// View renders the coherence report as a clean full-width vertical stack: a
+// summary line, then DRIFTED DOCS, STALE DOCS, and CHECK FINDINGS, each a single-
+// header clean-list box. Each box renders the typed result slices (not the
+// service Markdown) and carries its own keycap header, so the box wrappers pass
+// an empty title and exactly one header shows per section. Boxes are sized to
+// their content (an empty list stays one line, never a full-height box).
 func (t DriftTab) View(width, height int) string {
 	if width <= 0 {
 		width = t.width
@@ -122,32 +125,60 @@ func (t DriftTab) View(width, height int) string {
 	}
 
 	cardW := tableWidth(width)
-	avail := height - 4
+	drift := t.driftList(cardW)
+	stale := t.staleList(cardW)
+	check := t.checkSummary(cardW)
+
+	avail := height - 6
 	if avail < 12 {
 		avail = 12
 	}
-	driftH := avail * 35 / 100
-	staleH := avail * 35 / 100
-	checkH := avail - driftH - staleH
-	driftH, staleH, checkH = atLeast(driftH, 6), atLeast(staleH, 6), atLeast(checkH, 6)
+	heights := fitStackHeights(
+		[]int{countViewLines(drift), countViewLines(stale), countViewLines(check)},
+		avail, 3)
 
 	var b strings.Builder
 	b.WriteString(t.summaryLine(cardW))
 	b.WriteString("\n\n")
-	b.WriteString(animatedDoubleBox("DRIFTED DOCS", t.driftList(cardW, driftH), t.frame))
+	b.WriteString(animatedDoubleBox("", clipLines(drift, heights[0]), t.frame))
 	b.WriteString("\n\n")
-	b.WriteString(animatedDoubleBox("STALE DOCS", t.staleList(cardW, staleH), t.frame))
+	b.WriteString(animatedDoubleBox("", clipLines(stale, heights[1]), t.frame))
 	b.WriteString("\n\n")
-	b.WriteString(animatedRoundedBox("CHECK FINDINGS", t.checkSummary(cardW, checkH), t.frame))
+	b.WriteString(animatedRoundedBox("", clipLines(check, heights[2]), t.frame))
 	return centerBlockUniform(b.String(), width)
 }
 
-// atLeast clamps n up to floor.
-func atLeast(n, floor int) int {
-	if n < floor {
-		return floor
+// fitStackHeights returns a per-section line budget that sizes each section to
+// its natural height, shrinking only the sections that overflow the available
+// space (never below minH) so short or empty sections keep their content height
+// and never claim a full box.
+func fitStackHeights(natural []int, avail, minH int) []int {
+	out := make([]int, len(natural))
+	total := 0
+	for i, n := range natural {
+		if n < 1 {
+			n = 1
+		}
+		out[i] = n
+		total += n
 	}
-	return n
+	if avail <= 0 {
+		return out
+	}
+	for total > avail {
+		tallest := -1
+		for i := range out {
+			if out[i] > minH && (tallest == -1 || out[i] > out[tallest]) {
+				tallest = i
+			}
+		}
+		if tallest == -1 {
+			break // every section already at minH; cannot shrink further
+		}
+		out[tallest]--
+		total--
+	}
+	return out
 }
 
 // Hints returns the key hints for the drift tab.
@@ -192,9 +223,11 @@ func (t DriftTab) summaryLine(width int) string {
 }
 
 // driftList renders drifted docs, one row per moved binding, in fitted columns.
-func (t DriftTab) driftList(width, height int) string {
+// It always emits exactly one keycap header (even when empty) so the box wrapper
+// can pass an empty title and no duplicate header appears.
+func (t DriftTab) driftList(width int) string {
 	if len(t.drift.Docs) == 0 {
-		return SuccessStyle.Render("no drifted docs")
+		return renderCleanListHeader("Drifted Docs", "", width) + "\n\n" + SuccessStyle.Render("no drifted docs")
 	}
 	var rows []cleanListRow
 	for _, doc := range t.drift.Docs {
@@ -216,13 +249,15 @@ func (t DriftTab) driftList(width, height int) string {
 		{Header: "Commits", MinWidth: 7, MaxWidth: 8, Align: lipgloss.Right, Count: true},
 	}
 	label := cleanListCountLabel(len(t.drift.Docs), "doc")
-	return clipLines(renderCleanList("Drifted Docs", label, cols, rows, width, -1), height)
+	return renderCleanList("Drifted Docs", label, cols, rows, width, -1)
 }
 
 // staleList renders implemented docs whose governed code changed after the doc.
-func (t DriftTab) staleList(width, height int) string {
+// Like driftList it always emits a single keycap header so the empty state stays
+// a one-line section, not a full-height box.
+func (t DriftTab) staleList(width int) string {
 	if len(t.stale.Docs) == 0 {
-		return SuccessStyle.Render("no stale docs")
+		return renderCleanListHeader("Stale Docs", "", width) + "\n\n" + SuccessStyle.Render("no stale docs")
 	}
 	rows := make([]cleanListRow, 0, len(t.stale.Docs))
 	for _, doc := range t.stale.Docs {
@@ -244,14 +279,15 @@ func (t DriftTab) staleList(width, height int) string {
 		{Header: "Matched", MinWidth: 12, Muted: true},
 	}
 	label := cleanListCountLabel(len(t.stale.Docs), "doc")
-	return clipLines(renderCleanList("Stale Docs", label, cols, rows, width, -1), height)
+	return renderCleanList("Stale Docs", label, cols, rows, width, -1)
 }
 
 // checkSummary groups check findings by kind with a count and a sample, errors
-// first, so the report is scannable instead of one row per finding.
-func (t DriftTab) checkSummary(width, height int) string {
+// first, so the report is scannable instead of one row per finding. It always
+// emits a single keycap header so the box wrapper passes an empty title.
+func (t DriftTab) checkSummary(width int) string {
 	if len(t.check.Issues) == 0 {
-		return SuccessStyle.Render("clean")
+		return renderCleanListHeader("Check Findings", "", width) + "\n\n" + SuccessStyle.Render("clean")
 	}
 	type group struct {
 		severity string
@@ -297,5 +333,5 @@ func (t DriftTab) checkSummary(width, height int) string {
 		{Header: "Example", MinWidth: 16, Primary: true},
 	}
 	label := fmt.Sprintf("%d error / %d warn", t.check.Errors, t.check.Warnings)
-	return clipLines(renderCleanList("Check Findings", label, cols, rows, width, -1), height)
+	return renderCleanList("Check Findings", label, cols, rows, width, -1)
 }

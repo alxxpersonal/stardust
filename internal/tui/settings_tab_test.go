@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -62,6 +63,28 @@ func TestSettingsCollectionsMsgStores(t *testing.T) {
 	require.Len(t, tab.collections, 1)
 	out := components.SanitizeText(tab.View(120, 40))
 	require.Contains(t, out, "specs")
+}
+
+func TestSettingsRendersSingleCollectionsHeader(t *testing.T) {
+	tab := newSettingsTab(nil)
+	tab.collections = []service.CollectionInfo{
+		{Name: "specs", Records: 3, Path: "docs/specs"},
+		{Name: "plans", Records: 1, Path: "docs/plans"},
+	}
+	out := components.SanitizeText(tab.View(140, 40))
+	// exactly one "Collections" keycap header, no duplicate box title.
+	require.Equal(t, 1, strings.Count(out, "Collections"))
+	// CONFIG keeps its single box title (plain rows, no keycap).
+	require.Equal(t, 1, strings.Count(out, "CONFIG"))
+	require.Contains(t, out, "Embed model")
+}
+
+func TestSettingsEmptyCollectionsStillLabeled(t *testing.T) {
+	tab := newSettingsTab(nil)
+	out := components.SanitizeText(tab.View(140, 40))
+	// even with no collections, the section carries exactly one header.
+	require.Equal(t, 1, strings.Count(out, "Collections"))
+	require.Contains(t, out, "no collections configured")
 }
 
 func TestSettingsActionBusyGuard(t *testing.T) {

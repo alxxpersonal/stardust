@@ -114,6 +114,27 @@ func TestListRecordsLimitOffset(t *testing.T) {
 	require.Equal(t, "jobs/c.md", rows[1].Path)
 }
 
+func TestListRecordsPathDescNewestFirst(t *testing.T) {
+	st := openStore(t)
+	ctx := context.Background()
+	// date-prefixed filenames, inserted out of order on purpose.
+	for _, p := range []string{
+		"docs/specs/2026-01-01-old.md",
+		"docs/specs/2026-06-25-new.md",
+		"docs/specs/2026-03-15-mid.md",
+	} {
+		require.NoError(t, st.UpsertNote(ctx, p, "h", chunk(p, p, "x"), nil, nil))
+	}
+
+	rows, err := st.ListRecords(ctx, "docs/specs", nil, "-path", 0, 0)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+	// descending path order surfaces the newest date-prefixed file first.
+	require.Equal(t, "docs/specs/2026-06-25-new.md", rows[0].Path)
+	require.Equal(t, "docs/specs/2026-03-15-mid.md", rows[1].Path)
+	require.Equal(t, "docs/specs/2026-01-01-old.md", rows[2].Path)
+}
+
 func TestListRecordsRejectsBadOp(t *testing.T) {
 	st := openStore(t)
 	_, err := st.ListRecords(context.Background(), "jobs",

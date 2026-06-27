@@ -60,6 +60,41 @@ func TestDriftRendersSingleHeaders(t *testing.T) {
 	require.Contains(t, out, "Plan B")
 }
 
+func TestDriftEmptyStaleStaysCompact(t *testing.T) {
+	tab := newDriftTab(nil)
+	tab.loaded = true
+	// many drifted docs, but no stale docs: the stale section must stay compact.
+	for i := 0; i < 8; i++ {
+		tab.drift.Docs = append(tab.drift.Docs, service.DriftDoc{
+			DocPath: "docs/specs/a.md", Title: "Spec", Type: "spec",
+			Bindings: []service.DriftBinding{{File: "internal/a.go", ChangedCommits: 1}},
+		})
+	}
+
+	out := components.SanitizeText(tab.View(120, 60))
+	require.Equal(t, 1, strings.Count(out, "Drifted Docs"))
+	require.Equal(t, 1, strings.Count(out, "Stale Docs"))
+	require.Contains(t, out, "no stale docs")
+
+	// the empty stale section is its natural height, not padded to a full box:
+	// its content is one header + blank + one message line.
+	staleLines := strings.Count(components.SanitizeText(tab.staleList(110)), "\n") + 1
+	require.LessOrEqual(t, staleLines, 3)
+}
+
+func TestFitStackHeightsKeepsSmallSections(t *testing.T) {
+	// nothing overflows: every section keeps its natural height.
+	got := fitStackHeights([]int{2, 1, 4}, 40, 3)
+	require.Equal(t, []int{2, 1, 4}, got)
+
+	// overflow shrinks only the tallest sections, never below minH.
+	got = fitStackHeights([]int{30, 1, 20}, 24, 3)
+	require.Equal(t, 24, got[0]+got[1]+got[2])
+	require.Equal(t, 1, got[1])          // the small section is untouched
+	require.GreaterOrEqual(t, got[0], 3) // never shrunk below minH
+	require.GreaterOrEqual(t, got[2], 3)
+}
+
 func TestDriftCheckSummaryGroups(t *testing.T) {
 	tab := newDriftTab(nil)
 	tab.loaded = true
@@ -68,7 +103,7 @@ func TestDriftCheckSummaryGroups(t *testing.T) {
 		{Severity: "error", Kind: "broken-link", Path: "b.md", Detail: "y"},
 		{Severity: "warn", Kind: "orphan", Path: "c.md", Detail: "z"},
 	}}
-	out := components.SanitizeText(tab.checkSummary(110, 20))
+	out := components.SanitizeText(tab.checkSummary(110))
 	require.Contains(t, out, "broken-link")
 	require.Contains(t, out, "orphan")
 	require.NotContains(t, out, "|")

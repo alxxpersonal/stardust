@@ -138,5 +138,7 @@ func TestAppSmokeRendersBannerAndSettingsTab(t *testing.T) {
 	for _, name := range tabNames {
 		require.True(t, strings.Contains(out, name), "missing tab label %s", name)
 	}
-	require.Contains(t, out, "Embed model") // settings config box renders
+	require.Contains(t, out, "Embed model")                // settings config box renders
+	require.Equal(t, 1, strings.Count(out, "Collections")) // single header, no duplicate box title
+	require.Equal(t, 1, strings.Count(out, "CONFIG"))      // config keeps its single box title
 }
