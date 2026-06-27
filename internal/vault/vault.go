@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,25 +31,35 @@ type Note struct {
 var (
 	frontmatterRe  = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---\r?\n?`)
 	wikilinkRe     = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+	markdownLinkRe = regexp.MustCompile(`!?\[[^\]\n]*\]\(([^)\n]+)\)`)
 	hashtagRe      = regexp.MustCompile(`(?m)(?:^|\s)#([a-zA-Z][\w/-]+)`)
 	h1Re           = regexp.MustCompile(`(?m)^#\s+(.+)$`)
 	repoPathRe     = regexp.MustCompile(`^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`)
 	repoPathFindRe = regexp.MustCompile(`[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+`)
 )
 
-// Edge kinds enumerate the channels through which a note references another.
+// Edge kinds enumerate the channels through which a note references another
+// note or a code path.
 const (
-	EdgeWikilink   = "wikilink"
-	EdgeRelated    = "related"
-	EdgeInlinePath = "inline-path"
+	EdgeWikilink     = "wikilink"
+	EdgeMarkdownLink = "markdown-link"
+	EdgeRelated      = "related"
+	EdgeInlinePath   = "inline-path"
 )
 
 // Edge is one typed outbound reference from a note. Target is a normalized note
-// name for a wikilink, or a repo-relative path for a related or inline-path
-// reference. Kind is one of wikilink, related, or inline-path.
+// name for a wikilink or markdown link, or a repo-relative path for a related
+// or inline-path reference.
 type Edge struct {
 	Target string `json:"target"`
 	Kind   string `json:"kind"`
+}
+
+// LinkResolutionCandidates carries the legacy primary target for a prose link
+// plus the preferred candidates graph resolution should try for that link.
+type LinkResolutionCandidates struct {
+	Primary    string
+	Candidates []string
 }
 
 // --- Hashing + links ---
@@ -93,6 +104,24 @@ func ExtractWikilinkCandidates(body string) [][]string {
 	return out
 }
 
+// ExtractLinkResolutionCandidates returns source-aware candidates for prose
+// links that can point at markdown pages. The Primary field matches the target
+// emitted by ExtractEdges; Candidates is ordered for resolution, so path-shaped
+// wiki links can resolve before falling back to Stardust's legacy flat basename.
+func ExtractLinkResolutionCandidates(sourcePath, body string) []LinkResolutionCandidates {
+	visibleBody := maskMarkdownCode(body)
+	var out []LinkResolutionCandidates
+	out = append(out, extractWikilinkResolutionCandidates(sourcePath, visibleBody)...)
+	out = append(out, extractMarkdownLinkResolutionCandidates(sourcePath, visibleBody)...)
+	return out
+}
+
+// ExtractWikilinkResolutionCandidates returns source-aware candidates for only
+// wikilinks, preserving GetNote's wikilink-only link target contract.
+func ExtractWikilinkResolutionCandidates(sourcePath, body string) []LinkResolutionCandidates {
+	return extractWikilinkResolutionCandidates(sourcePath, maskMarkdownCode(body))
+}
+
 func wikilinkCandidates(raw string) []string {
 	parts := strings.SplitN(raw, "|", 2)
 	candidates := make([]string, 0, len(parts))
@@ -116,6 +145,43 @@ func wikilinkCandidates(raw string) []string {
 	if len(parts) == 2 {
 		add(parts[1])
 	}
+	return candidates
+}
+
+func extractWikilinkResolutionCandidates(sourcePath, body string) []LinkResolutionCandidates {
+	var out []LinkResolutionCandidates
+	for _, m := range wikilinkRe.FindAllStringSubmatch(body, -1) {
+		primary := wikilinkCandidates(m[1])
+		if len(primary) == 0 {
+			continue
+		}
+		candidates := wikilinkResolutionCandidates(sourcePath, m[1])
+		out = append(out, LinkResolutionCandidates{Primary: primary[0], Candidates: candidates})
+	}
+	return out
+}
+
+func wikilinkResolutionCandidates(sourcePath, raw string) []string {
+	parts := strings.SplitN(raw, "|", 2)
+	var candidates []string
+	for _, part := range parts {
+		for _, candidate := range pageTargetCandidates(sourcePath, part) {
+			candidates = appendUniqueString(candidates, candidate)
+		}
+	}
+	return candidates
+}
+
+func pageTargetCandidates(sourcePath, raw string) []string {
+	target := stripWikilinkAnchor(raw)
+	if target == "" || isExternalWikilink(target) {
+		return nil
+	}
+	var candidates []string
+	if hasPathSyntax(target) {
+		candidates = appendUniqueString(candidates, normalizeRelativePagePath(sourcePath, target))
+	}
+	candidates = appendUniqueString(candidates, normalizeWikilinkTarget(target))
 	return candidates
 }
 
@@ -160,6 +226,12 @@ func ExtractEdges(root string, note Note) []Edge {
 			add(candidates[0], EdgeWikilink)
 		}
 	}
+	for _, group := range extractMarkdownLinkResolutionCandidates(note.Path, visibleBody) {
+		if markdownLinkTargetsExistingNonMarkdown(root, group.Candidates) {
+			continue
+		}
+		add(group.Primary, EdgeMarkdownLink)
+	}
 	for _, target := range fmStringList(note.Frontmatter, "related") {
 		add(strings.TrimSpace(target), EdgeRelated)
 	}
@@ -174,6 +246,98 @@ func ExtractEdges(root string, note Note) []Edge {
 		add(token, EdgeInlinePath)
 	}
 	return out
+}
+
+func extractMarkdownLinkResolutionCandidates(sourcePath, body string) []LinkResolutionCandidates {
+	var out []LinkResolutionCandidates
+	for _, m := range markdownLinkRe.FindAllStringSubmatch(body, -1) {
+		if strings.HasPrefix(m[0], "!") {
+			continue
+		}
+		target, ok := markdownPageTarget(m[1])
+		if !ok {
+			continue
+		}
+		primaryCandidates := pageTargetCandidates("", target)
+		if len(primaryCandidates) == 0 {
+			continue
+		}
+		candidates := pageTargetCandidates(sourcePath, target)
+		out = append(out, LinkResolutionCandidates{Primary: primaryCandidates[len(primaryCandidates)-1], Candidates: candidates})
+	}
+	return out
+}
+
+func markdownPageTarget(raw string) (string, bool) {
+	target := strings.TrimSpace(raw)
+	if target == "" {
+		return "", false
+	}
+	if strings.HasPrefix(target, "<") {
+		end := strings.Index(target, ">")
+		if end < 0 {
+			return "", false
+		}
+		target = target[1:end]
+	} else if fields := strings.Fields(target); len(fields) > 0 {
+		target = fields[0]
+	}
+	target = strings.TrimSpace(target)
+	if target == "" || strings.HasPrefix(target, "#") || isExternalMarkdownTarget(target) {
+		return "", false
+	}
+	if unescaped, err := url.PathUnescape(target); err == nil {
+		target = unescaped
+	}
+	if i := strings.IndexAny(target, "?#"); i >= 0 {
+		target = target[:i]
+	}
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return "", false
+	}
+	ext := strings.ToLower(filepath.Ext(strings.TrimRight(target, "/")))
+	if ext != "" && ext != ".md" && ext != ".markdown" {
+		return "", false
+	}
+	return target, true
+}
+
+func isExternalMarkdownTarget(target string) bool {
+	t := strings.ToLower(strings.TrimSpace(target))
+	return strings.HasPrefix(t, "http://") || strings.HasPrefix(t, "https://") || strings.HasPrefix(t, "mailto:")
+}
+
+func markdownLinkTargetsExistingNonMarkdown(root string, candidates []string) bool {
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if markdownPageExists(root, candidate) {
+			return false
+		}
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(candidate)))
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			return true
+		}
+		if !strings.EqualFold(filepath.Ext(candidate), ".md") {
+			return true
+		}
+	}
+	return false
+}
+
+func markdownPageExists(root, candidate string) bool {
+	for _, ext := range []string{".md", ".markdown"} {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(candidate+ext)))
+		if err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // CodeRefs returns the unique repo-relative paths a note binds to code through a
@@ -356,6 +520,16 @@ func NormalizeLink(t string) string {
 	return strings.ToLower(strings.TrimSpace(t))
 }
 
+// GraphKey returns the path-aware graph node key for a vault-relative markdown
+// path. Docs convention pages keep their collection-scoped key; ordinary notes
+// preserve folders so foldered GitHub wiki pages can be resolved precisely.
+func GraphKey(rel string) string {
+	if coll := collectionFolderOf(rel); coll != "" {
+		return coll + "/" + NormalizeLink(rel)
+	}
+	return normalizePagePath(rel)
+}
+
 // GitHubWikiDisplayAlias returns the display-title key for a normalized wiki
 // page key whose filename slug uses hyphens for spaces. The collection prefix,
 // when present, is preserved.
@@ -371,6 +545,64 @@ func GitHubWikiDisplayAlias(key string) string {
 		return ""
 	}
 	return prefix + alias
+}
+
+func hasPathSyntax(target string) bool {
+	target = filepath.ToSlash(strings.TrimSpace(target))
+	return strings.Contains(target, "/") || strings.HasPrefix(target, ".")
+}
+
+func normalizeRelativePagePath(sourcePath, target string) string {
+	target = filepath.ToSlash(strings.TrimSpace(target))
+	if strings.HasPrefix(target, "./") || strings.HasPrefix(target, "../") {
+		base := filepath.ToSlash(filepath.Dir(filepath.ToSlash(sourcePath)))
+		if base == "." {
+			base = ""
+		}
+		target = filepath.ToSlash(filepath.Join(base, target))
+	}
+	return normalizePagePath(target)
+}
+
+func normalizePagePath(target string) string {
+	target = strings.TrimSpace(filepath.ToSlash(target))
+	if target == "" {
+		return ""
+	}
+	clean := filepath.ToSlash(filepath.Clean("/" + filepath.FromSlash(target)))
+	clean = strings.Trim(clean, "/")
+	if clean == "" || clean == "." {
+		return ""
+	}
+	parts := strings.Split(clean, "/")
+	last := len(parts) - 1
+	parts[last] = trimMarkdownExtension(parts[last])
+	for i, part := range parts {
+		parts[i] = strings.ToLower(strings.TrimSpace(part))
+	}
+	return strings.Join(parts, "/")
+}
+
+func trimMarkdownExtension(name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	switch ext {
+	case ".md", ".markdown":
+		return strings.TrimSuffix(name, filepath.Ext(name))
+	default:
+		return name
+	}
+}
+
+func appendUniqueString(items []string, item string) []string {
+	if item == "" {
+		return items
+	}
+	for _, existing := range items {
+		if existing == item {
+			return items
+		}
+	}
+	return append(items, item)
 }
 
 // IsWikiStructuralPage reports whether rel is a GitHub wiki structural page

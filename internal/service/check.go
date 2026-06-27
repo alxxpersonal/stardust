@@ -38,7 +38,11 @@ func (s *Service) Check(_ context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	for _, bl := range g.BrokenLinks() {
-		issues = append(issues, Issue{Severity: "error", Kind: "broken-link", Path: bl.From, Detail: "[[" + bl.Target + "]] resolves to no note"})
+		detail := "[[" + bl.Target + "]] resolves to no note"
+		if bl.Kind == vault.EdgeMarkdownLink {
+			detail = "markdown link " + bl.Target + " resolves to no note"
+		}
+		issues = append(issues, Issue{Severity: "error", Kind: "broken-link", Path: bl.From, Detail: detail})
 	}
 	for _, p := range g.Orphans() {
 		issues = append(issues, Issue{Severity: "warn", Kind: "orphan", Path: p, Detail: "no links in or out"})

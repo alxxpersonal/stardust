@@ -200,7 +200,7 @@ func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	targets, err := s.resolveLinkCandidates(vault.ExtractWikilinkCandidates(n.Body))
+	targets, err := s.resolveLinkCandidates(vault.ExtractWikilinkResolutionCandidates(n.Path, n.Body))
 	if err != nil {
 		return Note{}, err
 	}
@@ -210,7 +210,7 @@ func (s *Service) GetNote(_ context.Context, path string) (Note, error) {
 // resolveLinkCandidates maps each wikilink candidate group to the vault-relative
 // path of the first candidate that resolves. Unresolved links keep an empty path.
 // Order follows the input links.
-func (s *Service) resolveLinkCandidates(groups [][]string) ([]LinkTarget, error) {
+func (s *Service) resolveLinkCandidates(groups []vault.LinkResolutionCandidates) ([]LinkTarget, error) {
 	out := make([]LinkTarget, 0, len(groups))
 	if len(groups) == 0 {
 		return out, nil
@@ -221,21 +221,25 @@ func (s *Service) resolveLinkCandidates(groups [][]string) ([]LinkTarget, error)
 	}
 	byName := make(map[string]string, len(paths)*2)
 	for _, rel := range paths {
-		key := vault.NormalizeLink(rel)
+		key := vault.GraphKey(rel)
 		byName[key] = filepath.ToSlash(rel)
 		if alias := vault.GitHubWikiDisplayAlias(key); alias != "" {
 			if _, exists := byName[alias]; !exists {
 				byName[alias] = filepath.ToSlash(rel)
 			}
 		}
+		legacyKey := vault.NormalizeLink(rel)
+		if _, exists := byName[legacyKey]; !exists {
+			byName[legacyKey] = filepath.ToSlash(rel)
+		}
 	}
-	for _, candidates := range groups {
-		if len(candidates) == 0 {
+	for _, group := range groups {
+		if group.Primary == "" {
 			continue
 		}
-		target := LinkTarget{Link: candidates[0]}
-		for _, candidate := range candidates {
-			if path := byName[vault.NormalizeLink(candidate)]; path != "" {
+		target := LinkTarget{Link: group.Primary}
+		for _, candidate := range group.Candidates {
+			if path := byName[candidate]; path != "" {
 				target.Path = path
 				break
 			}

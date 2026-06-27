@@ -118,13 +118,11 @@ Implemented:
 - `internal/convention`: added docs-convention activation based on committed collections or code-repo detection.
 - `internal/service`: made `check` use filename-title tolerance for plain vaults and made `get_note` resolve wiki slug candidates.
 - Tests: added focused coverage for wiki slug resolution, pipe fallback, structural pages, plain wiki checks, and docs-convention gating.
+- Follow-up pass: added Markdown relative links as graph edges, explicit `github-wiki` detection, path-aware foldered wiki resolution, and same-repo wiki or vault `governs` drift bindings.
 
 Left as proposals:
 
-- Markdown relative link graphing.
-- Explicit `github-wiki` detection or config.
-- More faithful subdirectory-relative wiki page resolution.
-- Wiki-to-code drift configuration.
+- Cross-repo `.wiki.git` to source-checkout coherence binding.
 - Non-Markdown wiki format indexing.
 
 </details>
@@ -134,7 +132,8 @@ Left as proposals:
 
 - Pipe syntax is inherently ambiguous between Obsidian and Gollum. The implementation keeps Obsidian primary and uses the Gollum side as fallback, which is conservative for existing vaults.
 - Stardust still lowercases link keys. Live GitHub URL checks accepted lower-case wiki page URLs for a public wiki, and current Stardust behavior already depended on lowercasing. This is a compatible tolerance, not a claim that every underlying Git operation is case-insensitive.
-- Relative Markdown links are not checked yet. A wiki can still have broken `[label](Page-Name)` links that `stardust check` does not report.
+- Relative Markdown links are now checked when they target Markdown wiki pages. External URLs, anchors, images, and static assets are skipped.
 - Structural pages are only exempt from orphan reporting. They remain indexed and can still participate in search and PageRank.
+- Same-repo `governs` bindings work for wiki and vault pages. A standalone `.wiki.git` repo still needs an explicit source-root configuration before it can govern a sibling source checkout.
 
 </details>

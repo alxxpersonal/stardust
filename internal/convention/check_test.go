@@ -76,6 +76,21 @@ func TestCheckDocsPlainVaultSkipsDocsConvention(t *testing.T) {
 	}
 }
 
+func TestCheckDocsGitHubWikiSkipsDocsConventionEvenWithCollections(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".git/config", "[remote \"origin\"]\n\turl = https://github.com/acme/project.wiki.git\n")
+	writeFile(t, root, ".stardust/collections/specs/config.toml", "path = \"docs/specs\"\ndescription = \"specs\"\n\n[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n")
+	writeFile(t, root, "docs/specs/plain-page.md", "# Plain Page\n")
+
+	issues, err := CheckDocs(root, nil)
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+	if hasConventionIssue(issues, "bad-doc-name") || hasConventionIssue(issues, "missing-doc-field") {
+		t.Fatalf("github wiki must not enforce docs convention, got %#v", issues)
+	}
+}
+
 // TestCheckDocFileUsesCommittedSchema asserts the checker validates against the
 // committed per-collection schema (collections.Validate), enforcing a custom
 // required field a hardcoded set would never know about.

@@ -61,7 +61,7 @@ func TestRelatedAndInlineEdges(t *testing.T) {
 
 	// personalized PageRank from a reaches both the related target and the wikilink target.
 	pr := g.PersonalizedPageRank([]string{"a.md"}, 30, 0.85)
-	require.Greater(t, pr[vault.NormalizeLink("sub/b.md")], 0.0)
+	require.Greater(t, pr[vault.GraphKey("sub/b.md")], 0.0)
 	require.Greater(t, pr[vault.NormalizeLink("c.md")], 0.0)
 
 	// the doc-to-code reference is captured on a's node for later drift binding.
@@ -124,6 +124,62 @@ func TestGitHubWikiSlugResolution(t *testing.T) {
 	require.Empty(t, g.BrokenLinks())
 	require.Contains(t, g.Nodes[vault.NormalizeLink("Page-Name.md")].In, vault.NormalizeLink("Home.md"))
 	require.Contains(t, g.Nodes[vault.NormalizeLink("Install-Guide.md")].In, vault.NormalizeLink("Home.md"))
+}
+
+func TestMarkdownWikiLinksResolveAndBrokenLinksReport(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, content string) {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("Home.md", "# Home\n\n[Page](Page-Name)\n[Page MD](Page-Name.md)\n[Guide](./Section/Guide)\n[Missing](No-Such-Page)\n[Anchor](#local)\n[URL](https://example.com)\n[Mail](mailto:team@example.com)\n[Asset](diagram.svg)\n![Image](Image-Page)\n`[Hidden](Hidden-Page)`\n")
+	write("Page-Name.md", "# Page Name\n")
+	write("Section/Guide.md", "# Guide\n\n[Root](../Root-Page)\n")
+	write("Root-Page.md", "# Root Page\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "sdk"), 0o755))
+	write("Directory-Link.md", "# Directory Link\n\n[SDK](sdk)\n")
+
+	g, err := graph.Build(root, nil)
+	require.NoError(t, err)
+
+	homeKey := "home"
+	pageKey := "page-name"
+	guideKey := "section/guide"
+	rootKey := "root-page"
+
+	require.Contains(t, g.Nodes[pageKey].In, homeKey)
+	require.Contains(t, g.Nodes[guideKey].In, homeKey)
+	require.Contains(t, g.Nodes[rootKey].In, guideKey)
+
+	broken := g.BrokenLinks()
+	require.Len(t, broken, 1)
+	require.Equal(t, "Home.md", broken[0].From)
+	require.Equal(t, "no-such-page", broken[0].Target)
+	require.Equal(t, vault.EdgeMarkdownLink, broken[0].Kind)
+}
+
+func TestSubdirectoryWikiLinksResolveByRelativePath(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, content string) {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("Home.md", "# Home\n\nsee [[Section/Page]]")
+	write("Section/Index.md", "# Section Index\n\nsee [[Page]]")
+	write("Section/Page.md", "# Section Page\n")
+	write("Other/Index.md", "# Other Index\n\n[Page](./Page)")
+	write("Other/Page.md", "# Other Page\n")
+
+	g, err := graph.Build(root, nil)
+	require.NoError(t, err)
+
+	require.Contains(t, g.Nodes["section/page"].In, "home")
+	require.Contains(t, g.Nodes["section/page"].In, "section/index")
+	require.Contains(t, g.Nodes["other/page"].In, "other/index")
+	require.NotContains(t, g.Nodes["section/page"].In, "other/index")
+	require.Empty(t, g.BrokenLinks())
 }
 
 func TestWikiStructuralPagesAreNotOrphans(t *testing.T) {

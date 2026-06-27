@@ -56,6 +56,16 @@ func TestDetectKind(t *testing.T) {
 			files: []file{{name: ".obsidian", dir: true}, {name: "main.go"}},
 			want:  KindPlainVault,
 		},
+		{
+			name:  "flat github wiki is a github wiki",
+			files: []file{{name: "Home.md"}, {name: "_Sidebar.md"}, {name: "Install-Guide.md"}},
+			want:  KindGitHubWiki,
+		},
+		{
+			name:  "docs directory prevents flat wiki heuristic",
+			files: []file{{name: "docs", dir: true}, {name: "Home.md"}, {name: "_Sidebar.md"}, {name: "Install-Guide.md"}},
+			want:  KindPlainVault,
+		},
 	}
 
 	for _, tc := range cases {
@@ -76,15 +86,44 @@ func TestDetectKind(t *testing.T) {
 	}
 }
 
+func TestDetectKindGitHubWikiSignals(t *testing.T) {
+	parent := t.TempDir()
+	dirNamedWiki := filepath.Join(parent, "project.wiki")
+	require.NoError(t, os.MkdirAll(dirNamedWiki, 0o755))
+	writeDetectFile(t, dirNamedWiki, "go.mod", "module example.com/wiki\n")
+
+	got, err := DetectKind(dirNamedWiki)
+	require.NoError(t, err)
+	require.Equal(t, KindGitHubWiki, got)
+
+	remoteWiki := t.TempDir()
+	writeDetectFile(t, remoteWiki, ".git/config", "[remote \"origin\"]\n\turl = https://github.com/acme/project.wiki.git\n")
+	writeDetectFile(t, remoteWiki, "go.mod", "module example.com/wiki\n")
+
+	got, err = DetectKind(remoteWiki)
+	require.NoError(t, err)
+	require.Equal(t, KindGitHubWiki, got)
+}
+
 // TestKindMethods pins the stable labels, the docs default, and the override
 // flag named in each describe sentence.
 func TestKindMethods(t *testing.T) {
 	require.True(t, KindCodeRepo.WantsDocs())
 	require.False(t, KindPlainVault.WantsDocs())
+	require.False(t, KindGitHubWiki.WantsDocs())
 
 	require.Equal(t, "code-repo-with-docs", KindCodeRepo.Label())
 	require.Equal(t, "plain-vault", KindPlainVault.Label())
+	require.Equal(t, "github-wiki", KindGitHubWiki.Label())
 
 	require.Contains(t, KindCodeRepo.Describe(), "--no-docs")
 	require.Contains(t, KindPlainVault.Describe(), "--docs")
+	require.Contains(t, KindGitHubWiki.Describe(), "--docs")
+}
+
+func writeDetectFile(t *testing.T, root, rel, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

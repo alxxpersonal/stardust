@@ -81,8 +81,8 @@ func (s *Service) Bundle(ctx context.Context, task string, budgetTokens int) (Bu
 
 	nameToPath := map[string]string{}
 	titleOf := map[string]string{}
-	for _, node := range g.Nodes {
-		nameToPath[vault.CollectionKey(node.Path)] = node.Path
+	for key, node := range g.Nodes {
+		nameToPath[key] = node.Path
 		titleOf[node.Path] = node.Title
 	}
 	type ranked struct {
@@ -271,8 +271,11 @@ func provenanceFor(path string, hybridSet, prSet map[string]bool, retrievalMode 
 		}
 	}
 	if prSet[path] {
-		kinds := incomingKinds[vault.CollectionKey(path)]
+		kinds := incomingKinds[vault.GraphKey(path)]
 		if kinds[vault.EdgeWikilink] {
+			prov = append(prov, ProvenanceLinkExpansion)
+		}
+		if kinds[vault.EdgeMarkdownLink] {
 			prov = append(prov, ProvenanceLinkExpansion)
 		}
 		if kinds[vault.EdgeRelated] {

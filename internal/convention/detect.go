@@ -1,6 +1,7 @@
 package convention
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,8 @@ type Kind int
 const (
 	// KindPlainVault is a human markdown vault that does not want the docs convention.
 	KindPlainVault Kind = iota
+	// KindGitHubWiki is a GitHub wiki clone or a markdown repo shaped like one.
+	KindGitHubWiki
 	// KindCodeRepo is a code repository that defaults to the docs convention.
 	KindCodeRepo
 )
@@ -27,30 +30,41 @@ func (k Kind) WantsDocs() bool { return k == KindCodeRepo }
 
 // Label returns the stable status string for the kind.
 func (k Kind) Label() string {
-	if k == KindCodeRepo {
+	switch k {
+	case KindCodeRepo:
 		return "code-repo-with-docs"
+	case KindGitHubWiki:
+		return "github-wiki"
+	default:
+		return "plain-vault"
 	}
-	return "plain-vault"
 }
 
 // Describe returns the one-line init detection sentence, including the override
 // flag a caller would use to flip the decision.
 func (k Kind) Describe() string {
-	if k == KindCodeRepo {
+	switch k {
+	case KindCodeRepo:
 		return "detected a code repo, scaffolding the docs convention (use --no-docs to skip)"
+	case KindGitHubWiki:
+		return "detected a github wiki, skipping the docs convention (use --docs to scaffold)"
+	default:
+		return "detected a plain vault, skipping the docs convention (use --docs to scaffold)"
 	}
-	return "detected a plain vault, skipping the docs convention (use --docs to scaffold)"
 }
 
 // DocsConventionActive reports whether root should enforce the Stardust docs
 // convention. Committed docs collection configs opt in explicitly; otherwise it
 // follows the same code-repo detection used by init.
 func DocsConventionActive(root string) bool {
+	kind, err := DetectKind(root)
+	if err == nil && kind == KindGitHubWiki {
+		return false
+	}
 	folders, err := registeredDocFolders(root)
 	if err == nil && len(folders) > 0 {
 		return true
 	}
-	kind, err := DetectKind(root)
 	return err == nil && kind.WantsDocs()
 }
 
@@ -92,6 +106,8 @@ func DetectKind(dir string) (Kind, error) {
 	}
 
 	var hasObsidian, hasGit, hasSourceMarker bool
+	var hasDocsDir, hasNonDotDir bool
+	var hasHome, hasWikiChrome, hasHyphenatedPage bool
 	var mdCount, nonMdCount int
 	for _, e := range entries {
 		name := e.Name()
@@ -101,6 +117,13 @@ func DetectKind(dir string) (Kind, error) {
 				hasObsidian = true
 			case ".git":
 				hasGit = true
+			case "docs":
+				hasDocsDir = true
+				hasNonDotDir = true
+			default:
+				if !strings.HasPrefix(name, ".") {
+					hasNonDotDir = true
+				}
 			}
 			continue
 		}
@@ -117,16 +140,30 @@ func DetectKind(dir string) (Kind, error) {
 		}
 		if ext == ".md" {
 			mdCount++
+			lowerName := strings.ToLower(name)
+			switch lowerName {
+			case "home.md":
+				hasHome = true
+			case "_sidebar.md", "_footer.md":
+				hasWikiChrome = true
+			}
+			if strings.Contains(strings.TrimSuffix(name, filepath.Ext(name)), "-") {
+				hasHyphenatedPage = true
+			}
 		} else {
 			nonMdCount++
 		}
 	}
 
 	switch {
+	case hasGitHubWikiSignal(dir):
+		return KindGitHubWiki, nil
 	case hasObsidian:
 		return KindPlainVault, nil
 	case hasSourceMarker:
 		return KindCodeRepo, nil
+	case isFlatGitHubWiki(hasDocsDir, hasNonDotDir, hasHome, hasWikiChrome, hasHyphenatedPage, mdCount, nonMdCount):
+		return KindGitHubWiki, nil
 	case mdCount > 0 && mdCount >= nonMdCount:
 		return KindPlainVault, nil
 	case hasGit:
@@ -134,4 +171,69 @@ func DetectKind(dir string) (Kind, error) {
 	default:
 		return KindPlainVault, nil
 	}
+}
+
+func isFlatGitHubWiki(hasDocsDir, hasNonDotDir, hasHome, hasWikiChrome, hasHyphenatedPage bool, mdCount, nonMdCount int) bool {
+	if hasDocsDir || hasNonDotDir || !hasHome || !hasWikiChrome || !hasHyphenatedPage {
+		return false
+	}
+	return mdCount > 0 && mdCount >= nonMdCount
+}
+
+func hasGitHubWikiSignal(dir string) bool {
+	if hasWikiSuffix(filepath.Base(dir)) {
+		return true
+	}
+	cfg := gitConfigPath(dir)
+	if cfg == "" {
+		return false
+	}
+	f, err := os.Open(cfg)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "url") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 && hasWikiSuffix(strings.TrimSpace(parts[1])) {
+			return true
+		}
+	}
+	return false
+}
+
+func gitConfigPath(dir string) string {
+	gitPath := filepath.Join(dir, ".git")
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return ""
+	}
+	if info.IsDir() {
+		return filepath.Join(gitPath, "config")
+	}
+	raw, err := os.ReadFile(gitPath)
+	if err != nil {
+		return ""
+	}
+	line := strings.TrimSpace(string(raw))
+	if !strings.HasPrefix(line, "gitdir:") {
+		return ""
+	}
+	gitDir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
+	if !filepath.IsAbs(gitDir) {
+		gitDir = filepath.Join(dir, gitDir)
+	}
+	return filepath.Join(gitDir, "config")
+}
+
+func hasWikiSuffix(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.TrimRight(value, "/")
+	value = strings.TrimSuffix(value, ".git")
+	return strings.HasSuffix(value, ".wiki")
 }

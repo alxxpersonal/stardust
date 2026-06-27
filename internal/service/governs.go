@@ -11,6 +11,7 @@ import (
 	"github.com/alxxpersonal/stardust/internal/doclinks"
 	"github.com/alxxpersonal/stardust/internal/gitx"
 	"github.com/alxxpersonal/stardust/internal/graph"
+	"github.com/alxxpersonal/stardust/internal/vault"
 )
 
 // GovernedDoc is a document whose governs patterns match a code path.
@@ -228,12 +229,25 @@ func (s *Service) DriftDocs(ctx context.Context) (DriftResult, error) {
 		return DriftResult{}, err
 	}
 	var docs []DriftDoc
+	fallbackType := s.fallbackDriftDocType()
 	for _, node := range g.Nodes {
 		docType, ok := convention.DocTypeForPath(node.Path)
-		if !ok || len(node.CodeRefs) == 0 {
+		refs := codeRefTargets(node.CodeRefs)
+		governedRefs, err := s.governedCodeRefs(node.Path)
+		if err != nil {
+			return DriftResult{}, err
+		}
+		refs = appendUniqueStrings(refs, governedRefs...)
+		if !ok {
+			if len(governedRefs) == 0 {
+				continue
+			}
+			docType = fallbackType
+		}
+		if len(refs) == 0 {
 			continue
 		}
-		bindings, err := s.docDrift(ctx, node.Path, codeRefTargets(node.CodeRefs))
+		bindings, err := s.docDrift(ctx, node.Path, refs)
 		if err != nil {
 			return DriftResult{}, err
 		}
@@ -251,6 +265,34 @@ func (s *Service) DriftDocs(ctx context.Context) (DriftResult, error) {
 	result := DriftResult{Docs: docs}
 	result.Markdown = renderDriftMarkdown(result)
 	return result, nil
+}
+
+func (s *Service) fallbackDriftDocType() string {
+	kind, err := convention.DetectKind(s.Layout.Root)
+	if err == nil && kind == convention.KindGitHubWiki {
+		return "wiki"
+	}
+	return "vault"
+}
+
+func (s *Service) governedCodeRefs(path string) ([]string, error) {
+	note, err := vault.Parse(s.Layout.Root, path)
+	if err != nil {
+		return nil, err
+	}
+	governs, err := convention.StringList(note.Frontmatter, "governs")
+	if err != nil {
+		return nil, fmt.Errorf("doc %s: %w", path, err)
+	}
+	var refs []string
+	for _, pattern := range governs {
+		_, files, err := doclinks.MatchGovernedPath(s.Layout.Root, pattern, stalePathSentinel)
+		if err != nil {
+			return nil, err
+		}
+		refs = appendUniqueStrings(refs, files...)
+	}
+	return refs, nil
 }
 
 // docDrift returns the moved code bindings for a doc: for each referenced code
@@ -291,6 +333,26 @@ func codeRefTargets(edges []graph.Edge) []string {
 		}
 		seen[e.Target] = true
 		out = append(out, e.Target)
+	}
+	return out
+}
+
+func appendUniqueStrings(items []string, more ...string) []string {
+	seen := make(map[string]bool, len(items)+len(more))
+	out := make([]string, 0, len(items)+len(more))
+	for _, item := range items {
+		if item == "" || seen[item] {
+			continue
+		}
+		seen[item] = true
+		out = append(out, item)
+	}
+	for _, item := range more {
+		if item == "" || seen[item] {
+			continue
+		}
+		seen[item] = true
+		out = append(out, item)
 	}
 	return out
 }

@@ -89,6 +89,22 @@ func TestCheckPlainWikiVault(t *testing.T) {
 	require.False(t, hasCheckIssue(res.Issues, "orphan"))
 }
 
+func TestCheckPlainWikiReportsBrokenMarkdownLinks(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "Home.md"), []byte("# Home\n\n[Missing](No-Such-Page)\n"), 0o644))
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(res.Issues, "broken-link"))
+	require.Contains(t, res.Markdown, "markdown link")
+}
+
 func TestCheckIncludesConventionIssues(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))

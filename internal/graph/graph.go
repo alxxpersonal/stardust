@@ -42,6 +42,7 @@ type Graph struct {
 type BrokenLink struct {
 	From   string `json:"from"`   // source note path
 	Target string `json:"target"` // unresolved normalized target
+	Kind   string `json:"kind"`   // link edge kind that failed to resolve
 }
 
 // Build scans the vault and derives the link graph from wikilink and related
@@ -52,15 +53,15 @@ func Build(root string, ignore []string) (*Graph, error) {
 		return nil, err
 	}
 	g := &Graph{Nodes: make(map[string]Node, len(paths))}
-	wikilinkCandidates := make(map[string]map[string][]string, len(paths))
+	linkCandidates := make(map[string]map[string][]string, len(paths))
 
 	for _, rel := range paths {
 		note, err := vault.Parse(root, rel)
 		if err != nil {
 			return nil, err
 		}
-		key := vault.CollectionKey(rel)
-		wikilinkCandidates[key] = candidateMap(note.Body)
+		key := vault.GraphKey(rel)
+		linkCandidates[key] = candidateMap(note.Path, note.Body)
 		out, codeRefs := classifyEdges(root, vault.ExtractEdges(root, note))
 		g.Nodes[key] = Node{Path: note.Path, Title: note.Title, Out: out, CodeRefs: codeRefs}
 	}
@@ -71,16 +72,15 @@ func Build(root string, ignore []string) (*Graph, error) {
 	// qualified ones disambiguate cross-collection slug reuse.
 	idx := newResolveIndex(g)
 	for key, node := range g.Nodes {
-		coll := collectionOfKey(key)
 		resolved := make([]Edge, 0, len(node.Out))
 		for _, e := range node.Out {
 			candidates := []string{e.Target}
-			if e.Kind == vault.EdgeWikilink {
-				if cs := wikilinkCandidates[key][e.Target]; len(cs) > 0 {
+			if e.Kind == vault.EdgeWikilink || e.Kind == vault.EdgeMarkdownLink {
+				if cs := linkCandidates[key][e.Target]; len(cs) > 0 {
 					candidates = cs
 				}
 			}
-			target, _ := idx.resolveAny(coll, candidates)
+			target, _ := idx.resolveAny(key, candidates)
 			resolved = append(resolved, Edge{Target: target, Kind: e.Kind})
 		}
 		node.Out = resolved
@@ -135,12 +135,12 @@ func (idx resolveIndex) addAlias(alias, key string) {
 	idx.aliases[alias] = append(idx.aliases[alias], key)
 }
 
-func (idx resolveIndex) resolveAny(sourceColl string, candidates []string) (string, bool) {
+func (idx resolveIndex) resolveAny(sourceKey string, candidates []string) (string, bool) {
 	if len(candidates) == 0 {
 		return "", false
 	}
 	for _, target := range candidates {
-		if resolved, ok := idx.resolve(sourceColl, target); ok {
+		if resolved, ok := idx.resolve(sourceKey, target); ok {
 			return resolved, true
 		}
 	}
@@ -152,7 +152,7 @@ func (idx resolveIndex) resolveAny(sourceColl string, candidates []string) (stri
 // target prefers an in-collection node, then a node keyed exactly by the target,
 // then a unique global basename match; an ambiguous or missing target is returned
 // unchanged with ok false, so BrokenLinks surfaces it.
-func (idx resolveIndex) resolve(sourceColl, target string) (string, bool) {
+func (idx resolveIndex) resolve(sourceKey, target string) (string, bool) {
 	if strings.Contains(target, "/") {
 		if idx.keys[target] {
 			return target, true
@@ -162,11 +162,11 @@ func (idx resolveIndex) resolve(sourceColl, target string) (string, bool) {
 		}
 		return target, false
 	}
-	if sourceColl != "" {
-		if k := sourceColl + "/" + target; idx.keys[k] {
+	if sourceDir := dirOfKey(sourceKey); sourceDir != "" {
+		if k := sourceDir + "/" + target; idx.keys[k] {
 			return k, true
 		}
-		if k, ok := idx.resolveAlias(sourceColl + "/" + target); ok {
+		if k, ok := idx.resolveAlias(sourceDir + "/" + target); ok {
 			return k, true
 		}
 	}
@@ -189,19 +189,19 @@ func (idx resolveIndex) resolveAlias(alias string) (string, bool) {
 	return "", false
 }
 
-func candidateMap(body string) map[string][]string {
+func candidateMap(sourcePath, body string) map[string][]string {
 	out := map[string][]string{}
-	for _, candidates := range vault.ExtractWikilinkCandidates(body) {
-		if len(candidates) == 0 {
+	for _, group := range vault.ExtractLinkResolutionCandidates(sourcePath, body) {
+		if group.Primary == "" {
 			continue
 		}
-		primary := candidates[0]
+		primary := group.Primary
 		seen := map[string]bool{}
 		merged := out[primary]
 		for _, existing := range merged {
 			seen[existing] = true
 		}
-		for _, candidate := range candidates {
+		for _, candidate := range group.Candidates {
 			if seen[candidate] {
 				continue
 			}
@@ -213,22 +213,20 @@ func candidateMap(body string) map[string][]string {
 	return out
 }
 
-// collectionOfKey returns the collection prefix of a node key, or "" when the key
-// is a bare basename.
-func collectionOfKey(key string) string {
-	if i := strings.Index(key, "/"); i >= 0 {
-		return key[:i]
-	}
-	return ""
-}
-
 // baseOfKey returns the basename portion of a node key, dropping any collection
 // prefix.
 func baseOfKey(key string) string {
-	if i := strings.Index(key, "/"); i >= 0 {
+	if i := strings.LastIndex(key, "/"); i >= 0 {
 		return key[i+1:]
 	}
 	return key
+}
+
+func dirOfKey(key string) string {
+	if i := strings.LastIndex(key, "/"); i >= 0 {
+		return key[:i]
+	}
+	return ""
 }
 
 // classifyEdges splits a note's extracted edges into doc-to-doc out edges and
@@ -247,7 +245,7 @@ func classifyEdges(root string, edges []Edge) (out []Edge, codeRefs []Edge) {
 		out = append(out, Edge{Target: target, Kind: kind})
 	}
 	for _, e := range edges {
-		if e.Kind == vault.EdgeWikilink {
+		if e.Kind == vault.EdgeWikilink || e.Kind == vault.EdgeMarkdownLink {
 			addOut(e.Target, e.Kind)
 			continue
 		}
@@ -256,7 +254,7 @@ func classifyEdges(root string, edges []Edge) (out []Edge, codeRefs []Edge) {
 			continue
 		}
 		if strings.EqualFold(filepath.Ext(e.Target), ".md") {
-			addOut(vault.CollectionKey(e.Target), e.Kind)
+			addOut(vault.GraphKey(e.Target), e.Kind)
 			continue
 		}
 		codeRefs = append(codeRefs, Edge{Target: filepath.ToSlash(e.Target), Kind: e.Kind})
@@ -280,14 +278,14 @@ func (g *Graph) Orphans() []string {
 	return out
 }
 
-// BrokenLinks returns every wikilink that points at a non-existent note, sorted
-// by source path.
+// BrokenLinks returns every prose doc link that points at a non-existent note,
+// sorted by source path.
 func (g *Graph) BrokenLinks() []BrokenLink {
 	var out []BrokenLink
 	for _, node := range g.Nodes {
 		for _, e := range node.Out {
 			if _, ok := g.Nodes[e.Target]; !ok {
-				out = append(out, BrokenLink{From: node.Path, Target: e.Target})
+				out = append(out, BrokenLink{From: node.Path, Target: e.Target, Kind: e.Kind})
 			}
 		}
 	}
@@ -303,7 +301,7 @@ func (g *Graph) BrokenLinks() []BrokenLink {
 // Neighbors returns the note names within hops of name (excluding name itself),
 // following both out and in edges. It is the retrieval-time expansion primitive.
 func (g *Graph) Neighbors(name string, hops int) []string {
-	start := vault.CollectionKey(name)
+	start := vault.GraphKey(name)
 	if _, ok := g.Nodes[start]; !ok || hops <= 0 {
 		return nil
 	}
@@ -376,7 +374,7 @@ func (g *Graph) PersonalizedPageRank(seeds []string, iterations int, damping flo
 	restart := make(map[string]float64, n)
 	valid := 0
 	for _, s := range seeds {
-		k := vault.CollectionKey(s)
+		k := vault.GraphKey(s)
 		if _, ok := g.Nodes[k]; ok {
 			restart[k]++
 			valid++
