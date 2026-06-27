@@ -1,12 +1,15 @@
 package tui
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/alxxpersonal/stardust/internal/service"
 	"github.com/alxxpersonal/stardust/internal/tui/anim"
 	"github.com/alxxpersonal/stardust/internal/tui/components"
 )
@@ -20,6 +23,10 @@ type App struct {
 	height    int
 	activeTab int
 	frame     int
+
+	workspaceLoaded bool
+	workspaceErr    error
+	workspaceStatus service.VaultStatus
 
 	searchTab   SearchTab
 	browseTab   BrowseTab
@@ -129,7 +136,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case anim.FlameTickMsg:
 		a.frame++
 		a.syncFrame()
@@ -151,6 +158,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.driftTab = updated.(DriftTab)
 		return a, cmd
 	case statusLoadedMsg:
+		a.workspaceErr = msg.err
+		if msg.err == nil {
+			a.workspaceLoaded = true
+			a.workspaceStatus = msg.status
+		}
 		updated, cmd := a.statusTab.Update(msg)
 		a.statusTab = updated.(StatusTab)
 		return a, cmd
@@ -224,6 +236,168 @@ func (a App) activeTabModel() TabModel {
 	}
 }
 
+// --- Workspace chrome ---
+
+func (a App) workspaceStatusLine() string {
+	root := a.workspaceRoot()
+	if root == "" {
+		return ""
+	}
+	segments := []string{root}
+	if context := a.workspaceContextSegment(); context != "" {
+		segments = append(segments, context)
+	}
+	if summary := a.workspaceIndexSegment(); summary != "" {
+		segments = append(segments, summary)
+	}
+	line := fitWorkspaceSegments(segments, a.width)
+	if line == "" {
+		return ""
+	}
+	return MutedStyle.Render(line)
+}
+
+func (a App) workspaceRoot() string {
+	if a.workspaceStatus.Root != "" {
+		return components.SanitizeOneLine(a.workspaceStatus.Root)
+	}
+	if a.be != nil && a.be.svc != nil {
+		return components.SanitizeOneLine(a.be.svc.Layout.Root)
+	}
+	return ""
+}
+
+func (a App) workspaceContextSegment() string {
+	if !a.workspaceLoaded {
+		if a.workspaceErr != nil {
+			return "status unavailable"
+		}
+		return "status loading"
+	}
+	status := a.workspaceStatus
+	mode := workspaceMode(status)
+	if !status.Repository.IsGit {
+		return mode
+	}
+	name := status.Repository.Name
+	if name == "" {
+		name = filepath.Base(status.Root)
+	}
+	context := fmt.Sprintf("%s %s", mode, name)
+	if status.Repository.Branch != "" {
+		context += "@" + status.Repository.Branch
+	}
+	return components.SanitizeOneLine(context)
+}
+
+func (a App) workspaceIndexSegment() string {
+	if !a.workspaceLoaded {
+		return ""
+	}
+	summary := fmt.Sprintf("%d notes", a.workspaceStatus.Index.Notes)
+	switch {
+	case a.workspaceStatus.Repository.Head != "":
+		summary += ", head " + shortSHA(a.workspaceStatus.Repository.Head)
+	case a.workspaceStatus.Index.HasCommitsBehind:
+		if a.workspaceStatus.Index.CommitsBehind == 0 {
+			summary += ", fresh"
+		} else {
+			summary += fmt.Sprintf(", %d behind", a.workspaceStatus.Index.CommitsBehind)
+		}
+	case a.workspaceStatus.Index.LastIndexed != "":
+		summary += ", index " + shortSHA(a.workspaceStatus.Index.LastIndexed)
+	}
+	return summary
+}
+
+func workspaceMode(status service.VaultStatus) string {
+	if strings.Contains(status.Kind, "repo") {
+		return "repo"
+	}
+	return "vault"
+}
+
+func shortSHA(sha string) string {
+	sha = strings.TrimSpace(sha)
+	if len(sha) <= 7 {
+		return sha
+	}
+	return sha[:7]
+}
+
+func fitWorkspaceSegments(segments []string, width int) string {
+	if len(segments) == 0 {
+		return ""
+	}
+	if width <= 0 {
+		return strings.Join(segments, " · ")
+	}
+	tail := compactWorkspaceSegments(segments[1:])
+	for {
+		line, ok := joinWorkspaceSegments(segments[0], tail, width)
+		if ok {
+			return line
+		}
+		if len(tail) == 0 {
+			return truncateLeft(segments[0], width)
+		}
+		tail = tail[:len(tail)-1]
+	}
+}
+
+func compactWorkspaceSegments(segments []string) []string {
+	out := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if strings.TrimSpace(segment) != "" {
+			out = append(out, segment)
+		}
+	}
+	return out
+}
+
+func joinWorkspaceSegments(root string, tail []string, width int) (string, bool) {
+	tailWidth := 0
+	for _, segment := range tail {
+		tailWidth += lipgloss.Width(segment)
+	}
+	separatorWidth := len(tail) * lipgloss.Width(" · ")
+	rootWidth := width - tailWidth - separatorWidth
+	if rootWidth <= 0 {
+		return "", false
+	}
+	line := strings.Join(append([]string{truncateLeft(root, rootWidth)}, tail...), " · ")
+	if lipgloss.Width(line) > width {
+		return "", false
+	}
+	return line, true
+}
+
+func truncateLeft(text string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(text) <= width {
+		return text
+	}
+	if width <= 3 {
+		return strings.Repeat(".", width)
+	}
+	runes := []rune(text)
+	best := ""
+	for i := len(runes) - 1; i >= 0; i-- {
+		candidate := "..." + string(runes[i:])
+		if lipgloss.Width(candidate) <= width {
+			best = candidate
+			continue
+		}
+		break
+	}
+	if best != "" {
+		return best
+	}
+	return strings.Repeat(".", width)
+}
+
 // View implements tea.Model.
 func (a App) View() tea.View {
 	banner := centerBlockUniform(RenderBannerAnimated(a.frame), a.width)
@@ -262,8 +436,13 @@ func (a App) View() tea.View {
 	if tabStatusLine != "" {
 		statusLineRendered = "\n" + centerBlockUniform(tabStatusLine, a.width)
 	}
+	workspaceStatusLine := a.workspaceStatusLine()
+	workspaceStatusRendered := ""
+	if workspaceStatusLine != "" {
+		workspaceStatusRendered = "\n" + centerBlockUniform(workspaceStatusLine, a.width)
+	}
 
-	v := tea.NewView(top + content + statusLineRendered + "\n" + statusBar)
+	v := tea.NewView(top + content + statusLineRendered + workspaceStatusRendered + "\n" + statusBar)
 	v.AltScreen = true
 	return v
 }
@@ -287,6 +466,9 @@ func (a App) contentHeight() int {
 
 	extraLines := 3
 	if a.activeTabModel().StatusLine() != "" {
+		extraLines++
+	}
+	if a.workspaceStatusLine() != "" {
 		extraLines++
 	}
 	contentHeight := a.height - topLines - statusBarLines - extraLines

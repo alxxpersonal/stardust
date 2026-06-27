@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"path/filepath"
 
 	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/convention"
+	"github.com/alxxpersonal/stardust/internal/gitx"
 )
 
 // --- Status report ---
@@ -17,9 +19,18 @@ type VaultStatus struct {
 	Root        string           `json:"root"`
 	Initialized bool             `json:"initialized"`
 	Kind        string           `json:"kind"`
+	Repository  RepositoryInfo   `json:"repository"`
 	Collections []CollectionInfo `json:"collections"`
 	Index       IndexHealth      `json:"index"`
 	Hint        string           `json:"hint,omitempty"`
+}
+
+// RepositoryInfo is the git repository context for a status report.
+type RepositoryInfo struct {
+	IsGit  bool   `json:"is_git"`
+	Name   string `json:"name,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Head   string `json:"head_sha,omitempty"`
 }
 
 // IndexHealth is the derived-index portion of a status report: indexed note
@@ -50,6 +61,7 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 				Root:        start,
 				Initialized: false,
 				Kind:        kind.Label(),
+				Repository:  repositoryInfo(ctx, start),
 				Collections: []CollectionInfo{},
 				Hint:        "run stardust init to initialize this directory",
 			}, nil
@@ -86,6 +98,7 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 		Root:        root,
 		Initialized: true,
 		Kind:        kind.Label(),
+		Repository:  repositoryInfo(ctx, root),
 		Collections: cols,
 		Index: IndexHealth{
 			Notes:            st.Notes,
@@ -97,4 +110,18 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 			EmbedModel:       st.EmbedModel,
 		},
 	}, nil
+}
+
+func repositoryInfo(ctx context.Context, root string) RepositoryInfo {
+	if !gitx.IsRepo(ctx, root) {
+		return RepositoryInfo{}
+	}
+	branch, _ := gitx.Branch(ctx, root)
+	head, _ := gitx.HeadSHA(ctx, root)
+	return RepositoryInfo{
+		IsGit:  true,
+		Name:   filepath.Base(root),
+		Branch: branch,
+		Head:   head,
+	}
 }

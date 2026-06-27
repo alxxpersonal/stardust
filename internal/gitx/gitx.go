@@ -41,6 +41,25 @@ func HeadSHA(ctx context.Context, repoRoot string) (string, error) {
 	return run(ctx, repoRoot, "rev-parse", "HEAD")
 }
 
+// Branch returns the current branch name, or a detached HEAD marker when needed.
+func Branch(ctx context.Context, repoRoot string) (string, error) {
+	if !IsRepo(ctx, repoRoot) {
+		return "", nil
+	}
+	branch, err := run(ctx, repoRoot, "branch", "--show-current")
+	if err == nil && branch != "" {
+		return branch, nil
+	}
+	if !hasHead(ctx, repoRoot) {
+		return "", nil
+	}
+	short, err := run(ctx, repoRoot, "rev-parse", "--short", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("resolve branch: %w", err)
+	}
+	return "detached " + short, nil
+}
+
 // LastCommit returns the latest commit touching paths, or an empty string when
 // repoRoot is not a git repository or no commit matches.
 func LastCommit(ctx context.Context, repoRoot string, paths ...string) (string, error) {
@@ -142,8 +161,21 @@ func CommitAll(ctx context.Context, repoRoot, message string) error {
 	if _, err := run(ctx, repoRoot, "add", "-A"); err != nil {
 		return err
 	}
-	_, err := run(ctx, repoRoot, "commit", "-m", message)
+	args := []string{"commit", "-m", message}
+	if !hasIdentity(ctx, repoRoot) {
+		// fall back to a default identity so the first commit succeeds even when
+		// the user has no global git user.name and user.email configured.
+		args = append([]string{"-c", "user.name=stardust", "-c", "user.email=stardust@localhost"}, args...)
+	}
+	_, err := run(ctx, repoRoot, args...)
 	return err
+}
+
+// hasIdentity reports whether git has a usable commit identity configured.
+func hasIdentity(ctx context.Context, repoRoot string) bool {
+	name, _ := run(ctx, repoRoot, "config", "user.name")
+	email, _ := run(ctx, repoRoot, "config", "user.email")
+	return name != "" && email != ""
 }
 
 // DiffNames returns the markdown paths changed between sinceSHA and HEAD

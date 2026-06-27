@@ -123,8 +123,21 @@ func TestAppDriftTabRendersSingleHeaders(t *testing.T) {
 	require.Equal(t, 1, strings.Count(out, "Stale Docs"))
 }
 
+func TestAppWorkspaceStatusLineRendersEveryTab(t *testing.T) {
+	app := appWithWorkspaceStatus()
+	app.width = 140
+	app.height = 40
+
+	for tab := range tabNames {
+		app.activeTab = tab
+		out := components.SanitizeText(app.View().Content)
+		require.Contains(t, out, "/home/user/work/stardust")
+		require.Contains(t, out, "feature/workspace-status")
+	}
+}
+
 func TestAppSmokeRendersBannerAndSettingsTab(t *testing.T) {
-	app := newApp(nil)
+	app := appWithWorkspaceStatus()
 	app.activeTab = TabSettings
 	tm := teatest.NewTestModel(t, app, teatest.WithInitialTermSize(140, 40))
 	time.Sleep(50 * time.Millisecond)
@@ -141,4 +154,26 @@ func TestAppSmokeRendersBannerAndSettingsTab(t *testing.T) {
 	require.Contains(t, out, "Embed model")                // settings config box renders
 	require.Equal(t, 1, strings.Count(out, "Collections")) // single header, no duplicate box title
 	require.Equal(t, 1, strings.Count(out, "CONFIG"))      // config keeps its single box title
+	require.Contains(t, out, "/home/user/work/stardust")
+	require.Contains(t, out, "feature/workspace-status")
+}
+
+func appWithWorkspaceStatus() App {
+	app := newApp(nil)
+	app.workspaceLoaded = true
+	app.workspaceStatus = service.VaultStatus{
+		Root:        "/home/user/work/stardust",
+		Initialized: true,
+		Kind:        "code-repo-with-docs",
+		Repository: service.RepositoryInfo{
+			IsGit:  true,
+			Name:   "stardust",
+			Branch: "feature/workspace-status",
+			Head:   "abcdef1234567890",
+		},
+		Index: service.IndexHealth{
+			Notes: 42,
+		},
+	}
+	return app
 }
