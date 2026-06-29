@@ -37,4 +37,4 @@ Goal: implement the opt-in directory index convention, including config, service
 
 ## Notes
 
-The sync writes deepest directories first so parent indexes can point at child index files on the first pass. This keeps `sync -> check` stable without requiring a second run.
+The sync writes deepest directories first and links child directories with trailing slash paths, so generated navigation stays stable without becoming graph-check edges.

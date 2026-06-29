@@ -91,7 +91,7 @@ When an index file does not exist, Stardust creates a default heading and the ma
 Entries are immediate children of that directory:
 
 - Markdown files use their frontmatter title or H1 as purpose.
-- Directories link to their own managed `INDEX.md`.
+- Directories link to the child directory path. Stardust still maintains the child `INDEX.md`, but the directory link avoids turning generated navigation into graph edges.
 - Other files are listed as files with a generic purpose.
 - Date is derived from a leading `YYYY-MM-DD` filename prefix, else `-`.
 - Entries sort newest dated files first, then undated entries by name.

@@ -56,7 +56,7 @@ func TestSyncDirectoryIndexesCreatesAndUpdatesManagedBlocks(t *testing.T) {
 	require.Contains(t, got, "<!-- stardust-directory-index:start -->")
 	require.Contains(t, got, "[2026-06-29-profile.md](2026-06-29-profile.md) | Profile Copy.")
 	require.Contains(t, got, "[portfolio.md](portfolio.md) | Portfolio.")
-	require.Contains(t, got, "[proposals](proposals/INDEX.md)")
+	require.Contains(t, got, "[proposals](proposals/)")
 	require.NotContains(t, got, "skip-me")
 
 	res2, err := svc.SyncDirectoryIndexes(ctx)

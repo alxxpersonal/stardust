@@ -196,7 +196,7 @@ func (s *Service) directoryIndexEntries(dir string, cfg config.DirectoryIndexesC
 			Purpose: "File.",
 		}
 		if child.IsDir() {
-			entry.Link = name + "/" + cfg.Filename
+			entry.Link = name + "/"
 			entry.Purpose = s.directoryIndexPurpose(filepath.ToSlash(filepath.Join(rel, cfg.Filename)), "Directory.")
 			entries = append(entries, entry)
 			continue
