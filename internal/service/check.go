@@ -42,6 +42,9 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	for _, bl := range g.BrokenLinks() {
+		if directoryIndexPaths[bl.From] {
+			continue
+		}
 		detail := "[[" + bl.Target + "]] resolves to no note"
 		if bl.Kind == vault.EdgeMarkdownLink {
 			detail = "markdown link " + bl.Target + " resolves to no note"

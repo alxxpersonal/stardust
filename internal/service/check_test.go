@@ -193,6 +193,7 @@ func TestCheckSuppressesConfiguredDirectoryIndexDuplicates(t *testing.T) {
 
 	res, err := svc.Check(ctx)
 	require.NoError(t, err)
+	require.False(t, hasCheckIssue(res.Issues, "broken-link"))
 	require.False(t, hasCheckIssue(res.Issues, "duplicate-name"))
 	require.False(t, hasCheckIssuePath(res.Issues, "orphan", "20-Profile/portfolio.md"))
 	require.False(t, hasCheckIssuePath(res.Issues, "orphan", "20-Profile/proposals/2026-06-28-sample.md"))
