@@ -128,6 +128,11 @@ func runRegistry(cmd *cobra.Command, output string) error {
 	if err := svc.RefreshManifest(ctx); err != nil {
 		return err
 	}
+	if output == "docs/INDEX.md" {
+		if _, err := svc.SyncDirectoryIndexes(ctx); err != nil {
+			return err
+		}
+	}
 	fmt.Fprintln(cmd.OutOrStderr(), "wrote registry", out)
 	return nil
 }

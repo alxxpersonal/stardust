@@ -75,6 +75,28 @@ func TestRegistryCmd(t *testing.T) {
 	require.Equal(t, data, data2)
 }
 
+func TestRegistryCmdSyncsDirectoryIndexesOnDefaultOutput(t *testing.T) {
+	root := docsRepo(t)
+	cfg, err := config.Load(config.Layout{Root: root}.Config())
+	require.NoError(t, err)
+	cfg.Conventions.DirectoryIndexes = config.DirectoryIndexesConfig{
+		Enabled: true,
+		Roots:   []string{"notes"},
+	}
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), cfg))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "notes"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes", "a.md"), []byte("# A\n"), 0o644))
+	t.Setenv("STARDUST_VAULT", root)
+
+	cmd := newRegistryCmd()
+	cmd.SetArgs([]string{"--output", "docs/INDEX.md"})
+	require.NoError(t, cmd.Execute())
+
+	body, err := os.ReadFile(filepath.Join(root, "notes", "INDEX.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(body), "stardust-directory-index:start")
+}
+
 func TestRegistryGovernsCmd(t *testing.T) {
 	root := governsDocsRepo(t)
 	t.Setenv("STARDUST_VAULT", root)

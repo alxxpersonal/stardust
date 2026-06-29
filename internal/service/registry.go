@@ -36,7 +36,11 @@ func (s *Service) RegenerateRegistry(ctx context.Context) error {
 	if err := manifest.WriteRegistry(out, groups); err != nil {
 		return err
 	}
-	return s.RefreshManifest(ctx)
+	if err := s.RefreshManifest(ctx); err != nil {
+		return err
+	}
+	_, err = s.SyncDirectoryIndexes(ctx)
+	return err
 }
 
 // filenameDateRe matches a leading YYYY-MM-DD date in a filename.

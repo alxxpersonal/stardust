@@ -19,12 +19,28 @@ const DirName = ".stardust"
 
 // Config is the committed per-vault configuration (.stardust/config.toml).
 type Config struct {
-	EmbedModel    string   `toml:"embed_model"`
-	OllamaURL     string   `toml:"ollama_url"`
-	Ignore        []string `toml:"ignore"`
-	RerankerURL   string   `toml:"reranker_url"`   // optional cross-encoder endpoint; empty = disabled
-	RerankerModel string   `toml:"reranker_model"` // optional model name passed to the reranker
-	SourceRoot    string   `toml:"source_root"`    // optional source repo root for wiki or vault docs; empty = same repo only
+	EmbedModel    string            `toml:"embed_model"`
+	OllamaURL     string            `toml:"ollama_url"`
+	Ignore        []string          `toml:"ignore"`
+	RerankerURL   string            `toml:"reranker_url"`   // optional cross-encoder endpoint; empty = disabled
+	RerankerModel string            `toml:"reranker_model"` // optional model name passed to the reranker
+	SourceRoot    string            `toml:"source_root"`    // optional source repo root for wiki or vault docs; empty = same repo only
+	Conventions   ConventionsConfig `toml:"conventions"`
+}
+
+// ConventionsConfig holds opt-in vault conventions beyond the default markdown
+// indexing behavior.
+type ConventionsConfig struct {
+	DirectoryIndexes DirectoryIndexesConfig `toml:"directory_indexes"`
+}
+
+// DirectoryIndexesConfig configures generated per-directory INDEX.md files.
+type DirectoryIndexesConfig struct {
+	Enabled  bool     `toml:"enabled"`
+	Filename string   `toml:"filename"`
+	Roots    []string `toml:"roots"`
+	Ignore   []string `toml:"ignore"`
+	Mode     string   `toml:"mode"`
 }
 
 // Default returns the default configuration.
@@ -37,6 +53,17 @@ func Default() Config {
 		RerankerModel: "",
 		SourceRoot:    "",
 	}
+}
+
+// WithDefaults returns cfg with implicit directory-index defaults applied.
+func (c DirectoryIndexesConfig) WithDefaults() DirectoryIndexesConfig {
+	if strings.TrimSpace(c.Filename) == "" {
+		c.Filename = "INDEX.md"
+	}
+	if strings.TrimSpace(c.Mode) == "" {
+		c.Mode = "managed-block"
+	}
+	return c
 }
 
 // ResolveSourceRoot returns SourceRoot as an absolute filesystem path, resolving

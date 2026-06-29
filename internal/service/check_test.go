@@ -181,9 +181,47 @@ func TestDuplicateNameCrossCollectionScoped(t *testing.T) {
 	require.True(t, hasCheckIssue(res.Issues, "duplicate-name"))
 }
 
+func TestCheckSuppressesConfiguredDirectoryIndexDuplicates(t *testing.T) {
+	ctx := context.Background()
+	root := directoryIndexVault(t)
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	_, err = svc.SyncDirectoryIndexes(ctx)
+	require.NoError(t, err)
+
+	res, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(res.Issues, "duplicate-name"))
+	require.False(t, hasCheckIssuePath(res.Issues, "orphan", "20-Profile/portfolio.md"))
+	require.False(t, hasCheckIssuePath(res.Issues, "orphan", "20-Profile/proposals/2026-06-28-sample.md"))
+}
+
+func TestCheckReportsDirectoryIndexDrift(t *testing.T) {
+	ctx := context.Background()
+	root := directoryIndexVault(t)
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(res.Issues, "directory-index-missing"))
+}
+
 func hasCheckIssue(issues []service.Issue, kind string) bool {
 	for _, issue := range issues {
 		if issue.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCheckIssuePath(issues []service.Issue, kind, path string) bool {
+	for _, issue := range issues {
+		if issue.Kind == kind && issue.Path == path {
 			return true
 		}
 	}

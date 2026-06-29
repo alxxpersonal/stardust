@@ -37,6 +37,10 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 	if err != nil {
 		return CheckResult{}, err
 	}
+	directoryIndexPaths, err := s.directoryIndexPathSet()
+	if err != nil {
+		return CheckResult{}, err
+	}
 	for _, bl := range g.BrokenLinks() {
 		detail := "[[" + bl.Target + "]] resolves to no note"
 		if bl.Kind == vault.EdgeMarkdownLink {
@@ -45,6 +49,9 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		issues = append(issues, Issue{Severity: "error", Kind: "broken-link", Path: bl.From, Detail: detail})
 	}
 	for _, p := range g.Orphans() {
+		if directoryIndexPaths[p] {
+			continue
+		}
 		issues = append(issues, Issue{Severity: "warn", Kind: "orphan", Path: p, Detail: "no links in or out"})
 	}
 
@@ -73,6 +80,9 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 	}
 	for name, ps := range nameToPaths {
 		if len(ps) > 1 {
+			if allDirectoryIndexPaths(ps, directoryIndexPaths) {
+				continue
+			}
 			sort.Strings(ps)
 			issues = append(issues, Issue{
 				Severity: "warn",
@@ -81,6 +91,13 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 				Detail:   fmt.Sprintf("note name %q is shared by %d files (%s); wikilinks to it are ambiguous", name, len(ps), strings.Join(ps, ", ")),
 			})
 		}
+	}
+	directoryIndexCheck, err := s.CheckDirectoryIndexes(ctx)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	for _, issue := range directoryIndexCheck.Issues {
+		issues = append(issues, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
 	}
 
 	docIssues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore)
@@ -124,6 +141,18 @@ func mapConventionIssues(in []convention.ConventionIssue) []Issue {
 		out = append(out, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
 	}
 	return out
+}
+
+func allDirectoryIndexPaths(paths []string, directoryIndexPaths map[string]bool) bool {
+	if len(paths) == 0 {
+		return false
+	}
+	for _, path := range paths {
+		if !directoryIndexPaths[path] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) sourceDriftIssues(ctx context.Context) ([]Issue, error) {
