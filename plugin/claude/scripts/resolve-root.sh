@@ -5,9 +5,10 @@
 #   MODE=<repo|vault|none>
 #   ROOT='<path>'
 #
-# Resolution order (see ADR 0005):
+# Resolution order (see ADR 0037 for per-project vault isolation):
 #   1. ${CLAUDE_PROJECT_DIR}/.stardust is a directory -> (repo, project dir)
-#   2. config.json has mode vault or auto and an existing vaultPath -> (vault, vaultPath)
+#   2. config.json mode vault or auto, with .vaults[CLAUDE_PROJECT_DIR] (per
+#      project) or a legacy top-level .vaultPath, at an existing dir -> (vault, path)
 #   3. otherwise -> (none, "")
 #
 # Always exits 0. Writes nothing to stderr on the normal paths.
@@ -32,14 +33,22 @@ if [ -n "$project_dir" ] && [ -d "$project_dir/.stardust" ]; then
   exit 0
 fi
 
-# 2. Vault mode: a configured vault path that exists on disk.
+# 2. Vault mode: a per-project configured vault that exists on disk. The vault is
+# keyed by the project dir, so concurrent sessions in different roots never share
+# one global path. A legacy top-level vaultPath is honored only when no vaults map
+# exists yet (a pre-migration config).
 config="$plugin_data/config.json"
 if [ -n "$plugin_data" ] && [ -f "$config" ] && command -v jq >/dev/null 2>&1; then
   mode=$(jq -r '.mode // empty' "$config" 2>/dev/null)
-  vault=$(jq -r '.vaultPath // empty' "$config" 2>/dev/null)
-  if { [ "$mode" = "vault" ] || [ "$mode" = "auto" ]; } && [ -n "$vault" ] && [ -d "$vault" ]; then
-    emit vault "$vault"
-    exit 0
+  if [ "$mode" = "vault" ] || [ "$mode" = "auto" ]; then
+    vault=$(jq -r --arg p "$project_dir" '.vaults[$p] // empty' "$config" 2>/dev/null)
+    if [ -z "$vault" ] && [ "$(jq -r 'has("vaults")' "$config" 2>/dev/null)" != "true" ]; then
+      vault=$(jq -r '.vaultPath // empty' "$config" 2>/dev/null)
+    fi
+    if [ -n "$vault" ] && [ -d "$vault" ]; then
+      emit vault "$vault"
+      exit 0
+    fi
   fi
 fi
 

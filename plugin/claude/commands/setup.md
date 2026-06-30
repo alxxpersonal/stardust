@@ -34,13 +34,26 @@ Read `$ARGUMENTS`.
 
 ## Write config.json
 
-Write `${CLAUDE_PLUGIN_DATA}/config.json` with this shape, substituting the chosen vault
-path. Keep `mode` as `auto` unless the user wants to force one mode.
+Stardust keys each project directory to its own vault under `vaults`, so concurrent Claude
+sessions in different roots never collide on one shared path. Merge an entry for the current
+project, keyed by `${CLAUDE_PROJECT_DIR}`, without disturbing other projects' entries:
+
+```sh
+cfg="${CLAUDE_PLUGIN_DATA}/config.json"
+[ -f "$cfg" ] || printf '{ "mode": "auto", "vaults": {} }' > "$cfg"
+jq --arg p "$CLAUDE_PROJECT_DIR" --arg v "<absolute path to your vault>" \
+  '.mode = (.mode // "auto") | .vaults[$p] = $v | del(.vaultPath)' \
+  "$cfg" > "$cfg.tmp" && mv "$cfg.tmp" "$cfg"
+```
+
+Resulting shape:
 
 ```json
 {
   "mode": "auto",
-  "vaultPath": "<absolute path to your vault>",
+  "vaults": {
+    "<this project dir>": "<absolute path to your vault>"
+  },
   "digestHourLocal": 8,
   "maintenanceCron": "0 */2 * * *",
   "midConversationReminders": false
@@ -49,9 +62,11 @@ path. Keep `mode` as `auto` unless the user wants to force one mode.
 
 Field meanings:
 
-- `mode`: `auto` resolves an initialized repo first, then the configured vault. Set `vault`
-  to force vault mode, `repo` to ignore the vault path.
-- `vaultPath`: absolute path to the Obsidian vault.
+- `mode`: `auto` resolves an initialized repo first, then this project's vault. Set `vault`
+  to force vault mode, `repo` to ignore the vaults map.
+- `vaults`: a map from project directory (`CLAUDE_PROJECT_DIR`) to the absolute vault path it
+  uses. Each session resolves its own entry, so sessions never share one global path. A
+  legacy top-level `vaultPath` is read only when no `vaults` map exists yet.
 - `digestHourLocal`: local hour, 0 to 23, for the daily digest cron.
 - `maintenanceCron`: five-field, local-time schedule for the maintenance cron.
 - `midConversationReminders`: when true, the prompt-submit hook may emit one debounced
