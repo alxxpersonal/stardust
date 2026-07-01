@@ -13,6 +13,25 @@ state. Be terse. Do not nag.
 Config is `${CLAUDE_PLUGIN_DATA}/config.json`. If `CLAUDE_PLUGIN_DATA` is unset in this
 session, tell the user the plugin data directory is unavailable and stop.
 
+## How the workspace resolves
+
+At session start `scripts/resolve-root.sh` walks six layers, most local truth first,
+and the first hit wins. It emits three eval-safe lines: the stable `MODE=` and `ROOT=`
+contract plus a `SOURCE=` diagnosis line, so a misresolution is visible at a glance.
+
+| Layer | Source | Mode | `SOURCE` |
+|---|---|---|---|
+| 1 | `STARDUST_VAULT` set to an existing dir | repo if it holds `.stardust/`, else vault | `env` |
+| 2 | Walk up from `$PWD` to `/`, first dir with `.stardust/` | repo | `cwd` |
+| 3 | Walk up from `$CLAUDE_PROJECT_DIR` when set | repo | `project` |
+| 4 | `vaults` map: exact `$CLAUDE_PROJECT_DIR`, exact `$PWD`, then the longest key that path-prefixes either | vault | `vault-map` |
+| 5 | Legacy `vaultPath`, only when no `vaults` key exists | vault | `legacy` |
+| 6 | Nothing resolves | none | `none` |
+
+Layers 4 and 5 fire only when config `mode` is `vault` or `auto`. `STARDUST_VAULT`
+overrides everything. A stray `.stardust/` in a parent captures child sessions just
+like git does, and `SOURCE=cwd` makes that visible.
+
 ## Pick the mode
 
 Read `$ARGUMENTS`.

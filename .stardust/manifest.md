@@ -22,7 +22,7 @@ Vault: `Stardust`.
 - Fang-styled stardust CLI with the cosmic colorscheme `docs/specs/2026-06-25-2319-fang-cli-cosmic.md` references `internal/cli/root.go` (2 commits), `internal/tui/styles.go` (3 commits), `internal/render/glamour.go` (1 commit); review
 - Informative CLI errors across stardust `docs/specs/2026-06-25-2319-informative-cli-errors.md` references `internal/config/config.go` (2 commits), `internal/cli/sync.go` (1 commit); review
 - Doc-code coherence engine `docs/specs/2026-06-26-0418-doc-code-coherence-engine.md` references `internal/convention/check.go` (3 commits), `internal/collections/collections.go` (1 commit), `internal/vault/vault.go` (4 commits) +5 more; review
-- Stardust hardening for docs, index, links, and authoring commands `docs/specs/2026-06-26-1849-stardust-hardening.md` references `internal/cli/registry.go` (1 commit), `internal/service/registry.go` (1 commit), `internal/convention/check.go` (1 commit); review
+- Plugin authoring commands for the the spec workflow and the doc workflow write path `docs/specs/2026-06-26-0418-plugin-authoring-commands.md` references `plugin/claude/scripts/resolve-root.sh` (2 commits); review
 
 ## Core conventions
 
