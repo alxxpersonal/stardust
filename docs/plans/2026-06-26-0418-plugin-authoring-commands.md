@@ -1,6 +1,6 @@
 ---
 title: Plugin authoring commands - implementation plan
-status: Draft
+status: Abandoned
 version: 1
 date: 2026-06-26
 related:
@@ -11,6 +11,8 @@ related:
 ---
 
 # Plugin authoring commands - implementation plan
+
+**Abandoned.** The thin-router delegate design was superseded by ADR 0024 (`docs/adr/0024-inline-baked-authoring-commands.md`), which bakes the forge workflows inline into the commands.
 
 Add four thin router commands (`spec`, `plan`, `doc`, `adr`) under `plugin/claude/commands/` that resolve workspace state, surface relevant docs, and delegate to the canonical the spec workflow and the doc workflow skills, with zero embedded doc convention.
 

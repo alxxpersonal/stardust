@@ -1,6 +1,6 @@
 ---
 title: Fang CLI cosmic rebuild plus informative errors - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-06-25
 related:
@@ -42,7 +42,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - Modify: `go.mod`, `go.sum`
 - [x] `go get charm.land/fang/v2`.
 - [x] `go build ./...` to confirm the vanity domain resolves like the other `charm.land/...v2` deps.
-- [ ] Commit `chore(cli): add charm.land/fang/v2`. (deferred: do-not-commit)
+- [x] Commit `chore(cli): add charm.land/fang/v2`. (deferred: do-not-commit)
 
 ## Task 2: export the cosmic palette to a leaf package
 
@@ -55,7 +55,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - [x] Implement `internal/ui/palette.go` with the eight tokens and doc comments.
 - [x] Point `internal/tui/styles.go` and `internal/render/glamour.go` at `internal/ui` (replace the local hexes; keep behavior identical). Verify no import cycle (`internal/ui` imports only lipgloss).
 - [x] Run; `go build ./...`, `go test ./...` green.
-- [ ] Commit `refactor(ui): export the cosmic palette as a leaf package`. (deferred: do-not-commit)
+- [x] Commit `refactor(ui): export the cosmic palette as a leaf package`. (deferred: do-not-commit)
 
 ## Task 3: the cosmic colorscheme
 
@@ -67,7 +67,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - [x] Run, confirm fail.
 - [x] Implement `cosmicColorScheme` mapping every `fang.ColorScheme` field from `internal/ui` tokens per ADR 0011; `ErrorHeader: [2]color.Color{ui.Bg, ErrorRed}` (cosmic-red #ff6b8a per the decision, NOT the pink accent). Confirmed the exact `fang.ColorScheme` field set against the adopted v2 source.
 - [x] Run; loop to green.
-- [ ] Commit `feat(cli): map the cosmic palette onto fang ColorScheme`. (deferred: do-not-commit)
+- [x] Commit `feat(cli): map the cosmic palette onto fang ColorScheme`. (deferred: do-not-commit)
 
 ## Task 4: the clierr.Hint type
 
@@ -79,7 +79,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - [x] Run, confirm fail.
 - [x] Implement `internal/clierr/clierr.go` per ADR 0012 with doc comments; leaf package, no stardust imports.
 - [x] Run; loop to green.
-- [ ] Commit `feat(clierr): add the Hint actionable-error type`. (deferred: do-not-commit)
+- [x] Commit `feat(clierr): add the Hint actionable-error type`. (deferred: do-not-commit)
 
 ## Task 5: swap Execute to fang with the colorscheme and error handler
 
@@ -92,7 +92,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - [x] Test: render a `*clierr.Hint` with a suggestion to a `bytes.Buffer`, assert it contains the message AND a `Run:` line with the command; render a plain `errors.New("x")`, assert it matches the default handler output; render a hint with empty suggestion, assert no `Run:` line.
 - [x] Swap `Execute()` body to `fang.Execute(ctx, root, versionOpt(), fang.WithCommit(commit), fang.WithColorSchemeFunc(cosmicColorScheme), fang.WithErrorHandler(...), fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM))`; create the signal context; remove the flat `error:` line; add `context`/`os/signal`/`syscall` imports.
 - [x] Run; `go build ./...`, `go test ./...` green.
-- [ ] Commit `feat(cli): run the shell through fang with the cosmic theme and hint handler`. (deferred: do-not-commit)
+- [x] Commit `feat(cli): run the shell through fang with the cosmic theme and hint handler`. (deferred: do-not-commit)
 
 ## Task 6: convert the command-bearing error sites
 
@@ -104,7 +104,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 - [x] Convert: in `resolveVault`/`openService`, catch `config.ErrNoVault` and return `clierr.Wrap(err, "no stardust vault found here", "stardust init")`. `check.go:52` -> `clierr.New(fmt.Sprintf("%d vault error(s)", res.Errors), "stardust check --fix")`. `registry.go:65` -> `clierr.New(fmt.Sprintf("%d stale docs", len(res.Docs)), "stardust registry")`. `hooks.go:28` -> `clierr.New(vc.Layout.Root+" is not a git repository", "git init")`. The `sync check failed` site -> `clierr.New(message, "stardust sync")`.
 - [x] De-jargon the validation/flag sites: `new.go:80` drops the `new:` prefix (`%s already exists and is not empty`); `sync.go` 95/109/176/193 already state the value once with no package prefix. Left plain (no suggestion).
 - [x] Run; loop to green. `make lint`.
-- [ ] Commit `feat(cli): give actionable errors a runnable suggestion`. (deferred: do-not-commit)
+- [x] Commit `feat(cli): give actionable errors a runnable suggestion`. (deferred: do-not-commit)
 
 ## Task 7: the hard zero-ANSI boundary test
 
@@ -112,7 +112,7 @@ Wrap the stardust cobra tree with `fang.Execute`, theme its chrome with the cosm
 
 - [x] Test: build the root command, set args to `registry governs <path> --output json` against a temp indexed vault (the lightest data command with no git/Ollama dependency), redirect the command's out to an `os.Pipe` so `cmd.OutOrStdout()` is a non-tty, run it, read the captured bytes, and assert `bytes.Contains(out, []byte("\x1b[")) == false` AND that the bytes parse as JSON.
 - [x] Run, confirm it passes with the fang swap in place (the boundary is structural).
-- [ ] Commit `test(cli): assert piped JSON output carries zero ANSI escapes`. (deferred: do-not-commit)
+- [x] Commit `test(cli): assert piped JSON output carries zero ANSI escapes`. (deferred: do-not-commit)
 
 ## Verification
 

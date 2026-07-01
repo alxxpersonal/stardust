@@ -1,7 +1,7 @@
 ---
 title: Init auto-detect and a status command
 type: plan
-status: Draft
+status: Done
 created: 2026-06-26
 updated: 2026-06-26
 related:
@@ -169,9 +169,9 @@ Deliverable: `stardust status` wired, human + ANSI-free JSON, tested, green.
 
 # Self-review gate
 
-- [ ] No placeholders or TBDs; every new export has a doc comment.
-- [ ] Names and types match the spec and across tasks (`Kind`, `DetectKind`, `WantsDocs`, `Label`, `Describe`, `GatherStatus`, `VaultStatus`, `IndexHealth`).
-- [ ] `service.Status` and the `rpc`/`mcp` "status" handler are untouched.
-- [ ] `init --docs` and plain `init` behavior preserved (`TestInitDocsScaffold`, `TestInitNoDocs` still pass).
-- [ ] JSON output is ANSI-free and `Collections` serializes as `[]`, never `null`.
-- [ ] Every spec requirement maps to a task: detection (T1), init flags + line (T2), service gatherer both states (T3), CLI human + JSON + wiring (T4).
+- [x] No placeholders or TBDs; every new export has a doc comment.
+- [x] Names and types match the spec and across tasks (`Kind`, `DetectKind`, `WantsDocs`, `Label`, `Describe`, `GatherStatus`, `VaultStatus`, `IndexHealth`).
+- [x] `service.Status` and the `rpc`/`mcp` "status" handler are untouched.
+- [x] `init --docs` and plain `init` behavior preserved (`TestInitDocsScaffold`, `TestInitNoDocs` still pass).
+- [x] JSON output is ANSI-free and `Collections` serializes as `[]`, never `null`.
+- [x] Every spec requirement maps to a task: detection (T1), init flags + line (T2), service gatherer both states (T3), CLI human + JSON + wiring (T4).

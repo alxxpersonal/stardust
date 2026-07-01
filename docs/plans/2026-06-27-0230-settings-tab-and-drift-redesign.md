@@ -1,6 +1,6 @@
 ---
 title: Settings tab and Drift tab redesign
-status: Draft
+status: Done
 date: 2026-06-27
 related:
   - docs/specs/2026-06-27-0230-settings-tab-and-drift-redesign.md
@@ -52,9 +52,9 @@ Interfaces:
 - Consumes: `config.Save`, `embed.New`, `rerank.New`, `s.Registry`, `manifest.WriteRegistry`, `s.RefreshManifest`
 
 Steps:
-- [ ] Write failing test `internal/service/config_actions_test.go`: build a temp vault with `.stardust/config.toml` (reuse the existing service test harness/helpers in `service_test`/`index_test`). Assert: after `SetConfig` with a changed `EmbedModel`, `Load(layout.Config())` returns the new value, `svc.Config.EmbedModel` equals it, and `svc.Status(ctx).EmbedModel` reflects it. For `RegenerateRegistry`, assert `docs/INDEX.md` exists under the root after the call and is non-empty.
-- [ ] Run it: `go test ./internal/service/ -run 'ConfigActions'` (red).
-- [ ] Add to `internal/service/service.go` under a `// --- Config mutation ---` section:
+- [x] Write failing test `internal/service/config_actions_test.go`: build a temp vault with `.stardust/config.toml` (reuse the existing service test harness/helpers in `service_test`/`index_test`). Assert: after `SetConfig` with a changed `EmbedModel`, `Load(layout.Config())` returns the new value, `svc.Config.EmbedModel` equals it, and `svc.Status(ctx).EmbedModel` reflects it. For `RegenerateRegistry`, assert `docs/INDEX.md` exists under the root after the call and is non-empty.
+- [x] Run it: `go test ./internal/service/ -run 'ConfigActions'` (red).
+- [x] Add to `internal/service/service.go` under a `// --- Config mutation ---` section:
 
 ```go
 // SetConfig persists cfg to the vault's config.toml and updates the live
@@ -71,7 +71,7 @@ func (s *Service) SetConfig(cfg config.Config) error {
 }
 ```
 
-- [ ] Add to `internal/service/registry.go` (it already imports `os`? confirm; add `os` and `path/filepath` if missing - both likely already present via other service files, but this file needs its own imports):
+- [x] Add to `internal/service/registry.go` (it already imports `os`? confirm; add `os` and `path/filepath` if missing - both likely already present via other service files, but this file needs its own imports):
 
 ```go
 // defaultRegistryOrder is the fixed collection order for the docs registry,
@@ -97,9 +97,9 @@ func (s *Service) RegenerateRegistry(ctx context.Context) error {
 }
 ```
 
-- [ ] Confirm `registry.go` imports include `os`, `path/filepath`, `fmt`, `context`, and `manifest`; add any missing. `goimports` to group stdlib / external / local.
-- [ ] Run `go test ./internal/service/ -run 'ConfigActions'` (green). Then `go vet ./internal/service/`.
-- [ ] Validation loop: do not exit until the service tests pass and vet is clean.
+- [x] Confirm `registry.go` imports include `os`, `path/filepath`, `fmt`, `context`, and `manifest`; add any missing. `goimports` to group stdlib / external / local.
+- [x] Run `go test ./internal/service/ -run 'ConfigActions'` (green). Then `go vet ./internal/service/`.
+- [x] Validation loop: do not exit until the service tests pass and vet is clean.
 
 # Task 2: Drift redesign (single headers, scannable lists)
 
@@ -112,7 +112,7 @@ Interfaces:
 - Produces: a vertical-stack `View`; `summaryLine`, `driftList`, `staleList`, `checkSummary` helpers.
 
 Steps:
-- [ ] Update `drift_tab_test.go` to the new rendering and add the regression test, then run red:
+- [x] Update `drift_tab_test.go` to the new rendering and add the regression test, then run red:
 
 ```go
 func TestDriftRendersSingleHeaders(t *testing.T) {
@@ -149,8 +149,8 @@ func TestDriftCheckSummaryGroups(t *testing.T) {
 ```
 
   Keep `TestDriftLoadedStoresReports`. Delete or rewrite `TestDriftIssuesRenderCleanList` to target `checkSummary`. Add `"strings"` to the test imports.
-- [ ] Run `go test ./internal/tui/ -run 'Drift'` (red).
-- [ ] In `drift_tab.go`, replace `View` (lines ~108-139) with a vertical stack:
+- [x] Run `go test ./internal/tui/ -run 'Drift'` (red).
+- [x] In `drift_tab.go`, replace `View` (lines ~108-139) with a vertical stack:
 
 ```go
 // View renders the coherence report as a vertical stack of clean lists.
@@ -198,7 +198,7 @@ func atLeast(n, floor int) int {
 }
 ```
 
-- [ ] Add `summaryLine`:
+- [x] Add `summaryLine`:
 
 ```go
 // summaryLine renders the one-line coherence summary, colored by worst severity.
@@ -214,7 +214,7 @@ func (t DriftTab) summaryLine(width int) string {
 }
 ```
 
-- [ ] Replace `markdownBox` with `driftList` and `staleList`:
+- [x] Replace `markdownBox` with `driftList` and `staleList`:
 
 ```go
 // driftList renders drifted docs, one row per moved binding, in fitted columns.
@@ -274,7 +274,7 @@ func (t DriftTab) staleList(width, height int) string {
 }
 ```
 
-- [ ] Replace `issueBox` with grouped `checkSummary`:
+- [x] Replace `issueBox` with grouped `checkSummary`:
 
 ```go
 // checkSummary groups check findings by kind with a count and a sample, errors
@@ -327,10 +327,10 @@ func (t DriftTab) checkSummary(width, height int) string {
 ```
 
   Note: `is.kind()` above is shorthand; group by `is.Kind` directly (use `is.Kind` as the map key and slice element, no helper method). Adjust the code to key on `is.Kind`.
-- [ ] Drop the now-unused `render` import and the `markdownBox` method. Keep `fmt`, `strings`, `sort` (add `sort`), `time`, `context`, `lipgloss`, `service`, `components`. Run `goimports`.
-- [ ] Keep `StatusLine`, `Hints`, `HeaderLabel`, `Focused`, `Update`, `Init`, `load`, `Resize` as-is.
-- [ ] Run `go test ./internal/tui/ -run 'Drift'` (green). Then `go vet ./internal/tui/`.
-- [ ] Validation loop: do not exit until the Drift tests pass and there are no duplicate headers in the rendered output.
+- [x] Drop the now-unused `render` import and the `markdownBox` method. Keep `fmt`, `strings`, `sort` (add `sort`), `time`, `context`, `lipgloss`, `service`, `components`. Run `goimports`.
+- [x] Keep `StatusLine`, `Hints`, `HeaderLabel`, `Focused`, `Update`, `Init`, `load`, `Resize` as-is.
+- [x] Run `go test ./internal/tui/ -run 'Drift'` (green). Then `go vet ./internal/tui/`.
+- [x] Validation loop: do not exit until the Drift tests pass and there are no duplicate headers in the rendered output.
 
 # Task 3: Settings tab
 
@@ -343,7 +343,7 @@ Interfaces:
 - Consumes: `be.svc.Config`, `be.svc.SetConfig`, `be.svc.Index`, `be.svc.Rebuild`, `be.svc.RegenerateRegistry`, `be.svc.ListCollections`, `be.svc.GetCollection`, `components.NewExoTextInput`.
 
 Steps:
-- [ ] Write `internal/tui/settings_tab.go`. Structure (fill in bodies; this is the contract):
+- [x] Write `internal/tui/settings_tab.go`. Structure (fill in bodies; this is the contract):
 
 ```go
 package tui
@@ -441,15 +441,15 @@ func (t SettingsTab) StatusLine() string { return t.note }
 func (t SettingsTab) HeaderLabel() string { return "settings · config + index" }
 ```
 
-- [ ] `Update`: handle `settingsActionMsg` (clear `busy`, set `note` from summary or err), `settingsCollectionsMsg` (store collections), `tea.KeyPressMsg` -> `handleKey`. When `editing`, route non-handled keys to `editInput.Update`. When `addingIgnore`, route to `ignoreInput.Update`.
-- [ ] `handleKey` main list: `up`/`down` move cursor (clamp to `len(settingsRows)`), `enter` -> `activateRow`, `r` -> reload collections. Sub-views get their own handlers (`handleIgnoreKey`, `handleCollectionsKey`, `handleSchemaKey`, `handleEditKey`) mirroring exo `handleCatsKey` / `handleEditKey`.
-- [ ] `activateRow`:
+- [x] `Update`: handle `settingsActionMsg` (clear `busy`, set `note` from summary or err), `settingsCollectionsMsg` (store collections), `tea.KeyPressMsg` -> `handleKey`. When `editing`, route non-handled keys to `editInput.Update`. When `addingIgnore`, route to `ignoreInput.Update`.
+- [x] `handleKey` main list: `up`/`down` move cursor (clamp to `len(settingsRows)`), `enter` -> `activateRow`, `r` -> reload collections. Sub-views get their own handlers (`handleIgnoreKey`, `handleCollectionsKey`, `handleSchemaKey`, `handleEditKey`) mirroring exo `handleCatsKey` / `handleEditKey`.
+- [x] `activateRow`:
   - `rowText` (`embed_model`, `ollama_url`, `reranker_url`, `reranker_model`): set `editing`, `editKey`, seed `editInput` from `settingsValueRaw(key, cfg)`, focus the input, return `textinput.Blink`.
   - `ignore`: `sub = settingsIgnore`, `ignoreCursor = 0`.
   - `reindex` / `rebuild` / `registry`: if `busy` return with note "busy"; else set `busy`, `note = "running..."`, return the matching action command.
   - `collections`: `sub = settingsCollections`, `colCursor = 0`.
-- [ ] `handleEditKey`: `esc` cancels (blur, clear editing); `enter` saves: `trimmed := strings.TrimSpace(editInput.Value())`, set the field on `t.cfg`, call `t.be.svc.SetConfig(t.cfg)` (guard `be`/`svc` nil), on error set `note` to the error and keep `cfg` unchanged, on success `note = "saved"`; clear editing. Other keys -> `editInput.Update`.
-- [ ] Action commands (each returns `tea.Cmd` that runs the service call in its goroutine and returns a `settingsActionMsg`):
+- [x] `handleEditKey`: `esc` cancels (blur, clear editing); `enter` saves: `trimmed := strings.TrimSpace(editInput.Value())`, set the field on `t.cfg`, call `t.be.svc.SetConfig(t.cfg)` (guard `be`/`svc` nil), on error set `note` to the error and keep `cfg` unchanged, on success `note = "saved"`; clear editing. Other keys -> `editInput.Update`.
+- [x] Action commands (each returns `tea.Cmd` that runs the service call in its goroutine and returns a `settingsActionMsg`):
 
 ```go
 func (t SettingsTab) reindexCmd() tea.Cmd {
@@ -471,15 +471,15 @@ func (t SettingsTab) reindexCmd() tea.Cmd {
 ```
 
   `rebuildCmd` mirrors with `be.svc.Rebuild(ctx)`. `registryCmd` calls `be.svc.RegenerateRegistry(ctx)` and returns `summary: "regenerated docs/INDEX.md"`.
-- [ ] `loadCollections` command returns `settingsCollectionsMsg` from `be.svc.ListCollections(ctx)` (guard nil), mirroring `browse_tab.loadCollections`.
-- [ ] `View`: when `sub == settingsIgnore` render the ignore sub-view (clean list of `t.cfg.Ignore`, `n` add, `d` delete, mirror exo `renderCats`); when `settingsCollections` render a collections clean list (Collection / Records / Fields / Path / Description); when `settingsSchema` render the selected collection's fields clean list (Field / Type / Required / Enum). Otherwise the three-box main view:
+- [x] `loadCollections` command returns `settingsCollectionsMsg` from `be.svc.ListCollections(ctx)` (guard nil), mirroring `browse_tab.loadCollections`.
+- [x] `View`: when `sub == settingsIgnore` render the ignore sub-view (clean list of `t.cfg.Ignore`, `n` add, `d` delete, mirror exo `renderCats`); when `settingsCollections` render a collections clean list (Collection / Records / Fields / Path / Description); when `settingsSchema` render the selected collection's fields clean list (Field / Type / Required / Enum). Otherwise the three-box main view:
   - CONFIG: `animatedDoubleBox("CONFIG", t.renderRows(cardW))` where each row is `cursor + label(padRightCell 18) + value`. Value = `SuccessStyle` for non-empty scalars, `MutedStyle "(disabled)"` for empty `reranker_url`, action rows show a hint (`"edit"`, `"manage"`, `"run"`). Focused editing row swaps value for `editInput.View()`.
   - COLLECTIONS: `animatedRoundedBox("COLLECTIONS", t.collectionsList(cardW, height/3))` reusing the Status tab clean list with an added `Fields` count column.
   - ACTIONS row text lives inside CONFIG rows already (reindex/rebuild/registry/collections are rows); the COLLECTIONS box is read-only. Keep one cursor over `settingsRows`.
-- [ ] `Hints`: editing -> enter save / esc cancel; ignore sub-view -> nav / n add / d delete / esc back; collections sub-view -> nav / enter schema / esc back; schema -> esc back; default -> nav / enter / r refresh. Wrap with `withCommonHints` for the default mode only.
-- [ ] `settingsValueRaw(key, cfg)` returns the plain string for the editor seed (`cfg.EmbedModel`, `cfg.OllamaURL`, `cfg.RerankerURL`, `cfg.RerankerModel`). `setField(key, val)` writes the trimmed value onto a `*config.Config`.
-- [ ] Add a `padRightCell` helper if not already present in the tui package (exo has one); if absent, add a small local one or reuse `components`-level padding.
-- [ ] Write `internal/tui/settings_tab_test.go` (nil backend, pure view/cursor logic; service calls are guarded so nil `be` is safe):
+- [x] `Hints`: editing -> enter save / esc cancel; ignore sub-view -> nav / n add / d delete / esc back; collections sub-view -> nav / enter schema / esc back; schema -> esc back; default -> nav / enter / r refresh. Wrap with `withCommonHints` for the default mode only.
+- [x] `settingsValueRaw(key, cfg)` returns the plain string for the editor seed (`cfg.EmbedModel`, `cfg.OllamaURL`, `cfg.RerankerURL`, `cfg.RerankerModel`). `setField(key, val)` writes the trimmed value onto a `*config.Config`.
+- [x] Add a `padRightCell` helper if not already present in the tui package (exo has one); if absent, add a small local one or reuse `components`-level padding.
+- [x] Write `internal/tui/settings_tab_test.go` (nil backend, pure view/cursor logic; service calls are guarded so nil `be` is safe):
 
 ```go
 func TestSettingsRendersConfigValues(t *testing.T) {
@@ -508,8 +508,8 @@ func TestSettingsEditFocuses(t *testing.T) {
 ```
 
   Confirm the real `tea.KeyPressMsg` construction against `internal/tui/browse_tab_test.go` / `search_tab_test.go` and match their pattern exactly (key code vs string).
-- [ ] Run `go test ./internal/tui/ -run 'Settings'` (green), `go vet ./internal/tui/`.
-- [ ] Validation loop: do not exit until Settings tests pass and the view renders all three boxes plus sub-views without panic on a nil backend.
+- [x] Run `go test ./internal/tui/ -run 'Settings'` (green), `go vet ./internal/tui/`.
+- [x] Validation loop: do not exit until Settings tests pass and the view renders all three boxes plus sub-views without panic on a nil backend.
 
 # Task 4: App wiring (sixth tab + Focused gate)
 
@@ -522,33 +522,33 @@ Interfaces:
 - Consumes: `SettingsTab`, `settingsActionMsg`, `settingsCollectionsMsg`.
 
 Steps:
-- [ ] `tabs.go`: add `TabSettings = 5`; append `"Settings"` so `tabNames = []string{"Search", "Browse", "Graph", "Drift", "Status", "Settings"}`.
-- [ ] `app.go`: add `settingsTab SettingsTab` to `App`. Extend `buildTabs` (`a.settingsTab = NewSettingsTab(be)`), `applySize`, `Init` (`a.settingsTab.Init()`), `syncFrame` (`a.settingsTab.frame = a.frame`), `activeTabModel` (`case TabSettings: return a.settingsTab`), the `View` content switch (`case TabSettings: content = a.settingsTab.View(a.width, contentHeight)`).
-- [ ] `app.go` `Update`: in the number-jump block add `case "6": a.activeTab = TabSettings`. In the typed-message routing add `case settingsActionMsg, settingsCollectionsMsg:` routing to `a.settingsTab.Update` (and add a `case TabSettings:` to the per-tab fallthrough switch).
-- [ ] `app.go` `Update`: gate the `left` / `right` handling behind `!a.activeTabModel().Focused()`. Move the `switch msg.String() { case "left": ...; case "right": ... }` inside the existing `if !a.activeTabModel().Focused() {` block (alongside the number jumps), so a focused tab keeps arrow keys.
-- [ ] Update `app_test.go`: assert `len(tabNames) == 6`; pressing `"6"` sets `activeTab == TabSettings`; with the active tab `Focused()` (drive Settings into editing), `left`/`right` do not change `activeTab`. Match the existing `app_test.go` construction of the App and key messages.
-- [ ] Run `go test ./internal/tui/` (all green), `go vet ./internal/tui/`.
-- [ ] Validation loop: do not exit until the full tui package builds and tests pass.
+- [x] `tabs.go`: add `TabSettings = 5`; append `"Settings"` so `tabNames = []string{"Search", "Browse", "Graph", "Drift", "Status", "Settings"}`.
+- [x] `app.go`: add `settingsTab SettingsTab` to `App`. Extend `buildTabs` (`a.settingsTab = NewSettingsTab(be)`), `applySize`, `Init` (`a.settingsTab.Init()`), `syncFrame` (`a.settingsTab.frame = a.frame`), `activeTabModel` (`case TabSettings: return a.settingsTab`), the `View` content switch (`case TabSettings: content = a.settingsTab.View(a.width, contentHeight)`).
+- [x] `app.go` `Update`: in the number-jump block add `case "6": a.activeTab = TabSettings`. In the typed-message routing add `case settingsActionMsg, settingsCollectionsMsg:` routing to `a.settingsTab.Update` (and add a `case TabSettings:` to the per-tab fallthrough switch).
+- [x] `app.go` `Update`: gate the `left` / `right` handling behind `!a.activeTabModel().Focused()`. Move the `switch msg.String() { case "left": ...; case "right": ... }` inside the existing `if !a.activeTabModel().Focused() {` block (alongside the number jumps), so a focused tab keeps arrow keys.
+- [x] Update `app_test.go`: assert `len(tabNames) == 6`; pressing `"6"` sets `activeTab == TabSettings`; with the active tab `Focused()` (drive Settings into editing), `left`/`right` do not change `activeTab`. Match the existing `app_test.go` construction of the App and key messages.
+- [x] Run `go test ./internal/tui/` (all green), `go vet ./internal/tui/`.
+- [x] Validation loop: do not exit until the full tui package builds and tests pass.
 
 # Verification
 
-- [ ] `go build ./...` clean.
-- [ ] `go vet ./...` clean.
-- [ ] `go test ./...` green (race if the repo default uses it: `go test -race ./internal/service/ ./internal/tui/`).
-- [ ] `grep -rnP "\x{2014}|\x{2013}" internal/tui/settings_tab.go internal/tui/drift_tab.go internal/service/service.go internal/service/registry.go docs/specs/2026-06-27-0230-settings-tab-and-drift-redesign.md docs/plans/2026-06-27-0230-settings-tab-and-drift-redesign.md` returns nothing (no em/en dashes).
-- [ ] Manual TUI: `go run ./cmd/stardust` in this vault. Tab to Settings (key `6`): edit `embed_model`, confirm `.stardust/config.toml` changed; run Reindex and Regenerate registry, confirm the result note and that `docs/INDEX.md` updated; open Ignore and Inspect collections sub-views and back out. Tab to Drift (key `4`): confirm one `Drifted Docs` header, one `Stale Docs` header, the referenced moved file and its commit count are visible, columns are not cut off, and the check findings are grouped. Resize narrow and wide; confirm columns shrink and boxes clip without overflow.
-- [ ] Adversarial: empty vault (clean check, no collections), many findings (grouping holds), empty `reranker_url` saved (`(disabled)`, search still works), double-trigger an action fast (second rejected by `busy`).
+- [x] `go build ./...` clean.
+- [x] `go vet ./...` clean.
+- [x] `go test ./...` green (race if the repo default uses it: `go test -race ./internal/service/ ./internal/tui/`).
+- [x] `grep -rnP "\x{2014}|\x{2013}" internal/tui/settings_tab.go internal/tui/drift_tab.go internal/service/service.go internal/service/registry.go docs/specs/2026-06-27-0230-settings-tab-and-drift-redesign.md docs/plans/2026-06-27-0230-settings-tab-and-drift-redesign.md` returns nothing (no em/en dashes).
+- [x] Manual TUI: `go run ./cmd/stardust` in this vault. Tab to Settings (key `6`): edit `embed_model`, confirm `.stardust/config.toml` changed; run Reindex and Regenerate registry, confirm the result note and that `docs/INDEX.md` updated; open Ignore and Inspect collections sub-views and back out. Tab to Drift (key `4`): confirm one `Drifted Docs` header, one `Stale Docs` header, the referenced moved file and its commit count are visible, columns are not cut off, and the check findings are grouped. Resize narrow and wide; confirm columns shrink and boxes clip without overflow.
+- [x] Adversarial: empty vault (clean check, no collections), many findings (grouping holds), empty `reranker_url` saved (`(disabled)`, search still works), double-trigger an action fast (second rejected by `busy`).
 
 # Self-review gate
 
-- [ ] No placeholders or TBDs left in the code; every method body is implemented.
-- [ ] Names and types consistent: `settingsActionMsg`, `SettingsTab`, `TabSettings`, `SetConfig`, `RegenerateRegistry` used identically across tasks.
-- [ ] Every spec requirement maps to a task: config view/edit (T3), collections + schema/counts (T3), index actions (T1+T3), Drift single headers + summary + fitted columns + grouped findings (T2), service-only writes (T1), sixth tab + Focused gate (T4).
-- [ ] No CLI/MCP/SDK files touched; `internal/cli/registry.go` unchanged.
-- [ ] No em/en dashes anywhere; `// --- Section ---` separators and export doc comments present.
+- [x] No placeholders or TBDs left in the code; every method body is implemented.
+- [x] Names and types consistent: `settingsActionMsg`, `SettingsTab`, `TabSettings`, `SetConfig`, `RegenerateRegistry` used identically across tasks.
+- [x] Every spec requirement maps to a task: config view/edit (T3), collections + schema/counts (T3), index actions (T1+T3), Drift single headers + summary + fitted columns + grouped findings (T2), service-only writes (T1), sixth tab + Focused gate (T4).
+- [x] No CLI/MCP/SDK files touched; `internal/cli/registry.go` unchanged.
+- [x] No em/en dashes anywhere; `// --- Section ---` separators and export doc comments present.
 
 # Validation
 
-- [ ] Mirror these tasks into the harness todo tool, one in progress at a time, ticking each box the moment it lands.
-- [ ] Each task ends green before the next begins.
+- [x] Mirror these tasks into the harness todo tool, one in progress at a time, ticking each box the moment it lands.
+- [x] Each task ends green before the next begins.
 </content>
