@@ -178,3 +178,22 @@ func TestScanSkipsGeneratedRegistry(t *testing.T) {
 	require.Contains(t, paths, "docs/specs/INDEX.md") // no marker, kept
 	require.NotContains(t, paths, "docs/INDEX.md")    // generated registry, skipped
 }
+
+// TestScanIncludesMarkdownExtension pins that Scan matches the .markdown
+// extension the renderer's trimMarkdownExtension switch also accepts, so a note
+// saved as .markdown is indexed the same as a .md note. Matching is
+// case-insensitive, and non-markdown files stay excluded.
+func TestScanIncludesMarkdownExtension(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("# md\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "long.markdown"), []byte("# markdown\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "shout.MARKDOWN"), []byte("# upper\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes.txt"), []byte("plain\n"), 0o644))
+
+	paths, err := Scan(root, nil)
+	require.NoError(t, err)
+	require.Contains(t, paths, "note.md")
+	require.Contains(t, paths, "long.markdown")
+	require.Contains(t, paths, "shout.MARKDOWN") // case-insensitive extension match
+	require.NotContains(t, paths, "notes.txt")   // non-markdown, excluded
+}

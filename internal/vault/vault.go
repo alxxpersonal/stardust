@@ -744,7 +744,7 @@ func Scan(root string, ignore []string) ([]string, error) {
 			}
 			return nil
 		}
-		if strings.EqualFold(filepath.Ext(p), ".md") {
+		if ext := strings.ToLower(filepath.Ext(p)); ext == ".md" || ext == ".markdown" {
 			if isGeneratedRegistry(p) {
 				return nil
 			}
