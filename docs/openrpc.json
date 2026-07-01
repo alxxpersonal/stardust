@@ -50,6 +50,14 @@
       "summary": "Incrementally index the vault."
     },
     {
+      "name": "memory/edit",
+      "summary": "Apply a memory verb to a vault file and reindex the change."
+    },
+    {
+      "name": "memory/remember",
+      "summary": "Store a fact add-only, appending to the nearest note or creating a dated note."
+    },
+    {
       "name": "mount/list",
       "summary": "List the configured mounts."
     },

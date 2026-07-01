@@ -200,6 +200,19 @@ func goldenCases() []goldenCase {
 		}}},
 		{"cron/run", "params", CronRunParams{Name: "nightly-index"}},
 		{"cron/run", "result", CronRunResult{Output: "indexed 5 notes\n"}},
+		{"memory/remember", "params", RememberParams{Fact: "the deploy key rotates monthly"}},
+		{"memory/remember", "result", RememberResult{Action: "appended", Path: "memory/2026-06-25-deploy.md"}},
+		{"memory/edit", "params", MemoryParams{
+			Command: "rename",
+			Path:    "memory/notes.md",
+			Content: "full note body",
+			OldStr:  "old text",
+			NewStr:  "new text",
+			Line:    3,
+			Text:    "inserted line",
+			Dest:    "memory/renamed.md",
+		}},
+		{"memory/edit", "result", MemoryResult{Result: "created memory/notes.md"}},
 	}
 }
 

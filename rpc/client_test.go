@@ -186,3 +186,29 @@ func TestClientFullOperationSet(t *testing.T) {
 	_, err = client.CronRun(ctx, rpc.CronRunParams{Name: "missing"})
 	require.Error(t, err)
 }
+
+// TestClientMemoryOps exercises the memory/edit and memory/remember client
+// methods over the HTTP bridge, proving each is wired to its slash route and
+// decodes a typed result. The temp vault has no embedding backend, so Remember
+// falls through to creating a dated note under memory/ rather than appending.
+func TestClientMemoryOps(t *testing.T) {
+	ctx := context.Background()
+	client := newClient(t)
+
+	edited, err := client.MemoryEdit(ctx, rpc.MemoryParams{
+		Command: "create",
+		Path:    "memory/scratch.md",
+		Content: "---\ntitle: Scratch\n---\n\nfirst line\n",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "created memory/scratch.md", edited.Result)
+
+	viewed, err := client.MemoryEdit(ctx, rpc.MemoryParams{Command: "view", Path: "memory/scratch.md"})
+	require.NoError(t, err)
+	require.Contains(t, viewed.Result, "first line")
+
+	remembered, err := client.Remember(ctx, rpc.RememberParams{Fact: "the registry owns every transport"})
+	require.NoError(t, err)
+	require.Equal(t, "created", remembered.Action)
+	require.Contains(t, remembered.Path, "memory/")
+}

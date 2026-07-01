@@ -355,3 +355,36 @@ func TestCronRunResultWireShape(t *testing.T) {
 	roundTrip(t, res)
 	assertFields(t, res, []string{"output"})
 }
+
+func TestRememberParamsWireShape(t *testing.T) {
+	p := RememberParams{Fact: "the deploy key rotates monthly"}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"fact"})
+}
+
+func TestRememberResultWireShape(t *testing.T) {
+	res := RememberResult{Action: "appended", Path: "memory/2026-06-25-deploy.md"}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"action", "path"})
+}
+
+func TestMemoryParamsWireShape(t *testing.T) {
+	p := MemoryParams{
+		Command: "rename",
+		Path:    "memory/notes.md",
+		Content: "full note body",
+		OldStr:  "old text",
+		NewStr:  "new text",
+		Line:    3,
+		Text:    "inserted line",
+		Dest:    "memory/renamed.md",
+	}
+	roundTrip(t, p)
+	assertFields(t, p, []string{"command", "path", "content", "old_str", "new_str", "line", "text", "dest"})
+}
+
+func TestMemoryResultWireShape(t *testing.T) {
+	res := MemoryResult{Result: "created memory/notes.md"}
+	roundTrip(t, res)
+	assertFields(t, res, []string{"result"})
+}

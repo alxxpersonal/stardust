@@ -344,3 +344,46 @@ type CronRunParams struct {
 type CronRunResult struct {
 	Output string `json:"output"`
 }
+
+// --- memory/remember ---
+
+// RememberParams stores Fact in the vault add-only. Field name mirrors the
+// remember MCP tool's input and service.Remember's fact argument. Result is a
+// RememberResult.
+type RememberParams struct {
+	Fact string `json:"fact"`
+}
+
+// RememberResult records where a remembered fact landed: Action is "appended"
+// (merged into the nearest existing note) or "created" (a fresh dated note under
+// memory/), and Path is the note that was touched. Field names mirror
+// service.RememberResult.
+type RememberResult struct {
+	Action string `json:"action"`
+	Path   string `json:"path"`
+}
+
+// --- memory/edit ---
+
+// MemoryParams applies a single memory verb to a vault file. Command is one of
+// view, create, str_replace, insert, delete, rename; the remaining fields carry
+// that verb's operands: Content for create, OldStr and NewStr for str_replace,
+// Line and Text for insert, and Dest for rename. It mirrors service.MemoryOp and
+// the memory MCP tool's input schema. Result is a MemoryResult.
+type MemoryParams struct {
+	Command string `json:"command"`
+	Path    string `json:"path"`
+	Content string `json:"content,omitempty"`
+	OldStr  string `json:"old_str,omitempty"`
+	NewStr  string `json:"new_str,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Text    string `json:"text,omitempty"`
+	Dest    string `json:"dest,omitempty"`
+}
+
+// MemoryResult is the human-readable outcome line of a memory verb, e.g.
+// "created memory/a.md" or "view" content. It mirrors the memory MCP tool's
+// result wrapper.
+type MemoryResult struct {
+	Result string `json:"result"`
+}

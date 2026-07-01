@@ -177,3 +177,19 @@ func (c *Client) CronRun(ctx context.Context, p CronRunParams) (CronRunResult, e
 	err := c.rpc.CallResult(ctx, "cron/run", p, &out)
 	return out, err
 }
+
+// Remember stores a fact add-only and reports where it landed (appended to the
+// nearest note or created under memory/).
+func (c *Client) Remember(ctx context.Context, p RememberParams) (RememberResult, error) {
+	var out RememberResult
+	err := c.rpc.CallResult(ctx, "memory/remember", p, &out)
+	return out, err
+}
+
+// MemoryEdit applies one memory verb to a vault file and returns the outcome
+// line.
+func (c *Client) MemoryEdit(ctx context.Context, p MemoryParams) (MemoryResult, error) {
+	var out MemoryResult
+	err := c.rpc.CallResult(ctx, "memory/edit", p, &out)
+	return out, err
+}

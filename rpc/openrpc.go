@@ -59,6 +59,8 @@ var methodSummaries = map[string]string{
 	"archive":         "Snapshot the vault's git history into a destination.",
 	"cron/list":       "List the configured cron jobs.",
 	"cron/run":        "Run a cron job by name and return its buffered output.",
+	"memory/remember": "Store a fact add-only, appending to the nearest note or creating a dated note.",
+	"memory/edit":     "Apply a memory verb to a vault file and reindex the change.",
 	"rpc.discover":    "Return this OpenRPC discovery document.",
 }
 

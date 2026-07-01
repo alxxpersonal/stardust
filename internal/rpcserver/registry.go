@@ -30,9 +30,9 @@ func ServerOptions() *jrpc2.ServerOptions {
 
 // NewRegistry builds the handler.Map of canonical slash method names to typed
 // handlers over svc. The same map backs every transport (stdio, HTTP, MCP) so
-// the surfaces stay at structural parity. Alongside the twenty operation methods
-// it registers the reserved rpc.discover method, whose result is an OpenRPC
-// document built from this registry's own method set.
+// the surfaces stay at structural parity. Alongside the twenty-two operation
+// methods it registers the reserved rpc.discover method, whose result is an
+// OpenRPC document built from this registry's own method set.
 func NewRegistry(svc *service.Service) handler.Map {
 	reg := handler.Map{
 		"status":          handler.New(statusHandler(svc)),
@@ -55,6 +55,8 @@ func NewRegistry(svc *service.Service) handler.Map {
 		"archive":         handler.New(archiveHandler(svc)),
 		"cron/list":       handler.New(listCronHandler(svc)),
 		"cron/run":        handler.New(runCronHandler(svc)),
+		"memory/remember": handler.New(rememberHandler(svc)),
+		"memory/edit":     handler.New(memoryEditHandler(svc)),
 	}
 
 	// rpc.discover is the OpenRPC discovery method (the 21st). Its document lists
@@ -362,6 +364,44 @@ func runCronHandler(svc *service.Service) func(context.Context, rpc.CronRunParam
 			return rpc.CronRunResult{}, err
 		}
 		return rpc.CronRunResult{Output: buf.String()}, nil
+	}
+}
+
+// --- memory/remember ---
+
+// rememberHandler stores a fact add-only and reports where it landed (appended to
+// the nearest note or created under memory/). It backs the remember MCP tool.
+func rememberHandler(svc *service.Service) func(context.Context, rpc.RememberParams) (rpc.RememberResult, error) {
+	return func(ctx context.Context, p rpc.RememberParams) (rpc.RememberResult, error) {
+		res, err := svc.Remember(ctx, p.Fact)
+		if err != nil {
+			return rpc.RememberResult{}, err
+		}
+		return rpc.RememberResult{Action: res.Action, Path: res.Path}, nil
+	}
+}
+
+// --- memory/edit ---
+
+// memoryEditHandler applies one memory verb to a vault file and returns the
+// human-readable outcome line, reindexing the changed file. It backs the memory
+// MCP tool; the params mirror service.MemoryOp field for field.
+func memoryEditHandler(svc *service.Service) func(context.Context, rpc.MemoryParams) (rpc.MemoryResult, error) {
+	return func(ctx context.Context, p rpc.MemoryParams) (rpc.MemoryResult, error) {
+		out, err := svc.Memory(ctx, service.MemoryOp{
+			Command: p.Command,
+			Path:    p.Path,
+			Content: p.Content,
+			Old:     p.OldStr,
+			New:     p.NewStr,
+			Line:    p.Line,
+			Text:    p.Text,
+			Dest:    p.Dest,
+		})
+		if err != nil {
+			return rpc.MemoryResult{}, err
+		}
+		return rpc.MemoryResult{Result: out}, nil
 	}
 }
 

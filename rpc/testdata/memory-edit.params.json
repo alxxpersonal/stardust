@@ -1,0 +1,10 @@
+{
+  "command": "rename",
+  "path": "memory/notes.md",
+  "content": "full note body",
+  "old_str": "old text",
+  "new_str": "new text",
+  "line": 3,
+  "text": "inserted line",
+  "dest": "memory/renamed.md"
+}

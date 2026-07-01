@@ -81,7 +81,7 @@ func TestRegistryRecordCreate(t *testing.T) {
 // TestRegistryMethodSet pins the registry's method set. NewRegistry MUST expose
 // exactly the canonical slash names for the full operation set plus the reserved
 // rpc.discover method, no more and no fewer. A removed, renamed, or silently added
-// method fails this test. The full set totals twenty-one methods.
+// method fails this test. The full set totals twenty-three methods.
 func TestRegistryMethodSet(t *testing.T) {
 	svc, err := service.Open(context.Background(), jobsVault(t))
 	require.NoError(t, err)
@@ -99,6 +99,8 @@ func TestRegistryMethodSet(t *testing.T) {
 		"graph",
 		"index/rebuild",
 		"index/run",
+		"memory/edit",
+		"memory/remember",
 		"mount/list",
 		"note/get",
 		"query",
@@ -119,7 +121,7 @@ func TestRegistryMethodSet(t *testing.T) {
 	sort.Strings(got)
 
 	require.Equal(t, want, got)
-	require.Len(t, got, 21)
+	require.Len(t, got, 23)
 }
 
 // TestRegistryDiscover pins rpc.discover. Calling it returns an OpenRPC document
@@ -154,6 +156,6 @@ func TestRegistryDiscover(t *testing.T) {
 	sort.Strings(regNames)
 
 	require.Equal(t, regNames, docNames, "discover document must list exactly the registry methods")
-	require.Len(t, doc.Methods, 21)
+	require.Len(t, doc.Methods, 23)
 	require.Contains(t, docNames, "rpc.discover")
 }
