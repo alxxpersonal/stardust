@@ -55,11 +55,11 @@ Steps:
 
 Steps:
 
-- [ ] Fresh shell: run `resolve-root.test.sh` end to end; all ten cases green.
-- [ ] Reproduce both original failures against the NEW resolver: (a) cd into a dir containing `.stardust/` with `CLAUDE_PROJECT_DIR` unset resolves repo with SOURCE=cwd; (b) a nested subdirectory resolves the same root.
-- [ ] Prove ADR 0037 isolation still holds: an unmapped temp dir with nothing to walk to resolves none, and two mapped projects resolve two different vaults.
-- [ ] Verify the live cache copy matches the repo copy byte for byte, and `git log` shows clean conventional commits with no trailers.
-- [ ] Report defects; do not fix silently.
+- [x] Fresh shell: run `resolve-root.test.sh` end to end; all ten cases green.
+- [x] Reproduce both original failures against the NEW resolver: (a) cd into a dir containing `.stardust/` with `CLAUDE_PROJECT_DIR` unset resolves repo with SOURCE=cwd; (b) a nested subdirectory resolves the same root.
+- [x] Prove ADR 0037 isolation still holds: an unmapped temp dir with nothing to walk to resolves none, and two mapped projects resolve two different vaults.
+- [x] Verify the live cache copy matches the repo copy byte for byte, and `git log` shows clean conventional commits with no trailers.
+- [x] Report defects; do not fix silently.
 
 ## Verification
 
