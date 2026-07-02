@@ -34,13 +34,14 @@ func goldenCases() []goldenCase {
 	body := "new body"
 	return []goldenCase{
 		{"status", "result", StatusResult{
-			Root:        "/vault",
-			Notes:       12,
-			Chunks:      34,
-			LastIndexed: "abc123",
-			EmbedModel:  "model-x",
-			Vectors:     true,
-			Reranker:    false,
+			Root:           "/vault",
+			Notes:          12,
+			Chunks:         34,
+			LastIndexed:    "abc123",
+			EmbedModel:     "model-x",
+			Vectors:        true,
+			Reranker:       false,
+			RerankerSource: "off",
 		}},
 		{"record/create", "params", CreateRecordParams{
 			Collection: "tasks",
@@ -96,6 +97,7 @@ func goldenCases() []goldenCase {
 			Mode:          "hybrid + rerank",
 			RetrievalMode: "hybrid-semantic",
 			Reranked:      true,
+			RerankSource:  "discovered",
 			Hits: []Hit{{
 				Path:    "20-Active/Tasks/a.md",
 				Title:   "A",

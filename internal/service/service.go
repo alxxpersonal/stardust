@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alxxpersonal/stardust/internal/config"
@@ -36,7 +37,18 @@ type Service struct {
 	Config config.Config
 	store  *index.Store
 	embed  embedder
-	rerank *rerank.Client
+
+	// The reranker source resolves lazily, once per service lifetime, on the
+	// first Query or Status that needs it, so index and other commands pay no
+	// discovery probe. The fallback chain is configured > discovered > none;
+	// rerankProbes overrides the discovery candidate list in tests (nil uses
+	// rerank.DefaultCandidates over the configured Ollama host).
+	rerankMu     sync.Mutex
+	rerankReady  bool
+	rerankClient *rerank.Client
+	rerankSource rerank.Source
+	rerankReason string
+	rerankProbes []rerank.Candidate
 }
 
 // Open resolves the vault containing start (walking up for .stardust), loads its
@@ -60,7 +72,6 @@ func Open(ctx context.Context, start string) (*Service, error) {
 		Config: cfg,
 		store:  store,
 		embed:  embed.New(cfg.OllamaURL, cfg.EmbedModel),
-		rerank: rerank.New(cfg.RerankerURL, cfg.RerankerModel),
 	}, nil
 }
 
@@ -75,16 +86,45 @@ func (s *Service) Close() error {
 // --- Config mutation ---
 
 // SetConfig persists cfg to the vault's config.toml and updates the live
-// service, rebuilding the embed and rerank clients so later reads use the new
-// model, Ollama URL, and reranker settings without reopening the service.
+// service, rebuilding the embed client and invalidating the cached reranker
+// resolution so later reads use the new model, Ollama URL, and reranker settings
+// without reopening the service. The reranker source re-resolves on the next
+// Query or Status.
 func (s *Service) SetConfig(cfg config.Config) error {
 	if err := config.Save(s.Layout.Config(), cfg); err != nil {
 		return err
 	}
 	s.Config = cfg
 	s.embed = embed.New(cfg.OllamaURL, cfg.EmbedModel)
-	s.rerank = rerank.New(cfg.RerankerURL, cfg.RerankerModel)
+	s.rerankMu.Lock()
+	s.rerankReady = false
+	s.rerankMu.Unlock()
 	return nil
+}
+
+// resolveRerank returns the reranker client, its announced source, and an off
+// reason, resolving the fallback chain (configured > discovered > none) once and
+// caching the outcome for the service lifetime. Discovery probes run at most
+// once, only when reranker_url is empty, and never fail: an unreachable or absent
+// runtime resolves to a disabled client and an off source with a reason.
+func (s *Service) resolveRerank(ctx context.Context) (*rerank.Client, rerank.Source, string) {
+	s.rerankMu.Lock()
+	defer s.rerankMu.Unlock()
+	if !s.rerankReady {
+		candidates := s.rerankProbes
+		if candidates == nil {
+			candidates = rerank.DefaultCandidates(s.Config.OllamaURL)
+		}
+		res := rerank.Resolve(ctx, rerank.ResolveConfig{
+			RerankerURL:   s.Config.RerankerURL,
+			RerankerModel: s.Config.RerankerModel,
+		}, candidates)
+		s.rerankClient = res.Client
+		s.rerankSource = res.Source
+		s.rerankReason = res.Reason
+		s.rerankReady = true
+	}
+	return s.rerankClient, s.rerankSource, s.rerankReason
 }
 
 // --- Read operations ---
@@ -103,13 +143,18 @@ const ftsOnlyReason = "embeddings unavailable (Ollama unreachable or model absen
 // QueryResult is the outcome of a search. RetrievalMode announces whether the
 // answer is hybrid-semantic or a degraded fts-only, RetrievalReason carries the
 // one-line cause when degraded, and Reranked records whether the cross-encoder
-// reordered the top-k. Mode is the legacy human-readable stage string.
+// reordered the top-k. RerankSource announces where the reranker came from
+// (configured, discovered, or off), extending the loud-degradation rule to the
+// rerank stage, and RerankReason explains an off source. Mode is the legacy
+// human-readable stage string.
 type QueryResult struct {
 	Query           string      `json:"query"`
 	Mode            string      `json:"mode"`
 	RetrievalMode   string      `json:"retrieval_mode"`
 	RetrievalReason string      `json:"retrieval_reason,omitempty"`
 	Reranked        bool        `json:"reranked"`
+	RerankSource    string      `json:"rerank_source"`
+	RerankReason    string      `json:"rerank_reason,omitempty"`
 	Hits            []index.Hit `json:"hits"`
 }
 
@@ -153,9 +198,12 @@ func (s *Service) queryWithVec(ctx context.Context, query string, queryVec []flo
 		res.RetrievalReason = ftsOnlyReason
 	}
 
-	if s.rerank.Enabled() {
+	client, source, reason := s.resolveRerank(ctx)
+	res.RerankSource = string(source)
+	res.RerankReason = reason
+	if client.Enabled() {
 		before := hitPaths(hits)
-		hits = s.rerank.Rerank(ctx, query, hits)
+		hits = client.Rerank(ctx, query, hits)
 		res.Reranked = !equalStrings(before, hitPaths(hits))
 		res.Mode += " + rerank"
 	}
@@ -265,15 +313,19 @@ func (s *Service) resolveLinkCandidates(groups []vault.LinkResolutionCandidates)
 	return out, nil
 }
 
-// Status is index health.
+// Status is index health. Reranker reports whether a reranker is active (a
+// configured or discovered source), and RerankerSource announces which
+// (configured, discovered, or off) so an inactive reranker is legible, not
+// silent.
 type Status struct {
-	Root        string `json:"root"`
-	Notes       int    `json:"notes"`
-	Chunks      int    `json:"chunks"`
-	LastIndexed string `json:"last_indexed_sha"`
-	EmbedModel  string `json:"embed_model"`
-	Vectors     bool   `json:"vectors"`
-	Reranker    bool   `json:"reranker"`
+	Root           string `json:"root"`
+	Notes          int    `json:"notes"`
+	Chunks         int    `json:"chunks"`
+	LastIndexed    string `json:"last_indexed_sha"`
+	EmbedModel     string `json:"embed_model"`
+	Vectors        bool   `json:"vectors"`
+	Reranker       bool   `json:"reranker"`
+	RerankerSource string `json:"reranker_source"`
 }
 
 // Status reports counts, the last indexed commit, and which optional stages are live.
@@ -287,14 +339,16 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	if model == "" {
 		model = s.embed.Model()
 	}
+	_, source, _ := s.resolveRerank(ctx)
 	return Status{
-		Root:        s.Layout.Root,
-		Notes:       notes,
-		Chunks:      chunks,
-		LastIndexed: sha,
-		EmbedModel:  model,
-		Vectors:     s.embed.Available(ctx),
-		Reranker:    s.rerank.Enabled(),
+		Root:           s.Layout.Root,
+		Notes:          notes,
+		Chunks:         chunks,
+		LastIndexed:    sha,
+		EmbedModel:     model,
+		Vectors:        s.embed.Available(ctx),
+		Reranker:       source != rerank.SourceOff,
+		RerankerSource: string(source),
 	}, nil
 }
 

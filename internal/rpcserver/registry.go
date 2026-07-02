@@ -90,13 +90,14 @@ func statusHandler(svc *service.Service) func(context.Context) (rpc.StatusResult
 			return rpc.StatusResult{}, err
 		}
 		return rpc.StatusResult{
-			Root:        st.Root,
-			Notes:       st.Notes,
-			Chunks:      st.Chunks,
-			LastIndexed: st.LastIndexed,
-			EmbedModel:  st.EmbedModel,
-			Vectors:     st.Vectors,
-			Reranker:    st.Reranker,
+			Root:           st.Root,
+			Notes:          st.Notes,
+			Chunks:         st.Chunks,
+			LastIndexed:    st.LastIndexed,
+			EmbedModel:     st.EmbedModel,
+			Vectors:        st.Vectors,
+			Reranker:       st.Reranker,
+			RerankerSource: st.RerankerSource,
 		}, nil
 	}
 }
@@ -464,6 +465,8 @@ func toQueryResult(r service.QueryResult) rpc.QueryResult {
 		RetrievalMode:   r.RetrievalMode,
 		RetrievalReason: r.RetrievalReason,
 		Reranked:        r.Reranked,
+		RerankSource:    r.RerankSource,
+		RerankReason:    r.RerankReason,
 		Hits:            hits,
 	}
 }

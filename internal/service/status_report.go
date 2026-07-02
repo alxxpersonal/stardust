@@ -44,13 +44,15 @@ type RepositoryInfo struct {
 }
 
 // IndexHealth is the derived-index portion of a status report: indexed note
-// count, whether vectors are live (with the reason when off), how far behind
-// HEAD the index sits (when git is available), the last indexed commit, and the
-// embed model.
+// count, whether vectors are live (with the reason when off), whether a reranker
+// is active (with its announced source), how far behind HEAD the index sits
+// (when git is available), the last indexed commit, and the embed model.
 type IndexHealth struct {
 	Notes            int    `json:"notes"`
 	Vectors          bool   `json:"vectors"`
 	VectorsReason    string `json:"vectors_reason,omitempty"`
+	Reranker         bool   `json:"reranker"`
+	RerankerSource   string `json:"reranker_source,omitempty"`
 	CommitsBehind    int    `json:"commits_behind"`
 	HasCommitsBehind bool   `json:"has_commits_behind"`
 	LastIndexed      string `json:"last_indexed_sha,omitempty"`
@@ -119,6 +121,8 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 			Notes:            st.Notes,
 			Vectors:          st.Vectors,
 			VectorsReason:    reason,
+			Reranker:         st.Reranker,
+			RerankerSource:   st.RerankerSource,
 			CommitsBehind:    behind,
 			HasCommitsBehind: hasBehind,
 			LastIndexed:      st.LastIndexed,

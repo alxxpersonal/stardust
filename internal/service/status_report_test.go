@@ -9,7 +9,62 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/alxxpersonal/stardust/internal/config"
+	"github.com/alxxpersonal/stardust/internal/rerank"
 )
+
+// TestStatusRerankerSourceConfigured asserts svc.Status announces a configured
+// reranker source when reranker_url is set, without probing.
+func TestStatusRerankerSourceConfigured(t *testing.T) {
+	svc, _ := newServiceWith(t, &fakeEmbedder{available: true}, "http://configured.example")
+	st, err := svc.Status(context.Background())
+	require.NoError(t, err)
+	require.True(t, st.Reranker)
+	require.Equal(t, string(rerank.SourceConfigured), st.RerankerSource)
+}
+
+// TestStatusRerankerSourceDiscovered asserts svc.Status announces a discovered
+// source when no reranker_url is set and a local runtime answers the canary.
+func TestStatusRerankerSourceDiscovered(t *testing.T) {
+	srv := reversingReranker(t)
+	defer srv.Close()
+	svc, _ := newServiceWith(t, &fakeEmbedder{available: true}, "")
+	svc.rerankProbes = []rerank.Candidate{{Base: srv.URL, Path: rerank.OpenAIRerankPath}}
+
+	st, err := svc.Status(context.Background())
+	require.NoError(t, err)
+	require.True(t, st.Reranker)
+	require.Equal(t, string(rerank.SourceDiscovered), st.RerankerSource)
+}
+
+// TestStatusRerankerSourceOff asserts svc.Status announces an off source when no
+// reranker_url is set and no runtime is discoverable.
+func TestStatusRerankerSourceOff(t *testing.T) {
+	svc, _ := newServiceWith(t, &fakeEmbedder{available: true}, "")
+	svc.rerankProbes = []rerank.Candidate{{Base: "http://127.0.0.1:0", Path: rerank.OpenAIRerankPath}}
+
+	st, err := svc.Status(context.Background())
+	require.NoError(t, err)
+	require.False(t, st.Reranker)
+	require.Equal(t, string(rerank.SourceOff), st.RerankerSource)
+}
+
+// TestGatherStatusSurfacesRerankerSource asserts the reranker source flows from
+// svc.Status through GatherStatus onto the index-health report. A configured
+// reranker_url skips discovery, so the report is hermetic.
+func TestGatherStatusSurfacesRerankerSource(t *testing.T) {
+	dir := t.TempDir()
+	layout := config.Layout{Root: dir}
+	require.NoError(t, os.MkdirAll(layout.Cache(), 0o755))
+	cfg := config.Default()
+	cfg.RerankerURL = "http://configured.example"
+	require.NoError(t, config.Save(layout.Config(), cfg))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644))
+
+	st, err := GatherStatus(context.Background(), dir)
+	require.NoError(t, err)
+	require.True(t, st.Index.Reranker)
+	require.Equal(t, string(rerank.SourceConfigured), st.Index.RerankerSource)
+}
 
 // TestGatherStatusUninitialized asserts that a directory with no .stardust
 // reports an uninitialized status (with detected kind, a hint, and a non-nil

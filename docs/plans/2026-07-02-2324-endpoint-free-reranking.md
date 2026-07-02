@@ -1,6 +1,6 @@
 ---
 title: Endpoint-free reranking via local-runtime discovery - implementation plan
-status: Active
+status: Done
 version: 1
 date: 2026-07-02
 related:
@@ -34,10 +34,10 @@ Files:
 
 Steps:
 
-- [ ] Write `discover_test.go` first (test-driven): a configured URL is returned verbatim and no probe fires; `none` returns off and no probe fires; empty probes the candidate list and adopts the first server that returns a well-formed `results` array with a numeric score; a 404, a timeout, and a 200-with-garbage-body are all skipped; when none answer, the result is off with a reason.
-- [ ] Implement the probe: candidate order is the configured Ollama host first (rerank endpoint, yields nothing today), then `http://localhost:8080` (`/v1/rerank`); canary is documents `"a"` and `"b"` against query `"a"`; short per-candidate timeout; run at most once, cache the outcome; never return an error to the caller.
-- [ ] Implement `Resolve` returning the chosen URL (or none) plus a source tag (`configured` / `discovered` / `off`) and an off reason; keep the Ollama `/api/rerank` adapter a thin stub the probe never matches until upstream ships the endpoint, so the binary carries the seam without asserting an unmerged shape.
-- [ ] Confirm `internal/rerank` and the discovery package import only the standard-library net/http path (no CGO, no ONNX runtime, no model dependency).
+- [x] Write `discover_test.go` first (test-driven): a configured URL is returned verbatim and no probe fires; `none` returns off and no probe fires; empty probes the candidate list and adopts the first server that returns a well-formed `results` array with a numeric score; a 404, a timeout, and a 200-with-garbage-body are all skipped; when none answer, the result is off with a reason.
+- [x] Implement the probe: candidate order is the configured Ollama host first (rerank endpoint, yields nothing today), then `http://localhost:8080` (`/v1/rerank`); canary is documents `"a"` and `"b"` against query `"a"`; short per-candidate timeout; run at most once, cache the outcome; never return an error to the caller.
+- [x] Implement `Resolve` returning the chosen URL (or none) plus a source tag (`configured` / `discovered` / `off`) and an off reason; keep the Ollama `/api/rerank` adapter a thin stub the probe never matches until upstream ships the endpoint, so the binary carries the seam without asserting an unmerged shape.
+- [x] Confirm `internal/rerank` and the discovery package import only the standard-library net/http path (no CGO, no ONNX runtime, no model dependency).
 
 </details>
 
@@ -53,10 +53,10 @@ Files:
 
 Steps:
 
-- [ ] Add the additive rerank-source field to `QueryResult` (and a reason string when off) and to `Status`; do not remove or repurpose the existing `Reranked` boolean, which still means "order changed."
-- [ ] Resolve the source at `Open` and re-resolve at `SetConfig` (mirroring how `embed`/`rerank` clients are rebuilt today), caching the discovery outcome on the service so `Query` does not re-probe per call.
-- [ ] In `Query`, set the source on the result: `configured` when a URL was set, `discovered` when the probe found one, `off` with a reason otherwise; keep the FTS-only / hybrid-semantic `RetrievalMode` logic unchanged and orthogonal.
-- [ ] Update the CLI query and status renderers to surface the source line; keep JSON output additive so existing consumers do not break.
+- [x] Add the additive rerank-source field to `QueryResult` (and a reason string when off) and to `Status`; do not remove or repurpose the existing `Reranked` boolean, which still means "order changed."
+- [x] Resolve the source at `Open` and re-resolve at `SetConfig` (mirroring how `embed`/`rerank` clients are rebuilt today), caching the discovery outcome on the service so `Query` does not re-probe per call.
+- [x] In `Query`, set the source on the result: `configured` when a URL was set, `discovered` when the probe found one, `off` with a reason otherwise; keep the FTS-only / hybrid-semantic `RetrievalMode` logic unchanged and orthogonal.
+- [x] Update the CLI query and status renderers to surface the source line; keep JSON output additive so existing consumers do not break.
 
 </details>
 
@@ -71,10 +71,10 @@ Files:
 
 Steps:
 
-- [ ] Prove the fallback chain end to end with fakes: configured wins and skips discovery; `none` disables both; discovered is adopted only for a valid canary responder; off is announced with a reason when nothing is found.
-- [ ] Prove safe degradation: a discovered runtime that later errors, times out, or returns malformed JSON returns the hybrid order unchanged and never fails `Query`.
-- [ ] Prove no regression for existing deployments: a vault with `reranker_url` set produces byte-identical rerank behavior to today; discovery is inert.
-- [ ] Run the full gate and confirm each passes unmasked: `go build ./...`, `go test ./...`, `make lint` exit 0, `gofmt -l .` empty, `CGO_ENABLED=0 go build ./...` passes, `stardust check` exit 0, and zero U+2014 / U+2013 in the diff. Regenerate `docs/INDEX.md` and flip this plan to Done and the spec to Implemented in the same commit as the code lands.
+- [x] Prove the fallback chain end to end with fakes: configured wins and skips discovery; `none` disables both; discovered is adopted only for a valid canary responder; off is announced with a reason when nothing is found.
+- [x] Prove safe degradation: a discovered runtime that later errors, times out, or returns malformed JSON returns the hybrid order unchanged and never fails `Query`.
+- [x] Prove no regression for existing deployments: a vault with `reranker_url` set produces byte-identical rerank behavior to today; discovery is inert.
+- [x] Run the full gate and confirm each passes unmasked: `go build ./...`, `go test ./...`, `make lint` exit 0, `gofmt -l .` empty, `CGO_ENABLED=0 go build ./...` passes, `stardust check` exit 0, and zero U+2014 / U+2013 in the diff. Regenerate `docs/INDEX.md` and flip this plan to Done and the spec to Implemented in the same commit as the code lands.
 
 </details>
 

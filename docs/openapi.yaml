@@ -304,6 +304,7 @@ components:
         embed_model: { type: string }
         vectors: { type: boolean }
         reranker: { type: boolean }
+        reranker_source: { type: string }
     GraphReport:
       type: object
       properties:

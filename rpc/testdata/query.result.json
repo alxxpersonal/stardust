@@ -3,6 +3,7 @@
   "mode": "hybrid + rerank",
   "retrieval_mode": "hybrid-semantic",
   "reranked": true,
+  "rerank_source": "discovered",
   "hits": [
     {
       "path": "20-Active/Tasks/a.md",

@@ -20,15 +20,28 @@ import (
 // Client calls a cross-encoder reranker endpoint.
 type Client struct {
 	url   string
+	path  string
 	model string
 	http  *http.Client
 }
 
 // New returns a reranker client for the given endpoint URL (empty = disabled)
-// and optional model name.
+// and optional model name, targeting the /v1/rerank contract.
 func New(url, model string) *Client {
+	return newClient(url, OpenAIRerankPath, model)
+}
+
+// newClient returns a reranker client for a base URL, a rerank endpoint path
+// (empty defaults to /v1/rerank), and an optional model name. Discovery uses it
+// to build a client for a discovered runtime whose rerank path may differ from
+// the /v1/rerank default (for example Ollama's /api/rerank seam).
+func newClient(url, path, model string) *Client {
+	if path == "" {
+		path = OpenAIRerankPath
+	}
 	return &Client{
 		url:   strings.TrimRight(url, "/"),
+		path:  path,
 		model: model,
 		http:  &http.Client{Timeout: 30 * time.Second},
 	}
@@ -58,7 +71,7 @@ func (c *Client) Rerank(ctx context.Context, query string, hits []index.Hit) []i
 		return hits
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url+"/v1/rerank", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url+c.path, bytes.NewReader(body))
 	if err != nil {
 		return hits
 	}

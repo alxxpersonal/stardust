@@ -97,6 +97,7 @@ func writeStatusHuman(w io.Writer, st service.VaultStatus) {
 	fmt.Fprintln(out, label.Render("  index:"))
 	fmt.Fprintf(out, "    %s %s\n", label.Render("notes:    "), value.Render(fmt.Sprintf("%d", st.Index.Notes)))
 	fmt.Fprintf(out, "    %s %s\n", label.Render("vectors:  "), value.Render(vectorsLine(st.Index)))
+	fmt.Fprintf(out, "    %s %s\n", label.Render("reranker: "), value.Render(rerankerLine(st.Index)))
 	fmt.Fprintf(out, "    %s %s\n", label.Render("freshness:"), value.Render(freshnessLine(st.Index)))
 }
 
@@ -115,6 +116,18 @@ func vectorsLine(h service.IndexHealth) string {
 	}
 	if h.VectorsReason != "" {
 		return fmt.Sprintf("off (%s)", h.VectorsReason)
+	}
+	return "off"
+}
+
+// rerankerLine renders the reranker field as on with its announced source, or
+// off, so an inactive reranker is legible rather than silent.
+func rerankerLine(h service.IndexHealth) string {
+	if h.Reranker {
+		if h.RerankerSource != "" {
+			return fmt.Sprintf("on (%s)", h.RerankerSource)
+		}
+		return "on"
 	}
 	return "off"
 }

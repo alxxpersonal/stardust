@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/alxxpersonal/stardust/internal/index"
+	"github.com/alxxpersonal/stardust/internal/rerank"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
@@ -79,14 +79,19 @@ func runQuery(cmd *cobra.Command, query string, limit int, output string, useMou
 	if output == "json" {
 		return emitJSON(cmd.OutOrStdout(), res.Hits)
 	}
-	emitMarkdown(cmd.OutOrStdout(), renderHits(res.Query, res.Hits, res.Mode), output)
+	emitMarkdown(cmd.OutOrStdout(), renderHits(res), output)
 	return nil
 }
 
-// renderHits formats local search results as markdown.
-func renderHits(query string, hits []index.Hit, mode string) string {
+// renderHits formats local search results as markdown, with a reranker line in
+// the header announcing the active source when a reranker ran.
+func renderHits(res service.QueryResult) string {
+	query, hits, mode := res.Query, res.Hits, res.Mode
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %d results for \"%s\" (%s)\n\n", len(hits), query, mode)
+	if line := rerankLine(res); line != "" {
+		b.WriteString(line + "\n\n")
+	}
 	if len(hits) == 0 {
 		b.WriteString("_No matches. Try different terms, or run `stardust index` if the vault is unindexed._\n")
 		return b.String()
@@ -105,6 +110,22 @@ func renderHits(query string, hits []index.Hit, mode string) string {
 		b.WriteString(h.Snippet + "\n\n")
 	}
 	return b.String()
+}
+
+// rerankLine renders the one-line reranker announcement for the results header.
+// It surfaces where a reranker came from when one ran (configured or discovered)
+// and stays silent when reranking is off, so a plain no-runtime query renders as
+// terse as before discovery existed. The off state is announced by stardust
+// status and the machine-readable rerank_source field.
+func rerankLine(res service.QueryResult) string {
+	switch res.RerankSource {
+	case string(rerank.SourceConfigured):
+		return "_reranker: configured endpoint_"
+	case string(rerank.SourceDiscovered):
+		return "_reranker: discovered local runtime_"
+	default:
+		return ""
+	}
 }
 
 // renderFused formats fused vault + mount results as markdown, with a routing

@@ -77,17 +77,18 @@ func TestRecordWireShape(t *testing.T) {
 
 func TestStatusResultWireShape(t *testing.T) {
 	res := StatusResult{
-		Root:        "/vault",
-		Notes:       12,
-		Chunks:      34,
-		LastIndexed: "abc123",
-		EmbedModel:  "model-x",
-		Vectors:     true,
-		Reranker:    false,
+		Root:           "/vault",
+		Notes:          12,
+		Chunks:         34,
+		LastIndexed:    "abc123",
+		EmbedModel:     "model-x",
+		Vectors:        true,
+		Reranker:       false,
+		RerankerSource: "off",
 	}
 	roundTrip(t, res)
 	assertFields(t, res, []string{
-		"root", "notes", "chunks", "last_indexed_sha", "embed_model", "vectors", "reranker",
+		"root", "notes", "chunks", "last_indexed_sha", "embed_model", "vectors", "reranker", "reranker_source",
 	})
 }
 
@@ -173,10 +174,12 @@ func TestQueryResultWireShape(t *testing.T) {
 		RetrievalMode:   "hybrid-semantic",
 		RetrievalReason: "embeddings unavailable",
 		Reranked:        true,
+		RerankSource:    "off",
+		RerankReason:    "no reranker configured and no local runtime discovered",
 		Hits:            []Hit{{Path: "p", Title: "t", Heading: "h", Snippet: "s", Score: 0.9}},
 	}
 	roundTrip(t, res)
-	assertFields(t, res, []string{"query", "mode", "retrieval_mode", "retrieval_reason", "reranked", "hits"})
+	assertFields(t, res, []string{"query", "mode", "retrieval_mode", "retrieval_reason", "reranked", "rerank_source", "rerank_reason", "hits"})
 }
 
 func TestBundleParamsWireShape(t *testing.T) {

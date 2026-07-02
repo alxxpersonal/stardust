@@ -10,7 +10,6 @@ import (
 
 	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/index"
-	"github.com/alxxpersonal/stardust/internal/rerank"
 )
 
 // fakeEmbedder is a deterministic in-memory embedder for tests. It counts how
@@ -39,21 +38,25 @@ func (f *fakeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, er
 
 // newServiceWith builds a Service over a fresh on-disk index with the given
 // embedder and reranker endpoint, for internal tests that need to inject fakes.
+// A non-empty rerankURL is baked into the config as a configured override; an
+// empty one leaves the reranker to lazy discovery, which tests can point at a
+// fake runtime by setting rerankProbes.
 func newServiceWith(t *testing.T, emb embedder, rerankURL string) (*Service, string) {
 	t.Helper()
 	root := t.TempDir()
 	layout := config.Layout{Root: root}
 	require.NoError(t, os.MkdirAll(layout.Cache(), 0o755))
-	require.NoError(t, config.Save(layout.Config(), config.Default()))
+	cfg := config.Default()
+	cfg.RerankerURL = rerankURL
+	require.NoError(t, config.Save(layout.Config(), cfg))
 	st, err := index.Open(context.Background(), layout.DB())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	svc := &Service{
 		Layout: layout,
-		Config: config.Default(),
+		Config: cfg,
 		store:  st,
 		embed:  emb,
-		rerank: rerank.New(rerankURL, ""),
 	}
 	return svc, root
 }

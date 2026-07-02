@@ -8,15 +8,18 @@ const ContractVersion = "1"
 // --- status ---
 
 // StatusResult reports index health. It mirrors service.Status and the GET
-// /status wire shape. The status method takes no params.
+// /status wire shape. Reranker reports whether a reranker is active and
+// RerankerSource announces which source (configured, discovered, or off). The
+// status method takes no params.
 type StatusResult struct {
-	Root        string `json:"root"`
-	Notes       int    `json:"notes"`
-	Chunks      int    `json:"chunks"`
-	LastIndexed string `json:"last_indexed_sha"`
-	EmbedModel  string `json:"embed_model"`
-	Vectors     bool   `json:"vectors"`
-	Reranker    bool   `json:"reranker"`
+	Root           string `json:"root"`
+	Notes          int    `json:"notes"`
+	Chunks         int    `json:"chunks"`
+	LastIndexed    string `json:"last_indexed_sha"`
+	EmbedModel     string `json:"embed_model"`
+	Vectors        bool   `json:"vectors"`
+	Reranker       bool   `json:"reranker"`
+	RerankerSource string `json:"reranker_source"`
 }
 
 // --- record/create ---
@@ -98,14 +101,17 @@ type Hit struct {
 // which retrieval stages ran (keyword, hybrid, with optional rerank), the
 // RetrievalMode enum ("hybrid-semantic" or "fts-only"), an optional
 // RetrievalReason surfaced when recall degraded to FTS-only, whether the hits
-// were Reranked, and the ranked Hits. Field names and order mirror
-// service.QueryResult.
+// were Reranked, the RerankSource announcing where the reranker came from
+// (configured, discovered, or off) with an optional RerankReason when off, and
+// the ranked Hits. Field names and order mirror service.QueryResult.
 type QueryResult struct {
 	Query           string `json:"query"`
 	Mode            string `json:"mode"`
 	RetrievalMode   string `json:"retrieval_mode"`
 	RetrievalReason string `json:"retrieval_reason,omitempty"`
 	Reranked        bool   `json:"reranked"`
+	RerankSource    string `json:"rerank_source"`
+	RerankReason    string `json:"rerank_reason,omitempty"`
 	Hits            []Hit  `json:"hits"`
 }
 
