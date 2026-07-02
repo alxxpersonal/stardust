@@ -91,7 +91,7 @@ Both are optional. A mount with neither is unroutable and therefore always searc
 1. Load mounts. If `len(mounts) <= 1`, the plan is ALL with mode `all`. No routing logic runs. This is the byte-identical path for this repo and every single-mount workspace.
 2. Explicit scope wins next, highest confidence:
    - An explicit `--mounts=notion,postgres` value list scopes to exactly those named mounts. The bare `--mounts` flag keeps meaning "all mounts". An explicit list has no soft fallback: the user asked for it.
-   - A mount name appearing as a token in the query text ("search notion for the launch plan") scopes to the mentioned mounts. A name mention is treated as an explicit, high-confidence signal.
+   - A mount name appearing as a token in the query text ("search notion for the launch plan") routes to the mentioned mounts plus every metadata-less mount. A name mention is a strong signal but not an explicit scope: a free-text token can coincide with a mount name, so it never excludes a mount that has no metadata to be judged by.
 3. Otherwise soft routing runs over the metadata-bearing mounts:
    - hybrid-semantic mode (embeddings available): embed the query once and reuse that vector; cosine-compare it to each mount's embedded `description`. A mount is a candidate when cosine is at or above `routeCosineThreshold`.
    - fts-only mode (embeddings unavailable): case-folded token overlap between the query and each mount's `name` + `keywords` + `description`. A mount is a candidate when it has at least one strong token hit.
@@ -176,7 +176,7 @@ const (
 - Byte-identical, metadata-less: a two-mount fixture where neither mount has a description or keywords falls back to `all` (confident subset equals full set), searching both.
 - Routed, semantic: a two-mount fixture with descriptions, embeddings available, a query matching one description above threshold, routes to that mount, mode `routed`, `mounts_skipped` names the other with the non-match reason.
 - Routed, explicit list: `--mounts=a` on a multi-mount workspace scopes to `a` with no fallback.
-- Routed, name mention: a query naming a mount scopes to it.
+- Routed, name mention: a query naming a mount routes to it plus any metadata-less mounts; only described, unmentioned mounts are pruned.
 - Fallback, empty subset: descriptions present but none match and none are metadata-less, so the subset would be empty; falls back to `all`.
 - Fallback, fts-only: embeddings unavailable, no lexical hit; routes nothing, mode `fallback`, and the result shows both `retrieval_mode: fts-only` and `routing_mode: fallback`.
 - Visibility: JSON carries `routing_mode`, `routing_reason`, `mounts_searched`, `mounts_skipped`; the human header prints the routing line.
@@ -197,3 +197,7 @@ const (
 6. Regenerate the docs index with `stardust registry`.
 
 </details>
+
+## Amendments
+
+- 2026-07-02: adversarial review found the name-mention path violating the recall-safety invariant (a free-text token coinciding with a mount name silently excluded a metadata-less mount) and routing work running on single-mount workspaces. Corrected: only the explicit `--mounts` list scopes directly; a name mention unions with the metadata-less mounts; the single-mount gate now short-circuits before any description embedding. Pinned by TestRoutePlanNameMentionZoteroRepro, TestRoutePlanNameMentionKeepsMetadataless, TestRoutePlanNameMentionPrunesDescribedOnly, and TestQueryMountsSingleMountSkipsRoutingWork.

@@ -64,12 +64,45 @@ func TestRoutePlanExplicitListAllUnknownFallsBack(t *testing.T) {
 	require.ElementsMatch(t, []string{"a", "b"}, p.search)
 }
 
-func TestRoutePlanNameMentionScopes(t *testing.T) {
+// TestRoutePlanNameMentionKeepsMetadataless pins the recall-safety invariant: a
+// mount name in free text is a soft signal, so it can never exclude a
+// metadata-less mount. With every other mount bare, the union covers the full
+// set and the gate falls back to searching all.
+func TestRoutePlanNameMentionKeepsMetadataless(t *testing.T) {
 	ms := []routeMount{rm("notion", "", nil, nil), rm("postgres", "", nil, nil), rm("gmail", "", nil, nil)}
 	p := routePlanFor(ms, nil, "search notion for the launch plan", nil)
+	require.Equal(t, RoutingFallback, p.mode)
+	require.ElementsMatch(t, []string{"notion", "postgres", "gmail"}, p.search)
+	require.Empty(t, p.skipped)
+}
+
+// TestRoutePlanNameMentionZoteroRepro is the reviewer's live repro: a described
+// mount named in the query plus one bare mount. The bare mount must never be
+// skipped on a name coincidence; with two mounts the union is the full set, so
+// the plan falls back to all and recall is preserved.
+func TestRoutePlanNameMentionZoteroRepro(t *testing.T) {
+	ms := []routeMount{
+		rm("plainbox", "", nil, nil),
+		rm("zotero", "astronomy papers and telescope references", nil, nil),
+	}
+	p := routePlanFor(ms, nil, "find telescope notes in zotero", nil)
+	require.ElementsMatch(t, []string{"plainbox", "zotero"}, p.search, "the metadata-less mount must be searched")
+	require.Empty(t, p.skipped)
+}
+
+// TestRoutePlanNameMentionPrunesDescribedOnly: a name mention may prune mounts
+// that carry metadata (they were judgeable and not mentioned), while bare
+// mounts ride along.
+func TestRoutePlanNameMentionPrunesDescribedOnly(t *testing.T) {
+	ms := []routeMount{
+		rm("zotero", "astronomy papers", nil, nil),
+		rm("notion", "team wiki and launch docs", nil, nil),
+		rm("plainbox", "", nil, nil),
+	}
+	p := routePlanFor(ms, nil, "find telescope notes in zotero", nil)
 	require.Equal(t, RoutingRouted, p.mode)
-	require.Equal(t, []string{"notion"}, p.search)
-	require.ElementsMatch(t, []string{"postgres", "gmail"}, p.skipped)
+	require.ElementsMatch(t, []string{"zotero", "plainbox"}, p.search)
+	require.Equal(t, []string{"notion"}, p.skipped)
 }
 
 func TestRoutePlanSemanticMatchAboveThresholdRoutes(t *testing.T) {
@@ -196,9 +229,11 @@ func TestQueryMountsRoutesScopedQueryAndFallsBackOnAmbiguous(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Clearly scoped: the query names one mount -> routed to it, the other skipped.
+	// Clearly scoped via the explicit --mounts list -> routed to it, the other
+	// skipped (an explicit list may skip anything; free-text name mentions may
+	// not prune bare mounts, see TestRoutePlanNameMentionKeepsMetadataless).
 	// The vault terms overlap the seeded notes so the always-searched vault returns.
-	scoped, err := svc.QueryMounts(ctx, "notion retrieval index search", 10, nil)
+	scoped, err := svc.QueryMounts(ctx, "notion retrieval index search", 10, []string{"notion"})
 	require.NoError(t, err)
 	require.Equal(t, RoutingRouted, scoped.RoutingMode)
 	require.Equal(t, []string{"notion"}, scoped.MountsSearched)
@@ -213,6 +248,24 @@ func TestQueryMountsRoutesScopedQueryAndFallsBackOnAmbiguous(t *testing.T) {
 	require.ElementsMatch(t, []string{"notion", "postgres"}, ambiguous.MountsSearched)
 	require.Empty(t, ambiguous.MountsSkipped)
 	requireHasVaultHit(t, ambiguous)
+}
+
+// TestQueryMountsSingleMountSkipsRoutingWork pins ADR 0042's zero-overhead
+// claim: with one mount, QueryMounts embeds only the query itself. A described
+// mount must not get its description embedded or cached on the query hot path.
+func TestQueryMountsSingleMountSkipsRoutingWork(t *testing.T) {
+	fe := &fakeEmbedder{available: true}
+	svc, root := newServiceWith(t, fe, "")
+	seedQueryNotes(t, root)
+	_, err := svc.Index(context.Background(), "")
+	require.NoError(t, err)
+	seedMount(t, root, "solo", "command = \"true\"\ndescription = \"the only mount, richly described\"\n")
+
+	pre := fe.embedded
+	res, err := svc.QueryMounts(context.Background(), "retrieval index search", 10, nil)
+	require.NoError(t, err)
+	require.Equal(t, RoutingAll, res.RoutingMode)
+	require.Equal(t, pre+1, fe.embedded, "only the query embeds; the description must not")
 }
 
 func TestQueryMountsNoMountsIsQuietAll(t *testing.T) {

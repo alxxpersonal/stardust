@@ -62,11 +62,27 @@ func routePlanFor(ms []routeMount, scope []string, query string, queryVec []floa
 		return routePlan{search: all, mode: RoutingAll}
 	}
 
-	// Explicit scope wins, highest confidence. An explicit list and a mount name
-	// mentioned in the query text both scope directly and bypass the
-	// metadata-less union: the user named exactly what they want.
-	if explicit := explicitScope(ms, scope, query); explicit != nil {
-		return gate(explicit, all, RoutingRouted, "matched explicit scope")
+	// An explicit --mounts list wins, highest confidence: the user typed the
+	// scope, so it bypasses the metadata-less union.
+	if len(scope) > 0 {
+		return gate(scopeList(ms, scope), all, RoutingRouted, "matched explicit scope")
+	}
+
+	// A mount name appearing in the query text is a strong signal but not an
+	// explicit scope: a free-text token can coincide with a mount name (notes,
+	// docs, mail), so it may prune described mounts yet can never exclude a
+	// metadata-less mount, which carries nothing to be judged by (ADR 0042).
+	if mentioned := nameMentions(ms, query); len(mentioned) > 0 {
+		in := make(map[string]bool, len(mentioned))
+		for _, n := range mentioned {
+			in[n] = true
+		}
+		for _, m := range ms {
+			if !m.hasMetadata() && !in[m.name] {
+				mentioned = append(mentioned, m.name)
+			}
+		}
+		return gate(mentioned, all, RoutingRouted, "matched mount name")
 	}
 
 	// Routing needs at least one self-describing mount to act on. With none there
@@ -134,34 +150,32 @@ func gate(subset, all []string, routedMode, routedReason string) routePlan {
 	return routePlan{search: search, skipped: skipped, mode: routedMode, reason: routedReason}
 }
 
-// explicitScope returns the mounts named by an explicit --mounts=a,b list or by a
-// mount name appearing as a token in the query text, mapped back to canonical
-// mount names. A given-but-all-unknown list returns a non-nil empty slice so the
-// caller's gate turns it into a safe fallback (never scope to zero on a typo). It
-// returns nil only when there is no explicit signal at all.
-func explicitScope(ms []routeMount, scope []string, query string) []string {
+// scopeList maps an explicit --mounts=a,b list back to canonical mount names.
+// A given-but-all-unknown list returns an empty slice so the caller's gate turns
+// it into a safe fallback (never scope to zero on a typo).
+func scopeList(ms []routeMount, scope []string) []string {
 	canon := make(map[string]string, len(ms))
 	for _, m := range ms {
 		canon[strings.ToLower(m.name)] = m.name
 	}
-	if len(scope) > 0 {
-		out := []string{}
-		for _, s := range scope {
-			if name, ok := canon[strings.ToLower(strings.TrimSpace(s))]; ok {
-				out = append(out, name)
-			}
+	out := []string{}
+	for _, s := range scope {
+		if name, ok := canon[strings.ToLower(strings.TrimSpace(s))]; ok {
+			out = append(out, name)
 		}
-		return out // non-nil: an explicit list was given, even if it names nothing real
 	}
+	return out
+}
+
+// nameMentions returns the mounts whose name appears as a token in the query
+// text, in canonical order. Empty when no mount is mentioned.
+func nameMentions(ms []routeMount, query string) []string {
 	tokens := tokenize(query)
 	var out []string
 	for _, m := range ms {
 		if tokens[strings.ToLower(m.name)] {
 			out = append(out, m.name)
 		}
-	}
-	if len(out) == 0 {
-		return nil
 	}
 	return out
 }

@@ -69,8 +69,19 @@ func (s *Service) QueryMounts(ctx context.Context, query string, limit int, scop
 		return MountQueryResult{}, err
 	}
 
-	// Plan the fan-out before any subprocess launches.
-	plan := routePlanFor(s.routeMounts(ctx, ms, queryVec), scope, query, queryVec)
+	// Plan the fan-out before any subprocess launches. Single-mount and
+	// no-mount workspaces skip routing entirely: no description embeds, no
+	// meta-table reads, byte-identical to the pre-routing behavior (ADR 0042).
+	var plan routePlan
+	if len(ms) <= 1 {
+		names := make([]string, len(ms))
+		for i, m := range ms {
+			names[i] = m.Name
+		}
+		plan = routePlan{search: names, mode: RoutingAll}
+	} else {
+		plan = routePlanFor(s.routeMounts(ctx, ms, queryVec), scope, query, queryVec)
+	}
 	planned := make(map[string]bool, len(plan.search))
 	for _, n := range plan.search {
 		planned[n] = true
