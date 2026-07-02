@@ -35,7 +35,7 @@ GitHub documents a soft limit of 5,000 total wiki files. That is still well insi
 
 | Capability | Pre-patch verdict on a GitHub wiki | Why | Post-patch verdict |
 |---|---|---|---|
-| Indexing and hybrid search | Works with caveats | `vault.Scan` recursively indexes `.md`; `vault.Parse` falls back to filename title; `index.Hybrid` searches FTS5 plus vectors. Caveat: non-Markdown wiki formats are ignored. | Works with same caveats |
+| Indexing and hybrid search | Works with caveats | `vault.Scan` recursively indexes `.md`; `vault.Parse` falls back to filename title; `index.Hybrid` searches FTS5 plus vectors. Caveat: non-Markdown wiki formats are ignored. | Works; the non-Markdown caveat is closed (see improvement 9) |
 | Query JSON and headless use | Works | `query --output json` emits JSON hits and the output layer keeps ANSI out of JSON. | Works |
 | Link graph for `[[Page Name]]` to `Page-Name.md` | Breaks | `NormalizeLink` lowercased but kept spaces, while file keys for `Page-Name.md` became `page-name`. `[[Page Name]]` became `page name`, so graph and check saw a broken link. | Implemented fix |
 | Link graph for `[[Title|Page Name]]` | Breaks or caveat | Existing parsing treated the left side as target, matching Obsidian but not Gollum. | Implemented fallback: try Obsidian target first, then Gollum target |
@@ -104,7 +104,7 @@ GitHub documents a soft limit of 5,000 total wiki files. That is still well insi
    - Change: decide whether to index `.rst`, `.textile`, `.adoc`, and other GitHub Markup formats as plain text or with format-aware conversion.
    - Value: broader wiki coverage.
    - Effort: medium to large.
-   - Status: proposal.
+   - Status: implemented as cheap title-plus-plain-text indexing. `Scan` and `Parse` recognize the `github/markup` non-markdown extensions (`.adoc`, `.asciidoc`, `.rst`, `.rest`, `.textile`, `.org`, `.creole`, `.mediawiki`, `.wiki`, `.rdoc`, `.pod`, `.pod6`; `.asc` excluded for PGP collision), with Tier A per-format title heuristics plus a line-rule body reducer for AsciiDoc, RST, Textile, and Org and a filename title plus raw body for the rest. Pages are indexed, searchable, and resolvable `[[Page]]` targets, but emit no out edges and no drift (spec `2026-07-02-1759-non-markdown-wiki-page-indexing.md`, ADR 0041).
 
 </details>
 
@@ -121,10 +121,11 @@ Implemented:
 - Follow-up pass: added Markdown relative links as graph edges, explicit `github-wiki` detection, path-aware foldered wiki resolution, and same-repo wiki or vault `governs` drift bindings.
 - Follow-up pass: added explicit `source_root` config for cross-repo wiki-to-code drift. When a `governs:` path is absent from the wiki checkout and present under the configured source repo, Stardust counts source repo commits after the wiki page's last commit time and labels the binding as source repo drift.
 - Follow-up pass: autodetect a sibling `../<name>` source checkout for a `<name>.wiki` GitHub wiki workspace when `source_root` is unset, gated on a remote-URL identity match so a wrong bind cannot happen. Explicit `source_root` still wins; `stardust status` surfaces the bound root and its origin (spec `2026-07-02-1725-sibling-source-root-autodetection.md`, ADR 0040).
+- Follow-up pass: index the non-Markdown GitHub Markup wiki formats. `internal/vault` recognizes the format extensions in `Scan`, dispatches `Parse` to a new `parseNonMarkdown` helper (`internal/vault/wikimarkup.go`) with Tier A title-and-body extraction for AsciiDoc, RST, Textile, and Org and a filename-title raw-body path for the rest, generalizes `trimMarkdownExtension` so `[[Page]]` resolves to `Page.rst`, and short-circuits `ExtractEdges` and `CodeRefs` to keep the pages as link sinks; `internal/convention` keeps the forbidden-dash rule global while gating the docs-convention block to Markdown (spec `2026-07-02-1759-non-markdown-wiki-page-indexing.md`, ADR 0041).
 
 Left as proposals:
 
-- Non-Markdown wiki format indexing.
+- None. All nine improvements from this research are implemented.
 
 </details>
 

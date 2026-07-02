@@ -144,6 +144,36 @@ func TestCheckDocsReportsStrayDocs(t *testing.T) {
 	}
 }
 
+// TestCheckDocsNonMarkdownDashOnlyNoDocsConvention asserts the forbidden-dash
+// rule runs on a non-markdown wiki page while the docs-convention block (stray
+// doc, doc-name, drift) never fires on it, even in a docs-convention repo.
+func TestCheckDocsNonMarkdownDashOnlyNoDocsConvention(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/probe\n") // docs convention active
+	// a non-markdown page under a collection folder, with a bad name and an em dash.
+	writeFile(t, root, "docs/specs/handbook.rst", "Handbook\n========\n\nintro "+string(rune(0x2014))+" outro\n")
+	// a markdown control that must still be doc-linted.
+	writeFile(t, root, "docs/specs/loose.md", "# Loose\n")
+
+	issues, err := CheckDocs(root, nil)
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+
+	if !hasIssuePath(issues, "forbidden-dash", "docs/specs/handbook.rst") {
+		t.Fatalf("expected forbidden-dash on the non-markdown page, got %#v", issues)
+	}
+	for _, kind := range []string{"bad-doc-name", "stray-doc", "drift", "missing-doc-field"} {
+		if hasIssuePath(issues, kind, "docs/specs/handbook.rst") {
+			t.Fatalf("docs-convention rule %s must not fire on a non-markdown page, got %#v", kind, issues)
+		}
+	}
+	// the markdown control is still doc-linted (bad name enforced).
+	if !hasIssuePath(issues, "bad-doc-name", "docs/specs/loose.md") {
+		t.Fatalf("markdown doc-lint must still run, got %#v", issues)
+	}
+}
+
 func hasIssuePath(issues []ConventionIssue, kind, path string) bool {
 	for _, issue := range issues {
 		if issue.Kind == kind && issue.Path == path {

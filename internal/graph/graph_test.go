@@ -182,6 +182,32 @@ func TestSubdirectoryWikiLinksResolveByRelativePath(t *testing.T) {
 	require.Empty(t, g.BrokenLinks())
 }
 
+func TestNonMarkdownPagesAreResolvableLinkSinks(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, content string) {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	// a markdown page links a non-markdown page by its extension-less name.
+	write("Home.md", "# Home\n\nsee [[Install]]")
+	// the non-markdown target itself carries a wikilink and a code-path token; as a
+	// link sink it must emit neither an out edge nor a code ref.
+	write("Install.rst", "Install Guide\n=============\n\nsee [[Home]] and internal/store/daemon.go\n")
+
+	g, err := graph.Build(root, nil)
+	require.NoError(t, err)
+
+	// the md -> non-md link resolves, so it is not a false broken link.
+	require.Empty(t, g.BrokenLinks())
+
+	installKey := vault.GraphKey("Install.rst")
+	homeKey := vault.GraphKey("Home.md")
+	require.Contains(t, g.Nodes[installKey].In, homeKey)
+	require.Empty(t, g.Nodes[installKey].Out)      // zero out edges
+	require.Empty(t, g.Nodes[installKey].CodeRefs) // zero drift bindings
+}
+
 func TestWikiStructuralPagesAreNotOrphans(t *testing.T) {
 	root := t.TempDir()
 	write := func(name string) {

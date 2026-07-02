@@ -53,7 +53,11 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		if strings.ContainsRune(string(raw), '\u2014') || strings.ContainsRune(string(raw), '\u2013') {
 			issues = append(issues, ConventionIssue{Severity: "error", Kind: "forbidden-dash", Path: rel, Detail: "contains a forbidden unicode dash"})
 		}
-		if !docsActive {
+		// The forbidden-dash rule is global, but the docs-convention block
+		// (stray-doc, doc-name, schema, related, governs, drift) applies only to
+		// markdown files. Non-markdown wiki pages have no frontmatter, name
+		// convention, or code bindings, so they are indexed but never doc-linted.
+		if !docsActive || !vault.IsMarkdownPath(rel) {
 			continue
 		}
 		if issue, ok := checkStrayDoc(rel, allowedDocFolders); ok {

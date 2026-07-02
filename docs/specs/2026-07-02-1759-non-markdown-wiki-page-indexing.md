@@ -1,6 +1,6 @@
 ---
 title: Index non-markdown GitHub wiki pages for search
-status: Draft
+status: Implemented
 version: 1
 date: 2026-07-02
 related:

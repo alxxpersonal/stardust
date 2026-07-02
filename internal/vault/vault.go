@@ -205,6 +205,13 @@ func isExternalWikilink(target string) bool {
 // it matches a dir/dir/file.ext shape and resolves to an existing file under
 // root, which suppresses false positives. Edges are unique by (kind, target).
 func ExtractEdges(root string, note Note) []Edge {
+	// Non-markdown wiki pages are link sinks: resolvable targets that emit no out
+	// edges. Their prose is not markdown, so wikilink, markdown-link, related, and
+	// inline-path extraction would only manufacture false edges from arbitrary
+	// tokens. They also carry no code bindings, so drift never runs on them.
+	if !IsMarkdownPath(note.Path) {
+		return nil
+	}
 	var out []Edge
 	seen := map[string]bool{}
 	add := func(target, kind string) {
@@ -346,6 +353,9 @@ func markdownPageExists(root, candidate string) bool {
 // binding set drift detection watches; wikilinks and markdown targets are
 // excluded, since those are doc-to-doc graph edges. Paths are slash-separated.
 func CodeRefs(root string, note Note) []string {
+	if !IsMarkdownPath(note.Path) {
+		return nil
+	}
 	var out []string
 	seen := map[string]bool{}
 	for _, e := range ExtractEdges(root, note) {
@@ -583,14 +593,16 @@ func normalizePagePath(target string) string {
 	return strings.Join(parts, "/")
 }
 
+// trimMarkdownExtension strips a page extension from a path segment so a
+// wikilink resolves to the file that carries it. Markdown extensions are
+// stripped exactly as before; the supported non-markdown wiki extensions are
+// stripped too, so a markdown [[Page]] resolves to Page.rst. Any other
+// extension (or none) is returned unchanged, keeping markdown keying identical.
 func trimMarkdownExtension(name string) string {
-	ext := strings.ToLower(filepath.Ext(name))
-	switch ext {
-	case ".md", ".markdown":
+	if isSupportedPageExt(strings.ToLower(filepath.Ext(name))) {
 		return strings.TrimSuffix(name, filepath.Ext(name))
-	default:
-		return name
 	}
+	return name
 }
 
 func appendUniqueString(items []string, item string) []string {
@@ -693,6 +705,9 @@ func Parse(root, rel string) (Note, error) {
 	if err != nil {
 		return Note{}, fmt.Errorf("read note %s: %w", rel, err)
 	}
+	if isNonMarkdownPageExt(extOf(rel)) {
+		return parseNonMarkdown(rel, raw), nil
+	}
 	n := Note{Path: filepath.ToSlash(rel), Hash: ContentHash(raw)}
 	body := string(raw)
 	if m := frontmatterRe.FindStringSubmatch(body); m != nil {
@@ -744,7 +759,7 @@ func Scan(root string, ignore []string) ([]string, error) {
 			}
 			return nil
 		}
-		if ext := strings.ToLower(filepath.Ext(p)); ext == ".md" || ext == ".markdown" {
+		if isSupportedPageExt(strings.ToLower(filepath.Ext(p))) {
 			if isGeneratedRegistry(p) {
 				return nil
 			}

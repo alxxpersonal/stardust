@@ -99,6 +99,61 @@ func TestExtractEdgesIgnoresCodeMaskedReferences(t *testing.T) {
 	require.Empty(t, ExtractEdges(root, note))
 }
 
+func TestScanIncludesNonMarkdownWikiFormats(t *testing.T) {
+	root := t.TempDir()
+	write := func(name string) {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("body\n"), 0o644))
+	}
+	supported := []string{
+		"Guide.adoc", "Doc.asciidoc", "Install.rst", "Read.rest", "Style.textile",
+		"Notes.org", "Wiki.creole", "Manual.mediawiki", "Home.wiki", "Api.rdoc",
+		"Perl.pod", "Perl6.pod6",
+	}
+	for _, n := range supported {
+		write(n)
+	}
+	write("Shout.ADOC")  // case-insensitive extension match
+	write("key.asc")     // excluded: collides with PGP armored files
+	write("archive.tar") // excluded: unrelated binary/text
+
+	paths, err := Scan(root, nil)
+	require.NoError(t, err)
+	for _, n := range supported {
+		require.Contains(t, paths, n)
+	}
+	require.Contains(t, paths, "Shout.ADOC")
+	require.NotContains(t, paths, "key.asc")
+	require.NotContains(t, paths, "archive.tar")
+}
+
+func TestGraphKeyStripsNonMarkdownExtensions(t *testing.T) {
+	// non-markdown pages key like their de-extensioned name so a markdown
+	// [[Page]] resolves to Page.rst.
+	require.Equal(t, "install", GraphKey("Install.rst"))
+	require.Equal(t, "guide", GraphKey("Guide.adoc"))
+	require.Equal(t, "notes/x", GraphKey("notes/x.org"))
+	// markdown keying is byte-identical.
+	require.Equal(t, "home", GraphKey("Home.md"))
+	require.Equal(t, "long", GraphKey("Long.markdown"))
+	// an unknown extension is retained, exactly as before.
+	require.Equal(t, "data.csv", GraphKey("data.csv"))
+}
+
+func TestExtractEdgesAndCodeRefsEmptyForNonMarkdown(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "internal", "store"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "internal", "store", "daemon.go"), []byte("package store\n"), 0o644))
+
+	// a non-markdown note whose body carries a wikilink, a markdown link, and a
+	// real code-path token: none of these become edges or code refs.
+	note := Note{
+		Path: "Install.rst",
+		Body: "see [[Foo Bar]] and [x](y.md) and internal/store/daemon.go",
+	}
+	require.Empty(t, ExtractEdges(root, note))
+	require.Empty(t, CodeRefs(root, note))
+}
+
 func TestNormalizeLink(t *testing.T) {
 	require.Equal(t, "foo", NormalizeLink("Foo.md"))
 	require.Equal(t, "bar", NormalizeLink("notes/Bar"))
