@@ -168,12 +168,15 @@ func TestHitWireShape(t *testing.T) {
 
 func TestQueryResultWireShape(t *testing.T) {
 	res := QueryResult{
-		Query: "q",
-		Mode:  "hybrid + rerank",
-		Hits:  []Hit{{Path: "p", Title: "t", Heading: "h", Snippet: "s", Score: 0.9}},
+		Query:           "q",
+		Mode:            "hybrid + rerank",
+		RetrievalMode:   "hybrid-semantic",
+		RetrievalReason: "embeddings unavailable",
+		Reranked:        true,
+		Hits:            []Hit{{Path: "p", Title: "t", Heading: "h", Snippet: "s", Score: 0.9}},
 	}
 	roundTrip(t, res)
-	assertFields(t, res, []string{"query", "mode", "hits"})
+	assertFields(t, res, []string{"query", "mode", "retrieval_mode", "retrieval_reason", "reranked", "hits"})
 }
 
 func TestBundleParamsWireShape(t *testing.T) {
@@ -183,26 +186,48 @@ func TestBundleParamsWireShape(t *testing.T) {
 }
 
 func TestBundleItemWireShape(t *testing.T) {
-	it := BundleItem{Path: "notes/a.md", Title: "A", Snippet: "...", Score: 2.1}
+	it := BundleItem{Path: "notes/a.md", Title: "A", Snippet: "...", Score: 2.1, Provenance: []string{"keyword"}}
 	roundTrip(t, it)
-	assertFields(t, it, []string{"path", "title", "snippet", "score"})
+	assertFields(t, it, []string{"path", "title", "snippet", "score", "provenance"})
+}
+
+func TestBundleItemWireShapeWithDrift(t *testing.T) {
+	it := BundleItem{
+		Path:       "notes/a.md",
+		Title:      "A",
+		Snippet:    "...",
+		Score:      2.1,
+		Provenance: []string{"keyword", "semantic"},
+		Drift:      []DriftBinding{{File: "src/main.go", ChangedCommits: 3, Source: "source_repo"}},
+	}
+	roundTrip(t, it)
+	assertFields(t, it, []string{"path", "title", "snippet", "score", "provenance", "drift"})
+}
+
+func TestDriftBindingWireShape(t *testing.T) {
+	d := DriftBinding{File: "src/main.go", ChangedCommits: 3, Source: "source_repo"}
+	roundTrip(t, d)
+	assertFields(t, d, []string{"file", "changed_commits", "source"})
 }
 
 func TestBundleResultWireShape(t *testing.T) {
 	res := BundleResult{
-		Task:     "t",
-		Items:    []BundleItem{{Path: "p", Title: "ti", Snippet: "s", Score: 1.0}},
-		Markdown: "# bundle",
-		Tokens:   42,
+		Task:            "t",
+		Items:           []BundleItem{{Path: "p", Title: "ti", Snippet: "s", Score: 1.0, Provenance: []string{"keyword"}}},
+		Markdown:        "# bundle",
+		Tokens:          42,
+		RetrievalMode:   "hybrid-semantic",
+		RetrievalReason: "embeddings unavailable",
+		CommitsBehind:   4,
 	}
 	roundTrip(t, res)
-	assertFields(t, res, []string{"task", "items", "markdown", "tokens_estimate"})
+	assertFields(t, res, []string{"task", "items", "markdown", "tokens_estimate", "retrieval_mode", "retrieval_reason", "commits_behind"})
 }
 
 func TestBrokenLinkWireShape(t *testing.T) {
-	bl := BrokenLink{From: "notes/a.md", Target: "missing"}
+	bl := BrokenLink{From: "notes/a.md", Target: "missing", Kind: "wikilink"}
 	roundTrip(t, bl)
-	assertFields(t, bl, []string{"from", "target"})
+	assertFields(t, bl, []string{"from", "target", "kind"})
 }
 
 func TestPageRankEntryWireShape(t *testing.T) {

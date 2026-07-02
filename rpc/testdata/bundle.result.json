@@ -5,9 +5,15 @@
       "path": "20-Active/Tasks/a.md",
       "title": "A",
       "snippet": "ship it tonight",
-      "score": 0.91
+      "score": 0.91,
+      "provenance": [
+        "keyword",
+        "semantic"
+      ]
     }
   ],
   "markdown": "# Context bundle\n\nship it tonight\n",
-  "tokens_estimate": 42
+  "tokens_estimate": 42,
+  "retrieval_mode": "hybrid-semantic",
+  "commits_behind": 0
 }

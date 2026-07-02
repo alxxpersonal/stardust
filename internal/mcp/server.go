@@ -22,7 +22,7 @@ func Serve(ctx context.Context, svc *service.Service) error {
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "stardust", Version: version}, nil)
 	r := newRouter(svc)
 	defer func() { _ = r.close() }()
-	registerTools(server, svc, r)
+	registerRegistryTools(server, r)
 	if err := server.Run(ctx, &sdkmcp.StdioTransport{}); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 			return nil

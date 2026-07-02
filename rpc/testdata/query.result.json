@@ -1,6 +1,8 @@
 {
   "query": "ship it",
   "mode": "hybrid + rerank",
+  "retrieval_mode": "hybrid-semantic",
+  "reranked": true,
   "hits": [
     {
       "path": "20-Active/Tasks/a.md",

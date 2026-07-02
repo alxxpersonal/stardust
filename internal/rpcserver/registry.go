@@ -458,7 +458,14 @@ func toQueryResult(r service.QueryResult) rpc.QueryResult {
 			Score:   h.Score,
 		})
 	}
-	return rpc.QueryResult{Query: r.Query, Mode: r.Mode, Hits: hits}
+	return rpc.QueryResult{
+		Query:           r.Query,
+		Mode:            r.Mode,
+		RetrievalMode:   r.RetrievalMode,
+		RetrievalReason: r.RetrievalReason,
+		Reranked:        r.Reranked,
+		Hits:            hits,
+	}
 }
 
 // toBundleResult projects a service.BundleResult onto rpc.BundleResult, mapping
@@ -466,14 +473,43 @@ func toQueryResult(r service.QueryResult) rpc.QueryResult {
 func toBundleResult(r service.BundleResult) rpc.BundleResult {
 	items := make([]rpc.BundleItem, 0, len(r.Items))
 	for _, it := range r.Items {
-		items = append(items, rpc.BundleItem{
-			Path:    it.Path,
-			Title:   it.Title,
-			Snippet: it.Snippet,
-			Score:   it.Score,
-		})
+		items = append(items, toBundleItem(it))
 	}
-	return rpc.BundleResult{Task: r.Task, Items: items, Markdown: r.Markdown, Tokens: r.Tokens}
+	return rpc.BundleResult{
+		Task:            r.Task,
+		Items:           items,
+		Markdown:        r.Markdown,
+		Tokens:          r.Tokens,
+		RetrievalMode:   r.RetrievalMode,
+		RetrievalReason: r.RetrievalReason,
+		CommitsBehind:   r.CommitsBehind,
+	}
+}
+
+// toBundleItem projects a service.BundleItem onto rpc.BundleItem. Provenance is
+// assigned directly (not reallocated) so a nil provenance stays nil and marshals
+// to null, matching the service wire shape byte-for-byte; Drift is mapped onto
+// its wire twin.
+func toBundleItem(it service.BundleItem) rpc.BundleItem {
+	var drift []rpc.DriftBinding
+	if it.Drift != nil {
+		drift = make([]rpc.DriftBinding, 0, len(it.Drift))
+		for _, d := range it.Drift {
+			drift = append(drift, rpc.DriftBinding{
+				File:           d.File,
+				ChangedCommits: d.ChangedCommits,
+				Source:         d.Source,
+			})
+		}
+	}
+	return rpc.BundleItem{
+		Path:       it.Path,
+		Title:      it.Title,
+		Snippet:    it.Snippet,
+		Score:      it.Score,
+		Provenance: it.Provenance,
+		Drift:      drift,
+	}
 }
 
 // toGraphResult projects a service.GraphReport onto rpc.GraphResult, mapping the
@@ -481,7 +517,7 @@ func toBundleResult(r service.BundleResult) rpc.BundleResult {
 func toGraphResult(r service.GraphReport) rpc.GraphResult {
 	broken := make([]rpc.BrokenLink, 0, len(r.Broken))
 	for _, b := range r.Broken {
-		broken = append(broken, rpc.BrokenLink{From: b.From, Target: b.Target})
+		broken = append(broken, rpc.BrokenLink{From: b.From, Target: b.Target, Kind: b.Kind})
 	}
 	pagerank := make([]rpc.PageRankEntry, 0, len(r.PageRank))
 	for _, p := range r.PageRank {

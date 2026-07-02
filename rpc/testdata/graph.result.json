@@ -7,7 +7,8 @@
   "broken": [
     {
       "from": "notes/a.md",
-      "target": "missing"
+      "target": "missing",
+      "kind": "wikilink"
     }
   ],
   "pagerank": [

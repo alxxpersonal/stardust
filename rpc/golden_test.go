@@ -92,8 +92,10 @@ func goldenCases() []goldenCase {
 		{"record/delete", "result", DeleteResult{Path: "notes/a.md", Status: "deleted"}},
 		{"query", "params", QueryParams{Query: "ship it", Limit: 10}},
 		{"query", "result", QueryResult{
-			Query: "ship it",
-			Mode:  "hybrid + rerank",
+			Query:         "ship it",
+			Mode:          "hybrid + rerank",
+			RetrievalMode: "hybrid-semantic",
+			Reranked:      true,
 			Hits: []Hit{{
 				Path:    "20-Active/Tasks/a.md",
 				Title:   "A",
@@ -106,19 +108,22 @@ func goldenCases() []goldenCase {
 		{"bundle", "result", BundleResult{
 			Task: "ship the release",
 			Items: []BundleItem{{
-				Path:    "20-Active/Tasks/a.md",
-				Title:   "A",
-				Snippet: "ship it tonight",
-				Score:   0.91,
+				Path:       "20-Active/Tasks/a.md",
+				Title:      "A",
+				Snippet:    "ship it tonight",
+				Score:      0.91,
+				Provenance: []string{"keyword", "semantic"},
 			}},
-			Markdown: "# Context bundle\n\nship it tonight\n",
-			Tokens:   42,
+			Markdown:      "# Context bundle\n\nship it tonight\n",
+			Tokens:        42,
+			RetrievalMode: "hybrid-semantic",
+			CommitsBehind: 0,
 		}},
 		{"graph", "result", GraphResult{
 			Notes:   3,
 			Links:   2,
 			Orphans: []string{"notes/orphan.md"},
-			Broken:  []BrokenLink{{From: "notes/a.md", Target: "missing"}},
+			Broken:  []BrokenLink{{From: "notes/a.md", Target: "missing", Kind: "wikilink"}},
 			PageRank: []PageRankEntry{{
 				Path:  "notes/a.md",
 				Title: "A",

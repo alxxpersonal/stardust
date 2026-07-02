@@ -95,12 +95,18 @@ type Hit struct {
 }
 
 // QueryResult is the outcome of a search: the echoed query, the Mode recording
-// which retrieval stages ran (keyword, hybrid, with optional rerank), and the
-// ranked Hits. Field names mirror service.QueryResult.
+// which retrieval stages ran (keyword, hybrid, with optional rerank), the
+// RetrievalMode enum ("hybrid-semantic" or "fts-only"), an optional
+// RetrievalReason surfaced when recall degraded to FTS-only, whether the hits
+// were Reranked, and the ranked Hits. Field names and order mirror
+// service.QueryResult.
 type QueryResult struct {
-	Query string `json:"query"`
-	Mode  string `json:"mode"`
-	Hits  []Hit  `json:"hits"`
+	Query           string `json:"query"`
+	Mode            string `json:"mode"`
+	RetrievalMode   string `json:"retrieval_mode"`
+	RetrievalReason string `json:"retrieval_reason,omitempty"`
+	Reranked        bool   `json:"reranked"`
+	Hits            []Hit  `json:"hits"`
 }
 
 // --- bundle ---
@@ -114,32 +120,53 @@ type BundleParams struct {
 	Budget int    `json:"budget"`
 }
 
-// BundleItem is a note chosen for a context bundle. Field names mirror
-// service.BundleItem.
+// BundleItem is a note chosen for a context bundle: its path, title, snippet, and
+// fused Score, the Provenance signals that pulled it in (keyword, semantic, link
+// expansion, frontmatter), and any Drift bindings when the note trails referenced
+// code. Field names and order mirror service.BundleItem; Provenance carries no
+// omitempty so a nil (no provenance) stays null on the wire.
 type BundleItem struct {
-	Path    string  `json:"path"`
-	Title   string  `json:"title"`
-	Snippet string  `json:"snippet"`
-	Score   float64 `json:"score"`
+	Path       string         `json:"path"`
+	Title      string         `json:"title"`
+	Snippet    string         `json:"snippet"`
+	Score      float64        `json:"score"`
+	Provenance []string       `json:"provenance"`
+	Drift      []DriftBinding `json:"drift,omitempty"`
+}
+
+// DriftBinding records how far a note trails the code it references: the File
+// path, the count of ChangedCommits since the note last moved, and an optional
+// Source label for cross-repo references. Field names mirror service.DriftBinding.
+type DriftBinding struct {
+	File           string `json:"file"`
+	ChangedCommits int    `json:"changed_commits"`
+	Source         string `json:"source,omitempty"`
 }
 
 // BundleResult is an assembled, token-budgeted context bundle for a task: the
-// chosen Items, the packed Markdown, and an estimated token count. Field names
-// mirror service.BundleResult.
+// chosen Items, the packed Markdown, an estimated token count, the RetrievalMode
+// and optional RetrievalReason inherited from the underlying query, and
+// CommitsBehind announcing how stale the index is. Field names and order mirror
+// service.BundleResult.
 type BundleResult struct {
-	Task     string       `json:"task"`
-	Items    []BundleItem `json:"items"`
-	Markdown string       `json:"markdown"`
-	Tokens   int          `json:"tokens_estimate"`
+	Task            string       `json:"task"`
+	Items           []BundleItem `json:"items"`
+	Markdown        string       `json:"markdown"`
+	Tokens          int          `json:"tokens_estimate"`
+	RetrievalMode   string       `json:"retrieval_mode"`
+	RetrievalReason string       `json:"retrieval_reason,omitempty"`
+	CommitsBehind   int          `json:"commits_behind"`
 }
 
 // --- graph ---
 
-// BrokenLink is a wikilink whose target resolves to no note. Field names mirror
-// graph.BrokenLink.
+// BrokenLink is a wikilink whose target resolves to no note: the From source
+// note, the unresolved Target, and the Kind of link edge that failed to resolve.
+// Field names and order mirror graph.BrokenLink.
 type BrokenLink struct {
 	From   string `json:"from"`
 	Target string `json:"target"`
+	Kind   string `json:"kind"`
 }
 
 // PageRankEntry is one note's centrality score in the link graph. Field names
