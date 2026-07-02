@@ -22,7 +22,17 @@ type VaultStatus struct {
 	Repository  RepositoryInfo   `json:"repository"`
 	Collections []CollectionInfo `json:"collections"`
 	Index       IndexHealth      `json:"index"`
+	Source      SourceBinding    `json:"source"`
 	Hint        string           `json:"hint,omitempty"`
+}
+
+// SourceBinding is the source-repo root that cross-repo wiki-to-code drift binds
+// against, with its origin. Path is empty when nothing is bound; Origin is
+// "configured" for an explicit source_root or "detected" for an autodetected
+// sibling checkout.
+type SourceBinding struct {
+	Path   string `json:"path,omitempty"`
+	Origin string `json:"origin,omitempty"` // configured | detected
 }
 
 // RepositoryInfo is the git repository context for a status report.
@@ -94,6 +104,11 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 		reason = ftsOnlyReason
 	}
 
+	sourcePath, sourceOrigin, err := convention.ResolveSourceRoot(svc.Config, root)
+	if err != nil {
+		return VaultStatus{}, err
+	}
+
 	return VaultStatus{
 		Root:        root,
 		Initialized: true,
@@ -109,6 +124,7 @@ func GatherStatus(ctx context.Context, start string) (VaultStatus, error) {
 			LastIndexed:      st.LastIndexed,
 			EmbedModel:       st.EmbedModel,
 		},
+		Source: SourceBinding{Path: sourcePath, Origin: sourceOrigin},
 	}, nil
 }
 

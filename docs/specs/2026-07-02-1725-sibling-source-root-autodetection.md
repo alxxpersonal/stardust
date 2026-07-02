@@ -1,6 +1,6 @@
 ---
 title: Sibling source-root autodetection for GitHub wiki workspaces
-status: Approved
+status: Implemented
 version: 1
 date: 2026-07-02
 related:

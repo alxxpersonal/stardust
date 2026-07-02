@@ -159,7 +159,7 @@ func allDirectoryIndexPaths(paths []string, directoryIndexPaths map[string]bool)
 }
 
 func (s *Service) sourceDriftIssues(ctx context.Context) ([]Issue, error) {
-	sourceRoot, err := s.Config.ResolveSourceRoot(s.Layout.Root)
+	sourceRoot, _, err := convention.ResolveSourceRoot(s.Config, s.Layout.Root)
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 	}
 	docsActive := DocsConventionActive(root)
 	cfg := checkConfig(root)
-	sourceRoot, err := cfg.ResolveSourceRoot(root)
+	sourceRoot, _, err := ResolveSourceRoot(cfg, root)
 	if err != nil {
 		return nil, err
 	}

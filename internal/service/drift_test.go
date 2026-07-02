@@ -191,6 +191,97 @@ func TestDriftDocsEmptySourceRootKeepsSameRepoResolution(t *testing.T) {
 	require.False(t, hasCheckIssue(check.Issues, "drift"))
 }
 
+// TestDriftDocsDetectsSiblingSourceRoot asserts a <name>.wiki workspace with no
+// source_root binds cross-repo drift against the sibling ../<name> checkout when
+// their git remotes name the same repository, identical to the explicit
+// source_root result.
+func TestDriftDocsDetectsSiblingSourceRoot(t *testing.T) {
+	ctx := context.Background()
+	parent := t.TempDir()
+	wikiRoot := filepath.Join(parent, "project.wiki")
+	wikiStardustVault(t, wikiRoot)
+	sourceRoot := filepath.Join(parent, "project")
+	require.NoError(t, os.MkdirAll(sourceRoot, 0o755))
+	gitInitNoCommit(t, sourceRoot)
+	gitRemoteAdd(t, sourceRoot, "https://github.com/acme/project.git")
+	writeSourceFile(t, sourceRoot, "backend/src/auth.py", "def login():\n    return True\n")
+	gitCommitAt(t, sourceRoot, "2026-01-01T10:00:00", "add auth")
+
+	writeWikiGovernedDoc(t, wikiRoot, "Home.md", "Auth Wiki", "backend/src/auth.py")
+	gitInitNoCommit(t, wikiRoot)
+	gitRemoteAdd(t, wikiRoot, "https://github.com/acme/project.wiki.git")
+	gitCommitAt(t, wikiRoot, "2026-01-02T10:00:00", "add wiki")
+
+	writeSourceFile(t, sourceRoot, "backend/src/auth.py", "def login():\n    return False\n")
+	gitCommitAt(t, sourceRoot, "2026-01-03T10:00:00", "edit auth")
+
+	svc, err := service.Open(ctx, wikiRoot)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.DriftDocs(ctx)
+	require.NoError(t, err)
+	require.Len(t, res.Docs, 1)
+	require.Equal(t, "Home.md", res.Docs[0].DocPath)
+	require.Len(t, res.Docs[0].Bindings, 1)
+	require.Equal(t, "backend/src/auth.py", res.Docs[0].Bindings[0].File)
+	require.Equal(t, "source_repo", res.Docs[0].Bindings[0].Source)
+	require.Greater(t, res.Docs[0].Bindings[0].ChangedCommits, 0)
+
+	check, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(check.Issues, "drift"))
+}
+
+// TestDriftDocsIgnoresUnrelatedSiblingRemote asserts a same-named sibling that is
+// a different repository binds nothing: the remote-URL identity guard rejects it,
+// so an unmatched governs path resolves to no source root and manufactures no
+// drift.
+func TestDriftDocsIgnoresUnrelatedSiblingRemote(t *testing.T) {
+	ctx := context.Background()
+	parent := t.TempDir()
+	wikiRoot := filepath.Join(parent, "project.wiki")
+	wikiStardustVault(t, wikiRoot)
+	sibling := filepath.Join(parent, "project")
+	require.NoError(t, os.MkdirAll(sibling, 0o755))
+	gitInitNoCommit(t, sibling)
+	gitRemoteAdd(t, sibling, "https://github.com/acme/other.git")
+	writeSourceFile(t, sibling, "backend/src/auth.py", "def login():\n    return True\n")
+	gitCommitAt(t, sibling, "2026-01-01T10:00:00", "add auth")
+
+	writeWikiGovernedDoc(t, wikiRoot, "Home.md", "Auth Wiki", "backend/src/auth.py")
+	gitInitNoCommit(t, wikiRoot)
+	gitRemoteAdd(t, wikiRoot, "https://github.com/acme/project.wiki.git")
+	gitCommitAt(t, wikiRoot, "2026-01-02T10:00:00", "add wiki")
+
+	writeSourceFile(t, sibling, "backend/src/auth.py", "def login():\n    return False\n")
+	gitCommitAt(t, sibling, "2026-01-03T10:00:00", "edit auth")
+
+	svc, err := service.Open(ctx, wikiRoot)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.DriftDocs(ctx)
+	require.NoError(t, err)
+	require.Empty(t, res.Docs)
+
+	check, err := svc.Check(ctx)
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(check.Issues, "drift"))
+}
+
+// wikiStardustVault initializes an empty Stardust vault at dir so a specific
+// <name>.wiki basename can be exercised (emptyVault uses a random temp name).
+func wikiStardustVault(t *testing.T, dir string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: dir}.Config(), config.Default()))
+}
+
 // TestCheckSurfacesDriftAsWarning asserts drift reaches the check surface as a
 // warn, never as an error, so it does not fail a --strict gate by itself.
 func TestCheckSurfacesDriftAsWarning(t *testing.T) {

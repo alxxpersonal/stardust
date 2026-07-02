@@ -77,6 +77,10 @@ func writeStatusHuman(w io.Writer, st service.VaultStatus) {
 		return
 	}
 
+	if st.Source.Path != "" {
+		fmt.Fprintf(out, "  %s %s\n", label.Render("source root:"), value.Render(fmt.Sprintf("%s (%s)", st.Source.Path, st.Source.Origin)))
+	}
+
 	if len(st.Collections) > 0 {
 		fmt.Fprintln(out, label.Render("  collections:"))
 		width := 0

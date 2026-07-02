@@ -312,7 +312,7 @@ func (s *Service) matchGovernedDriftRefs(pattern string) ([]driftRef, error) {
 	if len(files) > 0 {
 		return localDriftRefs(files), nil
 	}
-	sourceRoot, err := s.Config.ResolveSourceRoot(s.Layout.Root)
+	sourceRoot, _, err := convention.ResolveSourceRoot(s.Config, s.Layout.Root)
 	if err != nil {
 		return nil, err
 	}

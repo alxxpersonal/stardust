@@ -1,6 +1,6 @@
 ---
 title: Sibling source-root autodetection - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-07-02
 related:
@@ -43,32 +43,32 @@ Cross-repo drift shipped in commit `3ae7e54` behind an explicit `source_root`, n
 - Modify: `internal/convention/detect.go` (or a new `internal/convention/source_root.go`), `internal/convention/check.go`, `internal/service/governs.go`, `internal/service/check.go`, `internal/service/status_report.go`, `internal/cli/status.go`
 - Test: `internal/convention/*_test.go`, `internal/service/drift_test.go`, `internal/service/status_report_test.go`, `internal/cli/status_test.go`
 
-- [ ] Add `convention.ResolveSourceRoot(cfg config.Config, root string) (path, origin string, err error)`: trimmed non-empty `SourceRoot` returns `cfg.ResolveSourceRoot(root)` with origin `configured`; empty attempts sibling autodetection; a confirmed match returns `filepath.Clean(sibling)` with origin `detected`; otherwise `"", "", nil`.
-- [ ] Add `stripWikiSuffix(base string) string` mirroring `hasWikiSuffix`'s trimming (`foo.wiki` -> `foo`, guard empty).
-- [ ] Add `remoteURL(dir string) string`: read `gitConfigPath(dir)`, scan for the first `url = ...` line (mirror the loop in `hasGitHubWikiSignal`), return the trimmed value or empty.
-- [ ] Add the URL canonicalizer: lowercase, trim trailing slash, drop scheme (`https://`, `http://`, `ssh://`, `git://`), drop `user@`, rewrite the scp `:` to `/`, strip trailing `.git` then `.wiki`; return `host/owner/repo` or empty. Add `sameRepoIdentity(wikiURL, srcURL) bool` requiring both non-empty and equal.
-- [ ] Implement the six-condition gate: `.wiki` basename, `KindGitHubWiki`, non-empty stripped name, sibling exists and is a directory, `gitConfigPath(sibling) != ""`, `sameRepoIdentity(remoteURL(root), remoteURL(sibling))`.
-- [ ] Unit-test every branch: configured (no probe), detected (full match), and each single-condition failure (not `.wiki`-named, not a wiki, sibling missing, sibling is a file, no `.git`, remote mismatch, remote absent either side); canonicalizer across https / scp / ssh forms; explicit wrong or missing `source_root` still resolves `configured`. Run, loop to green.
-- [ ] Commit `feat(convention): resolve wiki source root from a confirmed sibling checkout`.
-- [ ] Route the three call sites through `convention.ResolveSourceRoot`, discarding `origin` where unused: `CheckDocs`, `matchGovernedDriftRefs`, `sourceDriftIssues`. Keep `config.ResolveSourceRoot` as the delegated primitive.
-- [ ] Confirm `TestDriftDocsUsesSourceRootForWikiGoverns`, `TestDriftDocsSourceRootCleanWhenSourceUnmoved`, and `TestDriftDocsEmptySourceRootKeepsSameRepoResolution` pass unchanged; add an integration test binding a `foo.wiki` workspace to a same-remote sibling `foo` with no `source_root`, and one asserting an unrelated-remote sibling binds nothing. Run, loop to green.
-- [ ] Commit `feat(service): bind wiki drift through the shared source-root resolver`.
-- [ ] Add `SourceBinding{Path, Origin}` to `VaultStatus`; populate it in `GatherStatus` via the resolver; render `source root: <path> (<origin>)` in `writeStatusHuman`, omitting the line when the path is empty; confirm JSON carries `source.path` / `source.origin`.
-- [ ] Test status in both output modes for detected, configured, and none. Run, loop to green.
-- [ ] `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` green.
-- [ ] Commit `feat(status): surface the bound source root and its origin`.
+- [x] Add `convention.ResolveSourceRoot(cfg config.Config, root string) (path, origin string, err error)`: trimmed non-empty `SourceRoot` returns `cfg.ResolveSourceRoot(root)` with origin `configured`; empty attempts sibling autodetection; a confirmed match returns `filepath.Clean(sibling)` with origin `detected`; otherwise `"", "", nil`.
+- [x] Add `stripWikiSuffix(base string) string` mirroring `hasWikiSuffix`'s trimming (`foo.wiki` -> `foo`, guard empty).
+- [x] Add `remoteURL(dir string) string`: read `gitConfigPath(dir)`, scan for the first `url = ...` line (mirror the loop in `hasGitHubWikiSignal`), return the trimmed value or empty.
+- [x] Add the URL canonicalizer: lowercase, trim trailing slash, drop scheme (`https://`, `http://`, `ssh://`, `git://`), drop `user@`, rewrite the scp `:` to `/`, strip trailing `.git` then `.wiki`; return `host/owner/repo` or empty. Add `sameRepoIdentity(wikiURL, srcURL) bool` requiring both non-empty and equal.
+- [x] Implement the six-condition gate: `.wiki` basename, `KindGitHubWiki`, non-empty stripped name, sibling exists and is a directory, `gitConfigPath(sibling) != ""`, `sameRepoIdentity(remoteURL(root), remoteURL(sibling))`.
+- [x] Unit-test every branch: configured (no probe), detected (full match), and each single-condition failure (not `.wiki`-named, not a wiki, sibling missing, sibling is a file, no `.git`, remote mismatch, remote absent either side); canonicalizer across https / scp / ssh forms; explicit wrong or missing `source_root` still resolves `configured`. Run, loop to green.
+- [x] Commit `feat(convention): resolve wiki source root from a confirmed sibling checkout`.
+- [x] Route the three call sites through `convention.ResolveSourceRoot`, discarding `origin` where unused: `CheckDocs`, `matchGovernedDriftRefs`, `sourceDriftIssues`. Keep `config.ResolveSourceRoot` as the delegated primitive.
+- [x] Confirm `TestDriftDocsUsesSourceRootForWikiGoverns`, `TestDriftDocsSourceRootCleanWhenSourceUnmoved`, and `TestDriftDocsEmptySourceRootKeepsSameRepoResolution` pass unchanged; add an integration test binding a `foo.wiki` workspace to a same-remote sibling `foo` with no `source_root`, and one asserting an unrelated-remote sibling binds nothing. Run, loop to green.
+- [x] Commit `feat(service): bind wiki drift through the shared source-root resolver`.
+- [x] Add `SourceBinding{Path, Origin}` to `VaultStatus`; populate it in `GatherStatus` via the resolver; render `source root: <path> (<origin>)` in `writeStatusHuman`, omitting the line when the path is empty; confirm JSON carries `source.path` / `source.origin`.
+- [x] Test status in both output modes for detected, configured, and none. Run, loop to green.
+- [x] `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` green.
+- [x] Commit `feat(status): surface the bound source root and its origin`.
 
 ## Task 2: review, document, and gate
 
 - Modify: `docs/research/2026-06-27-1721-github-wiki-compatibility.md`, this plan, the spec
 - Verify: full gate and self-review
 
-- [ ] Self-review against the ADR: explicit `source_root` is never overridden; the sibling is basename-derived only; all six conditions are required; the remote-URL match is mandatory, not advisory; the resolver short-circuits at the basename check.
-- [ ] Mark research improvement 8 and the "Left as proposals" sibling-autodetect line shipped, referencing this spec and ADR 0040.
-- [ ] Set the spec `status` to `Implemented` and this plan `status` to `Done`.
-- [ ] Regenerate the docs index: `stardust index && stardust registry`.
-- [ ] Full gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, zero U+2014 / U+2013 in touched files, `stardust check` exit 0.
-- [ ] Commit `docs(convention): mark sibling source-root autodetection shipped`.
+- [x] Self-review against the ADR: explicit `source_root` is never overridden; the sibling is basename-derived only; all six conditions are required; the remote-URL match is mandatory, not advisory; the resolver short-circuits at the basename check.
+- [x] Mark research improvement 8 and the "Left as proposals" sibling-autodetect line shipped, referencing this spec and ADR 0040.
+- [x] Set the spec `status` to `Implemented` and this plan `status` to `Done`.
+- [x] Regenerate the docs index: `stardust index && stardust registry`.
+- [x] Full gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, zero U+2014 / U+2013 in touched files, `stardust check` exit 0.
+- [x] Commit `docs(convention): mark sibling source-root autodetection shipped`.
 
 ## Verification
 

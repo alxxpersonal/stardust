@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/alxxpersonal/stardust/internal/config"
 )
 
 // TestStatusJSONHasZeroANSI mirrors TestPipedJSONOutputHasZeroANSI: status with
@@ -59,4 +62,42 @@ func TestStatusHumanUninitialized(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "initialized: no")
 	require.Contains(t, out, "stardust init")
+}
+
+// TestStatusHumanShowsConfiguredSourceRoot asserts an explicit source_root renders
+// as a source root line tagged configured.
+func TestStatusHumanShowsConfiguredSourceRoot(t *testing.T) {
+	root := t.TempDir()
+	layout := config.Layout{Root: root}
+	require.NoError(t, os.MkdirAll(layout.Cache(), 0o755))
+	cfg := config.Default()
+	cfg.SourceRoot = filepath.Join(root, "explicit-source")
+	require.NoError(t, config.Save(layout.Config(), cfg))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o644))
+	t.Setenv("STARDUST_VAULT", root)
+
+	var buf bytes.Buffer
+	cmd := newRootCmd()
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"status"})
+	require.NoError(t, cmd.Execute())
+
+	out := buf.String()
+	require.Contains(t, out, "source root:")
+	require.Contains(t, out, "(configured)")
+}
+
+// TestStatusHumanOmitsSourceRootWhenUnbound asserts a plain repo with no bound
+// source root does not render the source root line.
+func TestStatusHumanOmitsSourceRootWhenUnbound(t *testing.T) {
+	root := governsDocsRepo(t)
+	t.Setenv("STARDUST_VAULT", root)
+
+	var buf bytes.Buffer
+	cmd := newRootCmd()
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"status"})
+	require.NoError(t, cmd.Execute())
+
+	require.NotContains(t, buf.String(), "source root:")
 }

@@ -98,7 +98,7 @@ GitHub documents a soft limit of 5,000 total wiki files. That is still well insi
    - Change: allow a wiki page to declare source bindings such as `governs` or a lightweight comment marker, with paths resolved against a sibling source checkout or configured root.
    - Value: brings Stardust's strongest angle to wikis: "this page claims to document this code, and the code moved."
    - Effort: larger, needs product design.
-   - Status: implemented for explicit `source_root` plus `governs:`.
+   - Status: implemented for explicit `source_root` plus `governs:`, and now autodetects a sibling `../<name>` source checkout for a `<name>.wiki` workspace on a remote-URL identity match (spec `2026-07-02-1725-sibling-source-root-autodetection.md`, ADR 0040).
 
 9. Support non-Markdown wiki pages deliberately.
    - Change: decide whether to index `.rst`, `.textile`, `.adoc`, and other GitHub Markup formats as plain text or with format-aware conversion.
@@ -120,10 +120,10 @@ Implemented:
 - Tests: added focused coverage for wiki slug resolution, pipe fallback, structural pages, plain wiki checks, and docs-convention gating.
 - Follow-up pass: added Markdown relative links as graph edges, explicit `github-wiki` detection, path-aware foldered wiki resolution, and same-repo wiki or vault `governs` drift bindings.
 - Follow-up pass: added explicit `source_root` config for cross-repo wiki-to-code drift. When a `governs:` path is absent from the wiki checkout and present under the configured source repo, Stardust counts source repo commits after the wiki page's last commit time and labels the binding as source repo drift.
+- Follow-up pass: autodetect a sibling `../<name>` source checkout for a `<name>.wiki` GitHub wiki workspace when `source_root` is unset, gated on a remote-URL identity match so a wrong bind cannot happen. Explicit `source_root` still wins; `stardust status` surfaces the bound root and its origin (spec `2026-07-02-1725-sibling-source-root-autodetection.md`, ADR 0040).
 
 Left as proposals:
 
-- Auto-detecting a sibling source checkout for `.wiki.git` clones.
 - Non-Markdown wiki format indexing.
 
 </details>
