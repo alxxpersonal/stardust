@@ -1,6 +1,6 @@
 ---
 title: Query-aware mount routing - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-07-02
 related:
@@ -34,29 +34,29 @@ Files:
 
 Steps:
 
-- [ ] Add optional `Description string` and `Keywords []string` to `mounts.Config`; confirm a mount with neither parses fine and is treated as unroutable.
-- [ ] Add `MountQueryResult` and the `RoutingAll` / `RoutingRouted` / `RoutingFallback` constants to `internal/service/mounts.go`, mirroring `QueryResult` / `RetrievalMode`.
-- [ ] Write `routing_test.go` first (test-driven): cover the `<= 1` gate, explicit list, name mention, semantic match above and below `routeCosineThreshold`, lexical match in fts-only, metadata-less always-in, empty-subset fallback, full-set fallback, and no-metadata fallback. Assert `MountsSearched` / `MountsSkipped` / `RoutingReason` in each.
-- [ ] Implement `routePlan(mounts, query, queryVec, semantic bool)` as a pure function returning the planned mount subset plus mode and reason, enforcing the invariant and the strict-non-empty-subset gate. No subprocess launches inside it.
-- [ ] Thread the query vector out of `Query` (or add a minimal embed-reuse seam) so routing reuses it; cache mount description vectors keyed by a hash of `embed_model` plus description text (index `meta` table).
-- [ ] Rewire `QueryMounts`: build the plan, search only planned mounts, keep the graceful skip-on-error behavior, RRF-fuse as before, and populate `MountQueryResult` including the inherited `RetrievalMode` / `RetrievalReason`.
-- [ ] Extend `--mounts` to accept an optional comma list (bare `--mounts` still means all); render the routing line in `renderFused`; emit the struct in JSON.
-- [ ] Gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, dash-scan (no U+2014 / U+2013), `stardust check` exit 0.
-- [ ] Commit `feat(mounts): route query --mounts to relevant mounts with fallback to all`.
+- [x] Add optional `Description string` and `Keywords []string` to `mounts.Config`; confirm a mount with neither parses fine and is treated as unroutable.
+- [x] Add `MountQueryResult` and the `RoutingAll` / `RoutingRouted` / `RoutingFallback` constants to `internal/service/mounts.go`, mirroring `QueryResult` / `RetrievalMode`.
+- [x] Write `routing_test.go` first (test-driven): cover the `<= 1` gate, explicit list, name mention, semantic match above and below `routeCosineThreshold`, lexical match in fts-only, metadata-less always-in, empty-subset fallback, full-set fallback, and no-metadata fallback. Assert `MountsSearched` / `MountsSkipped` / `RoutingReason` in each.
+- [x] Implement `routePlan(mounts, query, queryVec, semantic bool)` as a pure function returning the planned mount subset plus mode and reason, enforcing the invariant and the strict-non-empty-subset gate. No subprocess launches inside it.
+- [x] Thread the query vector out of `Query` (or add a minimal embed-reuse seam) so routing reuses it; cache mount description vectors keyed by a hash of `embed_model` plus description text (index `meta` table).
+- [x] Rewire `QueryMounts`: build the plan, search only planned mounts, keep the graceful skip-on-error behavior, RRF-fuse as before, and populate `MountQueryResult` including the inherited `RetrievalMode` / `RetrievalReason`.
+- [x] Extend `--mounts` to accept an optional comma list (bare `--mounts` still means all); render the routing line in `renderFused`; emit the struct in JSON.
+- [x] Gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, dash-scan (no U+2014 / U+2013), `stardust check` exit 0.
+- [x] Commit `feat(mounts): route query --mounts to relevant mounts with fallback to all`.
 
 ## Task 2: adversarial review
 
 Steps:
 
-- [ ] Byte-identical proof, no-mount: capture `query` and `query --mounts` output in this repo before and after the change; assert identical (zero mounts hits the `<= 1` gate).
-- [ ] Byte-identical proof, single-mount and metadata-less: fixtures for one mount, and two mounts with no metadata, both search everything with mode `all` and no routing logic engaged.
-- [ ] Recall-safety proof: construct a query that just misses a mount's description under threshold while that mount is the only metadata-less one, and confirm it is still searched; construct an all-metadata no-match case and confirm fallback to all, not empty.
-- [ ] Routed proof: semantic match, explicit list, and name mention each scope correctly, and `MountsSkipped` names every excluded mount with a reason.
-- [ ] Mode proof: with embeddings down, routing degrades to lexical or fallback, and the result shows both `retrieval_mode: fts-only` and the routing mode.
-- [ ] Vault-always-searched proof: every routed and fallback case still returns vault hits.
-- [ ] Confirm `Bundle` output is unchanged (it never fanned out to mounts).
-- [ ] Verify `git log` shows clean conventional commits with no trailers; dash-scan every touched file.
-- [ ] Report defects; do not fix silently.
+- [x] Byte-identical proof, no-mount: capture `query` and `query --mounts` output in this repo before and after the change; assert identical (zero mounts hits the `<= 1` gate).
+- [x] Byte-identical proof, single-mount and metadata-less: fixtures for one mount, and two mounts with no metadata, both search everything with mode `all` and no routing logic engaged.
+- [x] Recall-safety proof: construct a query that just misses a mount's description under threshold while that mount is the only metadata-less one, and confirm it is still searched; construct an all-metadata no-match case and confirm fallback to all, not empty.
+- [x] Routed proof: semantic match, explicit list, and name mention each scope correctly, and `MountsSkipped` names every excluded mount with a reason.
+- [x] Mode proof: with embeddings down, routing degrades to lexical or fallback, and the result shows both `retrieval_mode: fts-only` and the routing mode.
+- [x] Vault-always-searched proof: every routed and fallback case still returns vault hits.
+- [x] Confirm `Bundle` output is unchanged (it never fanned out to mounts).
+- [x] Verify `git log` shows clean conventional commits with no trailers; dash-scan every touched file.
+- [x] Report defects; do not fix silently.
 
 ## Verification
 

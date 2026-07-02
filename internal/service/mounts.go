@@ -18,22 +18,77 @@ type FusedHit struct {
 	Score   float64 `json:"score"` // fused RRF score
 }
 
-// QueryMounts fans the query out to the local index and every configured mount,
-// then fuses the rankings with RRF. A mount that errors is skipped, so the local
-// results and the other mounts still return.
-func (s *Service) QueryMounts(ctx context.Context, query string, limit int) ([]FusedHit, error) {
+// Routing modes announced on a mounts-aware search, mirroring RetrievalMode.
+// RoutingAll means the fan-out searched every mount without routing (single or
+// no mount, or no mount carries routing metadata); RoutingRouted means routing
+// pruned to a confident, strict subset; RoutingFallback means routing engaged
+// but backed off to searching all mounts on low confidence.
+const (
+	RoutingAll      = "all"
+	RoutingRouted   = "routed"
+	RoutingFallback = "fallback"
+)
+
+// MountQueryResult is the outcome of a mounts-aware search. It mirrors
+// QueryResult's visibility contract: RoutingMode announces whether the fan-out
+// searched all mounts, routed to a confident subset, or fell back to all on low
+// confidence; RoutingReason carries the one-line cause; MountsSearched and
+// MountsSkipped name the mounts on each side of the decision; RetrievalMode and
+// RetrievalReason are inherited from the local query so a consumer sees both the
+// routing and the retrieval story at once.
+type MountQueryResult struct {
+	Query           string     `json:"query"`
+	Hits            []FusedHit `json:"hits"`
+	RoutingMode     string     `json:"routing_mode"`
+	RoutingReason   string     `json:"routing_reason,omitempty"`
+	MountsSearched  []string   `json:"mounts_searched"`
+	MountsSkipped   []string   `json:"mounts_skipped,omitempty"`
+	RetrievalMode   string     `json:"retrieval_mode"`
+	RetrievalReason string     `json:"retrieval_reason,omitempty"`
+}
+
+// QueryMounts fans the query out to the local vault and the configured mounts a
+// query is about, then fuses the rankings with RRF. It computes a routing plan
+// before launching any connector (see ADR 0042): scope is an explicit
+// --mounts=a,b list (nil for all), routing only prunes an external mount it is
+// confident is irrelevant, and it falls back to searching every mount on any
+// ambiguity. The local vault is always searched. A mount that errors is skipped,
+// so the local results and the other mounts still return.
+func (s *Service) QueryMounts(ctx context.Context, query string, limit int, scope []string) (MountQueryResult, error) {
 	ms, err := mounts.Load(s.Layout.Mounts())
 	if err != nil {
-		return nil, err
+		return MountQueryResult{}, err
+	}
+
+	// Embed the query once and reuse the vector for both local retrieval and
+	// semantic routing, so a mounts-aware search never double-embeds.
+	queryVec := s.embedQuery(ctx, query)
+
+	local, err := s.queryWithVec(ctx, query, queryVec, limit)
+	if err != nil {
+		return MountQueryResult{}, err
+	}
+
+	// Plan the fan-out before any subprocess launches.
+	plan := routePlanFor(s.routeMounts(ctx, ms, queryVec), scope, query, queryVec)
+	planned := make(map[string]bool, len(plan.search))
+	for _, n := range plan.search {
+		planned[n] = true
+	}
+
+	result := MountQueryResult{
+		Query:           query,
+		RoutingMode:     plan.mode,
+		RoutingReason:   plan.reason,
+		MountsSearched:  plan.search,
+		MountsSkipped:   plan.skipped,
+		RetrievalMode:   local.RetrievalMode,
+		RetrievalReason: local.RetrievalReason,
 	}
 
 	registry := map[string]FusedHit{}
 	var lists [][]string
 
-	local, err := s.Query(ctx, query, limit)
-	if err != nil {
-		return nil, err
-	}
 	localKeys := make([]string, 0, len(local.Hits))
 	for _, h := range local.Hits {
 		key := "vault:" + h.Path
@@ -43,6 +98,9 @@ func (s *Service) QueryMounts(ctx context.Context, query string, limit int) ([]F
 	lists = append(lists, localKeys)
 
 	for _, m := range ms {
+		if !planned[m.Name] {
+			continue // routed out: do not pay its subprocess-launch tax
+		}
 		hits, mErr := m.Search(ctx, query, limit)
 		if mErr != nil {
 			continue // graceful: a failing mount does not fail the whole query
@@ -67,7 +125,8 @@ func (s *Service) QueryMounts(ctx context.Context, query string, limit int) ([]F
 	if len(out) > limit {
 		out = out[:limit]
 	}
-	return out, nil
+	result.Hits = out
+	return result, nil
 }
 
 // MountNames returns the names of configured mounts.

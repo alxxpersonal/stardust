@@ -19,12 +19,17 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// Config declares how to launch and query a downstream MCP server.
+// Config declares how to launch and query a downstream MCP server. Description
+// and Keywords are optional self-description used by query-aware routing to
+// decide whether a query is about this mount; a mount with neither is unroutable
+// and is therefore always searched (see ADR 0042).
 type Config struct {
-	Command string            `toml:"command"` // executable to launch (stdio MCP server)
-	Args    []string          `toml:"args"`
-	Env     map[string]string `toml:"env"`
-	Tool    string            `toml:"tool"` // the search tool name (default "query")
+	Command     string            `toml:"command"` // executable to launch (stdio MCP server)
+	Args        []string          `toml:"args"`
+	Env         map[string]string `toml:"env"`
+	Tool        string            `toml:"tool"`        // the search tool name (default "query")
+	Description string            `toml:"description"` // optional: what this mount holds, for routing
+	Keywords    []string          `toml:"keywords"`    // optional: routing keywords for lexical matching
 }
 
 // Mount is a loaded mount.

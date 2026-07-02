@@ -113,17 +113,33 @@ type QueryResult struct {
 	Hits            []index.Hit `json:"hits"`
 }
 
+// embedQuery embeds the query for retrieval, returning nil when Ollama is
+// unavailable or the embed fails. Both Query and QueryMounts call it so a
+// mounts-aware search embeds the query exactly once and reuses the vector for
+// routing.
+func (s *Service) embedQuery(ctx context.Context, query string) []float32 {
+	if !s.embed.Available(ctx) {
+		return nil
+	}
+	vecs, err := s.embed.Embed(ctx, []string{query})
+	if err != nil || len(vecs) != 1 {
+		return nil
+	}
+	return vecs[0]
+}
+
 // Query runs hybrid retrieval (embedding the query when Ollama is available),
 // then optional reranking. It announces its retrieval mode: hybrid-semantic when
 // the query vector is live, otherwise fts-only with a reason, and records whether
 // the reranker actually reordered the results.
 func (s *Service) Query(ctx context.Context, query string, limit int) (QueryResult, error) {
-	var queryVec []float32
-	if s.embed.Available(ctx) {
-		if vecs, err := s.embed.Embed(ctx, []string{query}); err == nil && len(vecs) == 1 {
-			queryVec = vecs[0]
-		}
-	}
+	return s.queryWithVec(ctx, query, s.embedQuery(ctx, query), limit)
+}
+
+// queryWithVec runs hybrid retrieval with a caller-supplied query vector, so a
+// mounts-aware search can reuse the same embedding it computes for routing. A nil
+// queryVec degrades to fts-only with an announced reason.
+func (s *Service) queryWithVec(ctx context.Context, query string, queryVec []float32, limit int) (QueryResult, error) {
 	hits, err := s.store.Hybrid(ctx, query, queryVec, limit)
 	if err != nil {
 		return QueryResult{}, err

@@ -1,6 +1,6 @@
 ---
 title: Query-aware mount routing with conservative fallback to all
-status: Draft
+status: Implemented
 version: 1
 date: 2026-07-02
 related:
@@ -100,13 +100,12 @@ Both are optional. A mount with neither is unroutable and therefore always searc
 4. Apply the fallback gate (below) to the confident subset. If it passes, the plan is that subset with mode `routed`; otherwise the plan is ALL with mode `fallback`.
 5. The local vault is always in the plan, independent of steps 1 to 4.
 
-**Fallback-to-all rule (the conservative spine).** Fall back to ALL (mode `fallback`) whenever any of:
+**Fallback-to-all rule (the conservative spine).** Two distinct outcomes both search every mount, and they carry different modes so the visibility stays honest:
 
-- The confident subset is empty. Never scope to zero; that would silently zero out all mount recall.
-- The confident subset equals the full mount set. Routing pruned nothing, so report `all`, not `routed`.
-- Routing could not be computed: semantic mode wanted but embedding the query failed and no lexical signal exists, or no mount carries any metadata.
+- Mode `fallback` (routing engaged but pruned nothing). Any of: the confident subset is empty (never scope to zero; that would silently zero out all mount recall); the confident subset equals the full mount set (routing ran and every mount stayed in); or semantic routing was wanted but the query embed failed while metadata is present (no usable signal, so nothing is confidently excludable). The routing line renders, announcing the safe back-off.
+- Mode `all` (routing never engaged). One or zero mounts, or no mount carries any routing metadata: there is nothing to route on, so the search is byte-identical to a pre-routing workspace and the routing line stays silent.
 
-The gate is exactly "the plan is a strict, non-empty subset of the mount set." Anything else searches everything. Note the emergent, desired consequence at low scale: when most mounts have no metadata (the current reality), the confident subset tends to equal the full set, so routing falls back to all and the behavior matches SPEC 12.1's "fan-out-to-all beats a query router at this scale" for free. Routing only starts pruning once enough mounts carry descriptions that a real strict subset emerges.
+The gate is exactly "the plan is a strict, non-empty subset of the mount set." A strict non-empty subset routes; an empty or full subset (after routing engaged) falls back; a workspace with nothing to route on stays quiet `all`. Note the emergent, desired consequence at low scale: when most mounts have no metadata (the current reality), the workspace has nothing to route on and stays `all`, matching SPEC 12.1's "fan-out-to-all beats a query router at this scale" for free. Routing only starts pruning once enough mounts carry descriptions that a real strict subset emerges.
 
 **Thresholds (documented, tunable, deliberately loose).**
 
