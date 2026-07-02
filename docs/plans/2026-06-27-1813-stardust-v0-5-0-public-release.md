@@ -24,10 +24,10 @@ Goal: ship stardust public, brew-installable, v0.5.0, with full wiki mode and a 
 
 ## Phase 3: Self-indexing vault, 0 warnings
 
-- [ ] Register stardust repo as a docs-convention vault (collections already present)
-- [ ] Fix missing-title warnings on plugin command files and any structural files
-- [ ] Resolve orphan warnings (plugin/obsidian/README.md and others)
-- [ ] `stardust check` prints 0 errors, 0 warnings
+- [x] Register stardust repo as a docs-convention vault (collections already present)
+- [x] Fix missing-title warnings on plugin command files and any structural files
+- [x] Resolve orphan warnings (plugin/obsidian/README.md and others)
+- [ ] `stardust check` prints 0 errors, 0 warnings (blocked: 2 duplicate-name warnings on README.md and SPEC.md, whose collision with the plugin READMEs and the /stardust:spec command file is test-locked convention behavior; clearing it needs a rename of a canonical file or a checker change, neither in the docs-clean lane)
 
 ## Phase 4: README for public
 
