@@ -145,7 +145,7 @@ The daemon/launchd timer just loops `stardust cron run` per the schedules. Even 
 
 One core = one source of truth. The CLI is core + flag-parsing, the API is core + HTTP handlers, the MCP is core + tool schemas - so there is nothing to keep in sync and every capability is reachable from every surface. All three are documented: CLI `--help`/man pages, OpenAPI for the API, MCP tool descriptions for agents. "Anything you can do anywhere, you can do everywhere."
 
-**v1 scope (built 2026-06-01): the CLI surface only.** The HTTP/JSON API, the MCP server, and a **full SDK** (a typed client over the HTTP API, for the Obsidian plugin + external tools) shipped post-v1. The core library was already factored so each landed as a thin addition with full parity - the API is core + handlers, the SDK is a typed client over that API, the MCP is core + tool schemas. The API landed first, then the SDK on top of it, then the MCP plugin (which arrived with mounts).
+**v1 scope (built 2026-06-01): the CLI surface only.** The HTTP/JSON API, the MCP server, and a **typed-client SDK** (over the HTTP API, for the Obsidian plugin + external tools) shipped post-v1. The core library was already factored so each landed as a thin addition - the API is core + handlers and the MCP is core + tool schemas, both at full parity with the core; the SDK is a typed client covering a subset of the API. The API landed first, then the SDK on top of it, then the MCP plugin (which arrived with mounts).
 
 ## 6. Cron-job convention (the unified scheduler)
 
