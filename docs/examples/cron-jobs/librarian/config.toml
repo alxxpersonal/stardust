@@ -7,5 +7,5 @@ schedule = "0 3 * * 0"
 [run]
 kind = "agent"
 prompt = "prompt.md"
-model = "codex"
+# model is optional; when omitted, codex agents use the supported default.
 sandbox = "read-only"
