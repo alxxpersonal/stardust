@@ -14,7 +14,6 @@ related:
   - internal/index/search.go
   - internal/temporal/temporal.go
   - internal/embed/ollama.go
-  - docs/examples/cron-jobs/librarian/prompt.md
   - SPEC.md
 ---
 

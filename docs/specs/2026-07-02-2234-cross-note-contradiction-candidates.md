@@ -8,7 +8,6 @@ related:
   - docs/adr/0043-contradiction-candidates-not-verdicts.md
   - docs/adr/0016-vectors-on-by-default-loud-degradation.md
   - docs/adr/0018-drift-detection-by-commit-distance.md
-  - docs/examples/cron-jobs/librarian/prompt.md
   - internal/service/digest.go
   - internal/service/check.go
   - internal/index/search.go

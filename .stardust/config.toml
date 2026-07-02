@@ -1,6 +1,11 @@
 embed_model = 'bge-m3'
 ollama_url = 'http://localhost:11434'
-ignore = ['.git', '.obsidian', '.stardust', '.trash', 'node_modules']
+# 'examples' excludes docs/examples/ from the index. The cron-job prompt.md
+# files there are teaching material, not convention docs, so under ADR 0026
+# they would otherwise trip stray-doc, and two same-named prompt.md files
+# would trip duplicate-name. Excluding the dir keeps them as on-disk examples
+# referenced by path without indexing them as vault docs.
+ignore = ['.git', '.obsidian', '.stardust', '.trash', 'node_modules', 'examples']
 reranker_url = ''
 reranker_model = ''
 source_root = ''
