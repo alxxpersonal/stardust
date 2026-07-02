@@ -1,6 +1,6 @@
 ---
 title: Cross-note contradiction candidates
-status: Draft
+status: Implemented
 version: 1
 date: 2026-07-02
 related:

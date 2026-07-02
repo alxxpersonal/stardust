@@ -101,6 +101,7 @@ func newRootCmd() *cobra.Command {
 		newRegistryCmd(),
 		newSyncCmd(),
 		newDigestCmd(),
+		newContradictionsCmd(),
 		newNewCmd(),
 		newArchiveCmd(),
 		newServeCmd(),

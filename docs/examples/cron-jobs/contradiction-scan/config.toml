@@ -1,0 +1,13 @@
+# A weekly contradiction scan: the stardust binary deterministically prepares
+# candidate contradiction pairs (no LLM), and this agent judges each with its own
+# reasoning and surfaces proposals rather than editing human notes. Runs in a
+# read-only sandbox, mirroring the librarian cadence. Contradiction candidates are
+# advisory review prompts, never a check kind and never a CI gate.
+[trigger]
+schedule = "0 4 * * 0"
+
+[run]
+kind = "agent"
+prompt = "prompt.md"
+model = "codex"
+sandbox = "read-only"

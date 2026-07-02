@@ -1,6 +1,6 @@
 ---
 title: Cross-note contradiction candidates - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-07-02
 related:
@@ -35,31 +35,31 @@ Files:
 
 Steps:
 
-- [ ] Add the polarity lexicon to `internal/temporal`: a reversal-cue set (`not`, `no longer`, `never`, `isn't`/`aren't`/`won't`/`can't`/`don't`, `deprecated`, `reverted`, `rolled back`, `cancelled`, `abandoned`, `dropped`, `removed`, `obsolete`, `superseded`, `replaced by`, `instead of`, `decided against`, `changed our mind`) and an assertion-marker set (`decided`, `we will`, `chose`, `locked`, `canonical`, `must`, `always`, `default`). Export an anchor detector that classifies a line as assertion-bearing, reversal-bearing, or neither. Unit-test it first.
-- [ ] Add the contradiction-specific cursor: read/write `last_contradiction_sha` through the index `meta` store, wired exactly like `last_digest_sha` in `Digest`, and never share the digest cursor.
-- [ ] Write `contradictions_test.go` before the core (test-driven): a real conflict fires exactly one candidate; two agreeing notes fire none; two topically-near-but-different-subject notes (one with a reversal cue) fall below the shared-term floor and fire none; a `superseded_by` / `valid_to` pair fires none; a constructed flood returns at most top-N, ranked, deduped so `(A, B)` and `(B, A)` appear once; embedder-up reports `hybrid-semantic`, embedder-down reports `fts-only` with a reason.
-- [ ] Implement `Contradictions(ctx, opts)`: resolve the A-side from the cursor (or `--since` / `--all`) with `gitx.DiffNames`, filter A-side chunks to anchors via the lexicon, recall same-subject B-side chunks through `index.Store.Hybrid` seeded with the anchor's salient terms (reusing the `embedQuery` seam so the vector is computed once), apply the pure pair-gate filter (different notes, similarity floor, shared-term Jaccard floor, polarity XOR, benign-superseded/index/template exclusions), then rank, dedupe symmetric pairs, and cap to top-N with a per-anchor cap.
-- [ ] Populate the typed `Contradiction{NoteA, LineA, NoteB, LineB, Score, SharedTerms, Cue, RetrievalMode, RetrievalReason}` and render each as an explicit review prompt with the "candidate, not a verdict, likely benign; confirm before acting" hedge; inherit `RetrievalMode` / `RetrievalReason` from the recall so degradation is loud (ADR 0016).
-- [ ] Wire `stardust contradictions` in `internal/cli`: `--since`, `--advance` (move the cursor to HEAD after a run), `--all` (full-vault A-side, off by default, documented cost), `--limit`, `--output`. Do not register it as a `check` kind and do not inject it into `digest` output.
-- [ ] Add `docs/examples/cron-jobs/contradiction-scan/` (prompt plus config) in the librarian pattern: the agent runs the CLI, pulls both notes per candidate, judges with its LLM, writes confirmed conflicts to `proposals/<date>-contradictions.md` under notify / question / review, add-only, never editing human notes.
-- [ ] Gate: `go build ./...`, `go test ./...`, `make lint` (exit 0, unmasked), `gofmt -l .` empty, dash-scan (zero U+2014 / U+2013 in every touched file), `stardust check` exit 0.
-- [ ] Commit `feat(digest): surface cross-note contradiction candidates as review prompts`.
+- [x] Add the polarity lexicon to `internal/temporal`: a reversal-cue set (`not`, `no longer`, `never`, `isn't`/`aren't`/`won't`/`can't`/`don't`, `deprecated`, `reverted`, `rolled back`, `cancelled`, `abandoned`, `dropped`, `removed`, `obsolete`, `superseded`, `replaced by`, `instead of`, `decided against`, `changed our mind`) and an assertion-marker set (`decided`, `we will`, `chose`, `locked`, `canonical`, `must`, `always`, `default`). Export an anchor detector that classifies a line as assertion-bearing, reversal-bearing, or neither. Unit-test it first.
+- [x] Add the contradiction-specific cursor: read/write `last_contradiction_sha` through the index `meta` store, wired exactly like `last_digest_sha` in `Digest`, and never share the digest cursor.
+- [x] Write `contradictions_test.go` before the core (test-driven): a real conflict fires exactly one candidate; two agreeing notes fire none; two topically-near-but-different-subject notes (one with a reversal cue) fall below the shared-term floor and fire none; a `superseded_by` / `valid_to` pair fires none; a constructed flood returns at most top-N, ranked, deduped so `(A, B)` and `(B, A)` appear once; embedder-up reports `hybrid-semantic`, embedder-down reports `fts-only` with a reason.
+- [x] Implement `Contradictions(ctx, opts)`: resolve the A-side from the cursor (or `--since` / `--all`) with `gitx.DiffNames`, filter A-side chunks to anchors via the lexicon, recall same-subject B-side chunks through `index.Store.Hybrid` seeded with the anchor's salient terms (reusing the `embedQuery` seam so the vector is computed once), apply the pure pair-gate filter (different notes, similarity floor, shared-term Jaccard floor, polarity XOR, benign-superseded/index/template exclusions), then rank, dedupe symmetric pairs, and cap to top-N with a per-anchor cap.
+- [x] Populate the typed `Contradiction{NoteA, LineA, NoteB, LineB, Score, SharedTerms, Cue, RetrievalMode, RetrievalReason}` and render each as an explicit review prompt with the "candidate, not a verdict, likely benign; confirm before acting" hedge; inherit `RetrievalMode` / `RetrievalReason` from the recall so degradation is loud (ADR 0016).
+- [x] Wire `stardust contradictions` in `internal/cli`: `--since`, `--advance` (move the cursor to HEAD after a run), `--all` (full-vault A-side, off by default, documented cost), `--limit`, `--output`. Do not register it as a `check` kind and do not inject it into `digest` output.
+- [x] Add `docs/examples/cron-jobs/contradiction-scan/` (prompt plus config) in the librarian pattern: the agent runs the CLI, pulls both notes per candidate, judges with its LLM, writes confirmed conflicts to `proposals/<date>-contradictions.md` under notify / question / review, add-only, never editing human notes.
+- [x] Gate: `go build ./...`, `go test ./...`, `make lint` (exit 0, unmasked), `gofmt -l .` empty, dash-scan (zero U+2014 / U+2013 in every touched file), `stardust check` exit 0.
+- [x] Commit `feat(digest): surface cross-note contradiction candidates as review prompts`.
 
 ## Task 2: adversarial precision review
 
 Steps:
 
-- [ ] Real-conflict proof: two notes, one asserting a decision and a later one reversing it over the same subject, produce exactly one candidate naming both lines, the shared terms, and the cue.
-- [ ] Agreement proof: two notes that agree on the same subject (both assert, high similarity) produce no candidate, proving similarity alone is inert without polarity asymmetry.
-- [ ] Off-subject proof: two topically near notes about different subjects, one carrying a reversal cue, fall below the shared-term floor and produce no candidate.
-- [ ] Superseded proof: a note that supersedes another through `superseded_by` or `valid_to` produces no candidate, honoring the sanctioned change-your-mind path (SPEC 12.3).
-- [ ] Cap proof: a constructed vault that would emit hundreds of pairs returns at most top-N, ranked, deduped so `(A, B)` and `(B, A)` appear once.
-- [ ] Degradation proof: with the embedder up a scan reports `retrieval_mode: hybrid-semantic`; with it down the same scan reports `fts-only` with a reason, never silently.
-- [ ] Cursor-independence proof: a `digest --advance` between two contradiction scans does not change what the second scan sees; only `contradictions --advance` moves its cursor.
-- [ ] Not-a-check proof: `stardust check` output is byte-identical before and after the feature and its exit code is unaffected; contradictions never appear there.
-- [ ] Framing proof: every rendered candidate is phrased as a review prompt with the explicit "candidate, not a verdict, likely benign" hedge; no output asserts a contradiction as fact.
-- [ ] Agent-workflow proof: the `contradiction-scan` prompt reads candidates through the CLI, writes proposals under notify / question / review, and never edits a human note.
-- [ ] Verify `git log` shows clean conventional commits with no trailers; dash-scan every touched file; report defects, do not fix silently.
+- [x] Real-conflict proof: two notes, one asserting a decision and a later one reversing it over the same subject, produce exactly one candidate naming both lines, the shared terms, and the cue.
+- [x] Agreement proof: two notes that agree on the same subject (both assert, high similarity) produce no candidate, proving similarity alone is inert without polarity asymmetry.
+- [x] Off-subject proof: two topically near notes about different subjects, one carrying a reversal cue, fall below the shared-term floor and produce no candidate.
+- [x] Superseded proof: a note that supersedes another through `superseded_by` or `valid_to` produces no candidate, honoring the sanctioned change-your-mind path (SPEC 12.3).
+- [x] Cap proof: a constructed vault that would emit hundreds of pairs returns at most top-N, ranked, deduped so `(A, B)` and `(B, A)` appear once.
+- [x] Degradation proof: with the embedder up a scan reports `retrieval_mode: hybrid-semantic`; with it down the same scan reports `fts-only` with a reason, never silently.
+- [x] Cursor-independence proof: a `digest --advance` between two contradiction scans does not change what the second scan sees; only `contradictions --advance` moves its cursor.
+- [x] Not-a-check proof: `stardust check` output is byte-identical before and after the feature and its exit code is unaffected; contradictions never appear there.
+- [x] Framing proof: every rendered candidate is phrased as a review prompt with the explicit "candidate, not a verdict, likely benign" hedge; no output asserts a contradiction as fact.
+- [x] Agent-workflow proof: the `contradiction-scan` prompt reads candidates through the CLI, writes proposals under notify / question / review, and never edits a human note.
+- [x] Verify `git log` shows clean conventional commits with no trailers; dash-scan every touched file; report defects, do not fix silently.
 
 ## Verification
 
