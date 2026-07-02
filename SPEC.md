@@ -255,7 +255,7 @@ And the **SDK** (`sdk/` - a typed Go client `sdk.Client`, and a TypeScript clien
 
 Plus vault-ops ergonomics: **`stardust check`** (integrity - broken links + malformed frontmatter as errors, orphans + missing titles + duplicate names as warnings; `--strict` exits non-zero, and `hooks install --check strict` wires a pre-commit gate that blocks a commit introducing a broken link) and **`stardust new`** (scaffold a fresh vault: git init + `.stardust` + starter files + first commit, `--template` for custom layouts).
 
-**Everything in the original deferred list is now built.** Genuinely future work (not yet built): a cross-encoder reranker served in-binary (pure-Go ONNX), LLM-based contradiction detection, and semantic mount routing at scale.
+**Everything in the original deferred list is now built.** Genuinely future work (not yet built): LLM-based contradiction detection, and semantic mount routing at scale. Endpoint-free reranking is decided in ADR 0044: discover a cross-encoder served by a local runtime (llama.cpp `/v1/rerank` today, Ollama `/api/rerank` the day it lands) rather than embed a pure-Go ONNX model in the binary, which the July 2026 survey found unviable without CGO or a heavyweight dependency plus model-weight distribution.
 
 ## 12. Superpower layer - implementation (researched 2026-06-01)
 
