@@ -1,6 +1,6 @@
 ---
 title: A leaf clierr.Hint carries actionable errors
-status: Proposed
+status: Accepted
 version: 1
 date: 2026-06-25
 related:

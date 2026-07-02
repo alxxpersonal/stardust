@@ -57,5 +57,5 @@ Extend `internal/agentsync`, do not build a parallel system.
 - SPEC.md section 4.2, README rules-adapter-sync deferral
 - docs/adr/0007-stardust-composes-hooks-never-clobbers.md
 - docs/adr/0008-sentinel-block-hook-injection.md
-- internal/hooks/block.go
-- internal/agentsync/inventory.go, internal/agentsync/plan.go, internal/agentsync/apply.go
+- `internal/hooks/block.go`
+- `internal/agentsync/inventory.go`, `internal/agentsync/plan.go`, `internal/agentsync/apply.go`

@@ -3,6 +3,7 @@ title: Query-aware mount routing with conservative fallback to all
 status: Implemented
 version: 1
 date: 2026-07-02
+updated: 2026-07-03
 related:
   - docs/adr/0042-query-aware-mount-routing.md
   - docs/plans/2026-07-02-1850-query-aware-mount-routing.md

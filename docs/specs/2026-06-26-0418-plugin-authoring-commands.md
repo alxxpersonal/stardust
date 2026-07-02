@@ -1,6 +1,6 @@
 ---
 title: Plugin authoring commands for the the spec workflow and the doc workflow write path
-status: Draft
+status: Superseded
 version: 1
 date: 2026-06-26
 related:

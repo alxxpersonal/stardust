@@ -1,6 +1,6 @@
 ---
 title: Stardust hooks compose, never clobber
-status: Draft
+status: Implemented
 version: 1
 date: 2026-06-25
 related:

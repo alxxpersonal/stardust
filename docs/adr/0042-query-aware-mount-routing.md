@@ -63,8 +63,8 @@ Add query-aware routing to `QueryMounts` as a pre-fan-out plan, governed by one 
 - docs/specs/2026-07-02-1850-query-aware-mount-routing.md
 - docs/plans/2026-07-02-1850-query-aware-mount-routing.md
 - SPEC.md sections 11 (future work) and 12.1 (mounts / context mesh, "fan-out-to-all-mounts + RRF beats a query router")
-- internal/mounts/mounts.go (`Config`, `Mount.Search`, `Load`)
-- internal/service/mounts.go (`QueryMounts`, `FusedHit`, `Mounts`)
-- internal/service/service.go (`Query`, `RetrievalMode`, `RetrievalReason`)
-- internal/embed/ollama.go (`Available`, batch `Embed`)
-- internal/cli/query.go (`--mounts` flag, `renderFused`)
+- `internal/mounts/mounts.go` (`Config`, `Mount.Search`, `Load`)
+- `internal/service/mounts.go` (`QueryMounts`, `FusedHit`, `Mounts`)
+- `internal/service/service.go` (`Query`, `RetrievalMode`, `RetrievalReason`)
+- `internal/embed/ollama.go` (`Available`, batch `Embed`)
+- `internal/cli/query.go` (`--mounts` flag, `renderFused`)

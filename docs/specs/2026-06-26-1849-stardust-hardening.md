@@ -1,6 +1,6 @@
 ---
 title: Stardust hardening for docs, index, links, and authoring commands
-status: Draft
+status: Implemented
 version: 1
 date: 2026-06-26
 related:

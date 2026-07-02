@@ -3,7 +3,7 @@ title: Status command gathers state in the service layer with an ANSI-free JSON 
 type: adr
 status: Accepted
 created: 2026-06-26
-updated: 2026-06-26
+updated: 2026-07-03
 related:
   - internal/cli/status.go
   - internal/service/service.go

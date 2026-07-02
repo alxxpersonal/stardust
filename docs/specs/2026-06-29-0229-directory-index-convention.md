@@ -3,6 +3,7 @@ title: Managed per-directory indexes
 status: Implemented
 version: 1
 date: 2026-06-29
+updated: 2026-07-03
 related:
   - docs/adr/0037-directory-index-convention.md
   - docs/plans/2026-06-29-0229-directory-index-convention.md

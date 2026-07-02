@@ -55,6 +55,6 @@ Add sibling autodetection as a gap-filler behind one new resolver, and gate acce
 
 - docs/research/2026-06-27-1721-github-wiki-compatibility.md (improvement 8, "Left as proposals")
 - commit 3ae7e54 (cross-repo wiki-to-code drift via source_root)
-- internal/convention/detect.go (KindGitHubWiki, hasWikiSuffix, gitConfigPath, hasGitHubWikiSignal)
-- internal/config/config.go (SourceRoot, ResolveSourceRoot)
-- internal/service/governs.go, internal/service/check.go (source-repo drift bindings)
+- `internal/convention/detect.go` (KindGitHubWiki, hasWikiSuffix, gitConfigPath, hasGitHubWikiSignal)
+- `internal/config/config.go` (SourceRoot, ResolveSourceRoot)
+- `internal/service/governs.go`, `internal/service/check.go` (source-repo drift bindings)

@@ -91,7 +91,7 @@ The executable plan at docs/plans/2026-06-27-1813-stardust-v0-5-0-public-release
 <br>
 
 - docs/research/2026-06-27-1721-github-wiki-compatibility.md (wiki mode scope and proposals)
-- .github/workflows/ci.yml (the existing Go + plugin CI)
+- `.github/workflows/ci.yml` (the existing Go + plugin CI)
 - GoReleaser homebrew tap docs; GitHub wiki and Gollum link docs (cited in the research doc)
 
 </details>

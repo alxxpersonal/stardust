@@ -1,6 +1,6 @@
 ---
 title: Docs root stray markdown files are convention errors
-status: Proposed
+status: Accepted
 version: 1
 date: 2026-06-26
 related:

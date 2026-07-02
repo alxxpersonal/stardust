@@ -1,6 +1,6 @@
 ---
 title: Index-derived outputs reconcile against disk
-status: Proposed
+status: Accepted
 version: 1
 date: 2026-06-26
 related:

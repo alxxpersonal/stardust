@@ -1,6 +1,6 @@
 ---
 title: JSON-RPC typed contract for stardust and exo-jobs
-status: Draft
+status: Implemented
 version: 1
 date: 2026-06-25
 related:

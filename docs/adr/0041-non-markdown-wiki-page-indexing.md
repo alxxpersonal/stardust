@@ -58,8 +58,8 @@ Index non-markdown wiki pages additively through the existing pipeline, with che
 
 - docs/research/2026-06-27-1721-github-wiki-compatibility.md (improvement 9, "Left as proposals")
 - docs/specs/2026-07-02-1759-non-markdown-wiki-page-indexing.md
-- internal/vault/vault.go (`Scan`, `Parse`, `ExtractEdges`, `CodeRefs`, `GraphKey`, `trimMarkdownExtension`)
-- internal/vault/chunk.go (`Chunks`, `splitOversize`)
-- internal/graph/graph.go (`resolveIndex`, `byBase` basename resolution)
-- internal/convention/check.go (`CheckDocs`, the forbidden-dash and docs-convention blocks)
+- `internal/vault/vault.go` (`Scan`, `Parse`, `ExtractEdges`, `CodeRefs`, `GraphKey`, `trimMarkdownExtension`)
+- `internal/vault/chunk.go` (`Chunks`, `splitOversize`)
+- `internal/graph/graph.go` (`resolveIndex`, `byBase` basename resolution)
+- `internal/convention/check.go` (`CheckDocs`, the forbidden-dash and docs-convention blocks)
 - GitHub Markup supported formats and extensions: github/markup

@@ -2,6 +2,7 @@
 title: Directory indexes are an opt-in managed-block convention
 status: Accepted
 date: 2026-06-29
+updated: 2026-07-03
 related:
   - docs/specs/2026-06-29-0229-directory-index-convention.md
   - docs/plans/2026-06-29-0229-directory-index-convention.md

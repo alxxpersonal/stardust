@@ -1,6 +1,6 @@
 ---
 title: Stardust cosmic colorscheme for fang chrome
-status: Proposed
+status: Accepted
 version: 1
 date: 2026-06-25
 related:

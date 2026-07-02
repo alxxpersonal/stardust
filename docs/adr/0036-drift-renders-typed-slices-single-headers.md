@@ -43,4 +43,3 @@ The layout becomes a vertical full-width stack: a colored summary line (`N error
 - ADR 0018 drift detection by commit distance, ADR 0032 TUI reads through service.
 - `internal/tui/drift_tab.go`, `internal/tui/clean_list.go`, `internal/service/governs.go`.
 - Spec: docs/specs/2026-06-27-0230-settings-tab-and-drift-redesign.md
-</content>

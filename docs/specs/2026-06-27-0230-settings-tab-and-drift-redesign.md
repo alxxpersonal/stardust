@@ -1,6 +1,6 @@
 ---
 title: Settings tab and Drift tab redesign
-status: Draft
+status: Implemented
 version: 1
 date: 2026-06-27
 related:
