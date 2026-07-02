@@ -65,8 +65,11 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 	nameToPaths := map[string][]string{}
 	requireExplicitTitle := convention.DocsConventionActive(s.Layout.Root)
 	for _, rel := range paths {
+		// The explicit-title requirement is a docs-convention rule for markdown
+		// docs; non-markdown wiki pages take their title from the filename and
+		// must not be flagged for lacking one (ADR 0041).
 		probs, err := vault.CheckFileWithOptions(s.Layout.Root, rel, vault.CheckOptions{
-			RequireExplicitTitle: requireExplicitTitle,
+			RequireExplicitTitle: requireExplicitTitle && vault.IsMarkdownPath(rel),
 		})
 		if err != nil {
 			continue

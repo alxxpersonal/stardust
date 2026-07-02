@@ -126,6 +126,42 @@ func TestCheckIncludesConventionIssues(t *testing.T) {
 	require.True(t, hasCheckIssue(res.Issues, "bad-target"))
 }
 
+// TestCheckNonMarkdownPagesSkipTitleRule pins ADR 0041: in a docs-convention
+// repo the explicit-title requirement applies to markdown docs only. A
+// non-markdown page titles itself from its filename and must not be flagged,
+// while a titleless markdown file still is.
+func TestCheckNonMarkdownPagesSkipTitleRule(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	colDir := filepath.Join(root, ".stardust", "collections", "specs")
+	require.NoError(t, os.MkdirAll(colDir, 0o755))
+	colCfg := "path = \"docs/specs\"\ndescription = \"docs specs\"\n\n" +
+		"[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n"
+	require.NoError(t, os.WriteFile(filepath.Join(colDir, "config.toml"), []byte(colCfg), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "Guide.textile"), []byte("some textile body without any title heading\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "untitled.md"), []byte("a markdown file with no title\n"), 0o644))
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	for _, is := range res.Issues {
+		if is.Kind == "missing-title" && is.Path == "Guide.textile" {
+			t.Fatalf("non-markdown page flagged missing-title: %+v", is)
+		}
+	}
+	foundMD := false
+	for _, is := range res.Issues {
+		if is.Kind == "missing-title" && is.Path == "untitled.md" {
+			foundMD = true
+		}
+	}
+	require.True(t, foundMD, "the title rule must still fire for markdown files")
+}
+
 func TestRelatedEdgeParticipatesInGraph(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
