@@ -1,4 +1,5 @@
 ---
+title: Stardust maintenance and digest crons
 description: Arm the stardust maintenance and digest crons as native Claude Code scheduled tasks, in local time.
 argument-hint: ""
 allowed-tools: Bash, Read, CronCreate, CronList

@@ -1,4 +1,5 @@
 ---
+title: Stardust plugin status
 description: Show the resolved stardust mode, root, and index health for this session.
 argument-hint: ""
 allowed-tools: Bash

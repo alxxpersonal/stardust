@@ -41,8 +41,8 @@ claude plugin install stardust@stardust-local
 
 The MCP server and the SessionStart hook wire automatically. Commands are namespaced under
 the plugin name `stardust`, so they are invoked as `/stardust:setup`, `/stardust:crons`,
-`/stardust:refresh`, `/stardust:status`, `/stardust:spec`, `/stardust:plan`,
-`/stardust:doc`, and `/stardust:adr`.
+`/stardust:refresh`, `/stardust:status`, `/stardust:execute`, `/stardust:spec`,
+`/stardust:plan`, `/stardust:doc`, `/stardust:adr`, and `/stardust:audit`.
 
 ## Modes
 
@@ -89,12 +89,12 @@ needed, runs the first index, and writes `config.json` under the plugin data dir
 
 ### Operations
 
-- `/stardust:setup` `[vault|repo]` - configure vault mode or confirm repo mode, then run the
+- [`/stardust:setup`](commands/setup.md) `[vault|repo]` - configure vault mode or confirm repo mode, then run the
   first index.
-- `/stardust:crons` - arm the maintenance and digest crons as native scheduled tasks, in
+- [`/stardust:crons`](commands/crons.md) - arm the maintenance and digest crons as native scheduled tasks, in
   local time. Crons are created only when you run this command, never at install.
-- `/stardust:refresh` - re-index the resolved workspace and regenerate `docs/INDEX.md`.
-- `/stardust:status` - show the resolved mode, root, and index health.
+- [`/stardust:refresh`](commands/refresh.md) - re-index the resolved workspace and regenerate `docs/INDEX.md`.
+- [`/stardust:status`](commands/status.md) - show the resolved mode, root, and index health.
 
 ### Authoring
 
@@ -103,14 +103,18 @@ session start. Each resolves the workspace, surfaces relevant existing docs, wri
 convention-correct file set, and regenerates `docs/INDEX.md` (`allowed-tools: Bash, Read,
 Write`).
 
-- `/stardust:spec` `[what to spec]` - start a technical spec, ADRs, and implementation plan
+- [`/stardust:execute`](commands/execute.md) `[what to spec and build]` - write the spec, ADRs, and plan,
+  then implement the plan in the same turn.
+- [`/stardust:spec`](commands/spec.md) `[what to spec]` - start a technical spec, ADRs, and implementation plan
   using the inline spec workflow.
-- `/stardust:plan` `[topic to plan, or empty to list]` - list active plans from `docs/plans`,
+- [`/stardust:plan`](commands/plan.md) `[topic to plan, or empty to list]` - list active plans from `docs/plans`,
   or write a new spec and plan using the inline spec workflow.
-- `/stardust:doc` `[adr|research|runbook] [topic]` - add one ADR, research note, or runbook to
+- [`/stardust:doc`](commands/doc.md) `[adr|research|runbook] [topic]` - add one ADR, research note, or runbook to
   `docs/` using the inline single-doc workflow.
-- `/stardust:adr` `[decision to document]` - record an architectural decision as an ADR via
+- [`/stardust:adr`](commands/adr.md) `[decision to document]` - record an architectural decision as an ADR via
   the inline ADR workflow.
+- [`/stardust:audit`](commands/audit.md) `[scope or path]` - audit the workspace for code and docs issues
+  and write a verified findings report.
 
 The authoring commands embed the forge workflows directly so a command such as
 `/stardust:plan plan this feature` writes the durable spec, ADRs, plan, and registry update in
@@ -148,10 +152,12 @@ commands/setup.md            configure dual-mode, init + first index
 commands/crons.md            arm the maintenance and digest crons
 commands/refresh.md          manual index + registry
 commands/status.md           show resolved mode, root, index health
+commands/execute.md          spec, plan, and build inline in one turn
 commands/spec.md             write a spec, ADRs, and plan inline
 commands/plan.md             list active plans or write a spec and plan inline
 commands/doc.md              write one ADR, research note, or runbook inline
 commands/adr.md              write one ADR inline
+commands/audit.md            audit code and docs, write a findings report
 scripts/resolve-root.sh      shared mode/root resolution
 ```
 

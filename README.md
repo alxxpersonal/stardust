@@ -5,7 +5,7 @@
 
 Local-first, git-backed, markdown-truth context engine for AI agents. It indexes a markdown vault into a derived, rebuildable SQLite index (FTS5 keyword + local vector embeddings) and exposes hybrid search to humans (an interactive TUI) and agents (a scriptable CLI). Files stay the source of truth; the index is a disposable cache.
 
-Full architecture and research notes: [SPEC.md](./SPEC.md).
+Full architecture and research notes: [SPEC.md](./SPEC.md). Release history: [CHANGELOG.md](./CHANGELOG.md).
 
 ## Install
 

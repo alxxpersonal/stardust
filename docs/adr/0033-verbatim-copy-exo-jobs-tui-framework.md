@@ -4,6 +4,9 @@ status: Accepted
 date: 2026-06-27
 supersedes:
   - docs/adr/0029-copy-adapt-exo-jobs-tui-framework.md
+related:
+  - docs/specs/2026-06-26-2352-interactive-tui.md
+  - docs/adr/0030-five-tab-stardust-tui-model.md
 ---
 
 # Verbatim copy of the exo-jobs TUI framework

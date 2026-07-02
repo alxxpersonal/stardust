@@ -23,7 +23,7 @@ Indexes a markdown vault into a derived, rebuildable SQLite index (FTS5 + vector
 
 ## Conventions
 
-- See `.claude/rules/go.md`. Conventional commits, no co-author tags, no em/en dashes anywhere, `// --- Section ---` separators, doc comments on exports, `%w` error wrapping, never panic.
+- See [`.claude/rules/go.md`](.claude/rules/go.md). Conventional commits, no co-author tags, no em/en dashes anywhere, `// --- Section ---` separators, doc comments on exports, `%w` error wrapping, never panic.
 - Content hash (not mtime) is the index authority - cloud-synced storage rewrites mtimes.
 
 ## Deferred (see SPEC sections 8, 11, 12)

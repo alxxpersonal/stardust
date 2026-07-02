@@ -1,4 +1,5 @@
 ---
+title: Configure the stardust plugin
 description: Configure the stardust-plugin for an Obsidian vault or confirm repo mode, then run the first index.
 argument-hint: "[vault|repo]"
 allowed-tools: Bash, Read, Write

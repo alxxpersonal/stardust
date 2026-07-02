@@ -1,4 +1,5 @@
 ---
+title: Refresh the stardust index and registry
 description: Re-index the resolved stardust workspace and regenerate the docs registry.
 argument-hint: ""
 allowed-tools: Bash
