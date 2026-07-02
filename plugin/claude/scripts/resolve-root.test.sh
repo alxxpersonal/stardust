@@ -231,7 +231,7 @@ EOF
     "$out2" none "" none
 }
 
-# --- Case 8: unmapped dir, nothing to walk to -> none (ADR 0037 isolation) ---
+# --- Case 8: unmapped dir, nothing to walk to -> none (ADR 0045 isolation) ---
 
 case_8() {
   other="$TMPROOT/c8other"

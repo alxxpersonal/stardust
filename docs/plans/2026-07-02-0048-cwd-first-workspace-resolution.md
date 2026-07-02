@@ -19,7 +19,7 @@ Rewrite the plugin resolver to walk up from the cwd with an env override and the
 
 ## Context
 
-Read first: `plugin/claude/scripts/resolve-root.sh` (the current single-check resolver), `plugin/claude/commands/setup.md` (documents resolution for users), `plugin/claude/hooks/session-start.sh` (the consumer contract), ADRs 0037 and 0038, and the spec's Approach table (the six layers and SOURCE tags are normative).
+Read first: `plugin/claude/scripts/resolve-root.sh` (the current single-check resolver), `plugin/claude/commands/setup.md` (documents resolution for users), `plugin/claude/hooks/session-start.sh` (the consumer contract), ADRs 0045 and 0038, and the spec's Approach table (the six layers and SOURCE tags are normative).
 
 ## Task 1: layered resolver + pinned tests
 
@@ -57,7 +57,7 @@ Steps:
 
 - [x] Fresh shell: run `resolve-root.test.sh` end to end; all ten cases green.
 - [x] Reproduce both original failures against the NEW resolver: (a) cd into a dir containing `.stardust/` with `CLAUDE_PROJECT_DIR` unset resolves repo with SOURCE=cwd; (b) a nested subdirectory resolves the same root.
-- [x] Prove ADR 0037 isolation still holds: an unmapped temp dir with nothing to walk to resolves none, and two mapped projects resolve two different vaults.
+- [x] Prove ADR 0045 isolation still holds: an unmapped temp dir with nothing to walk to resolves none, and two mapped projects resolve two different vaults.
 - [x] Verify the live cache copy matches the repo copy byte for byte, and `git log` shows clean conventional commits with no trailers.
 - [x] Report defects; do not fix silently.
 

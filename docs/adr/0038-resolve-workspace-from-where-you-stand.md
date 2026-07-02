@@ -4,7 +4,7 @@ status: Accepted
 version: 1
 date: 2026-07-02
 related:
-  - docs/adr/0037-per-project-vault-resolution.md
+  - docs/adr/0045-per-project-vault-resolution.md
   - docs/specs/2026-07-02-0048-cwd-first-workspace-resolution.md
   - plugin/claude/scripts/resolve-root.sh
 ---
@@ -22,7 +22,7 @@ Resolution is layered, most local truth first:
 1. `STARDUST_VAULT`, when set to an existing directory: the explicit override always wins.
 2. Walk up from `$PWD` to `/`; the first directory containing `.stardust/` resolves as repo mode. This is how git resolves its root, and it makes the answer follow where the session actually stands.
 3. Walk up from `$CLAUDE_PROJECT_DIR` the same way, when it is set: a session that started in a workspace keeps resolving it after the shell moves elsewhere.
-4. The per-project `vaults` map (ADR 0037): exact key for `$CLAUDE_PROJECT_DIR` then `$PWD`, then the longest key that is a path prefix of either, so subdirectories of a mapped project inherit its vault.
+4. The per-project `vaults` map (ADR 0045): exact key for `$CLAUDE_PROJECT_DIR` then `$PWD`, then the longest key that is a path prefix of either, so subdirectories of a mapped project inherit its vault.
 5. The legacy top-level `vaultPath`, only when no `vaults` map exists.
 6. Otherwise none.
 
@@ -34,7 +34,7 @@ The script emits a third line, `SOURCE=<env|cwd|project|vault-map|legacy|none>`,
 - Worktree and subdirectory sessions resolve their own checkout rather than none.
 - A session that wandered off with `cd` still resolves its home workspace through layer 3, so injected stardust context keeps flowing.
 - Precedence is deterministic when layers disagree: the shell's own position wins over the session's start dir, which wins over configured maps.
-- The isolation property of ADR 0037 is preserved: an unmapped, un-walkable directory resolves to none, never to another project's vault.
+- The isolation property of ADR 0045 is preserved: an unmapped, un-walkable directory resolves to none, never to another project's vault.
 
 ## Alternatives considered
 
@@ -45,4 +45,4 @@ The script emits a third line, `SOURCE=<env|cwd|project|vault-map|legacy|none>`,
 ## References
 
 - plugin/claude/scripts/resolve-root.sh
-- docs/adr/0037-per-project-vault-resolution.md
+- docs/adr/0045-per-project-vault-resolution.md

@@ -4,7 +4,7 @@ status: Implemented
 version: 1
 date: 2026-06-30
 related:
-  - docs/adr/0037-per-project-vault-resolution.md
+  - docs/adr/0045-per-project-vault-resolution.md
   - plugin/claude/scripts/resolve-root.sh
   - plugin/claude/commands/setup.md
 ---
@@ -110,5 +110,5 @@ All five verified. The live config was migrated and the active 0.5.0 plugin cach
 
 - plugin/claude/scripts/resolve-root.sh
 - plugin/claude/commands/setup.md
-- docs/adr/0037-per-project-vault-resolution.md
+- docs/adr/0045-per-project-vault-resolution.md
 </details>

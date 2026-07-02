@@ -5,7 +5,7 @@ version: 1
 date: 2026-07-02
 related:
   - docs/adr/0038-resolve-workspace-from-where-you-stand.md
-  - docs/adr/0037-per-project-vault-resolution.md
+  - docs/adr/0045-per-project-vault-resolution.md
   - docs/plans/2026-07-02-0048-cwd-first-workspace-resolution.md
 ---
 
@@ -29,7 +29,7 @@ Every hook injection and plugin command gates on this resolution, so a wrong `no
 <br>
 
 - The resolver prints eval-safe `MODE=` and `ROOT=` lines consumed by the SessionStart hook, the prompt-submit hook, and every command preamble. That contract must not change.
-- ADR 0037 fixed vault-mode collisions with a per-project `vaults` map keyed by `CLAUDE_PROJECT_DIR`. Correct, but it inherited the same env fragility: an unset key looks up nothing.
+- ADR 0045 fixed vault-mode collisions with a per-project `vaults` map keyed by `CLAUDE_PROJECT_DIR`. Correct, but it inherited the same env fragility: an unset key looks up nothing.
 - `STARDUST_VAULT` is the established override env var across the stardust ecosystem (the binary and exo-jobs both honor it).
 - git solves the identical problem with a physical walk-up from the cwd; that behavior is well understood.
 </details>
@@ -43,7 +43,7 @@ Every hook injection and plugin command gates on this resolution, so a wrong `no
 3. `STARDUST_VAULT` MUST override everything when set to an existing directory.
 4. Vault-mode lookups MUST work from subdirectories of a mapped project via longest-prefix matching.
 5. The `MODE`/`ROOT` output contract MUST stay byte-compatible; a new `SOURCE=` line MAY be appended for diagnosis.
-6. ADR 0037 isolation MUST hold: an unmapped, un-walkable directory resolves to none, never to another project's vault.
+6. ADR 0045 isolation MUST hold: an unmapped, un-walkable directory resolves to none, never to another project's vault.
 </details>
 
 <details>
@@ -83,7 +83,7 @@ Implementation notes:
 <br>
 
 - Read `$PWD` only when `CLAUDE_PROJECT_DIR` is unset, no walk-up: leaves subdirectory and worktree sessions broken. Rejected.
-- Vault walk-up by heuristic markers: reintroduces magic resolution that ADR 0037 removed. Rejected.
+- Vault walk-up by heuristic markers: reintroduces magic resolution that ADR 0045 removed. Rejected.
 - Have Claude Code always pass the project dir: not in the plugin's control and does not fix subdirectories. Rejected.
 </details>
 
@@ -109,7 +109,7 @@ Implementation notes:
 5. Vault map exact key hit for the project dir: vault, SOURCE=vault-map.
 6. Vault map longest-prefix hit from a subdirectory of a mapped project: vault.
 7. Legacy `vaultPath` with no `vaults` map: vault, SOURCE=legacy.
-8. Unmapped dir, nothing to walk to: none (ADR 0037 isolation preserved).
+8. Unmapped dir, nothing to walk to: none (ADR 0045 isolation preserved).
 9. Precedence: cwd walk beats project walk beats vault map.
 10. Paths with spaces resolve and quote correctly.
 
@@ -130,7 +130,7 @@ Plus: the SessionStart hook and one plugin command run against the new resolver 
 
 1. Rewrite `resolve-root.sh` with the six layers and the `SOURCE=` line; author `resolve-root.test.sh` pinning all ten cases.
 2. Update `setup.md`'s resolution documentation, sync the resolver and setup into the active 0.5.0 plugin cache, regenerate the docs index.
-3. Adversarial review: rerun the pinned cases fresh, reproduce both original failures against the new resolver, verify ADR 0037 isolation still holds, dash scan.
+3. Adversarial review: rerun the pinned cases fresh, reproduce both original failures against the new resolver, verify ADR 0045 isolation still holds, dash scan.
 </details>
 
 <details>
@@ -140,5 +140,5 @@ Plus: the SessionStart hook and one plugin command run against the new resolver 
 - plugin/claude/scripts/resolve-root.sh
 - plugin/claude/commands/setup.md
 - docs/adr/0038-resolve-workspace-from-where-you-stand.md
-- docs/adr/0037-per-project-vault-resolution.md
+- docs/adr/0045-per-project-vault-resolution.md
 </details>
