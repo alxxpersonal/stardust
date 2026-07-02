@@ -100,7 +100,7 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	for _, issue := range directoryIndexCheck.Issues {
-		issues = append(issues, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
+		issues = append(issues, Issue(issue))
 	}
 
 	docIssues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore)

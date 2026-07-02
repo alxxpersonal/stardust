@@ -20,7 +20,7 @@ vet: ## run go vet
 	go vet ./...
 
 lint: vet ## run go vet + golangci-lint
-	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "golangci-lint not installed, skipping"
+	@if command -v golangci-lint >/dev/null 2>&1; then golangci-lint run ./...; else echo "golangci-lint not installed, skipping"; fi
 
 fmt: ## format code
 	gofmt -s -w $(shell find . -name '*.go' -not -path './build/*')

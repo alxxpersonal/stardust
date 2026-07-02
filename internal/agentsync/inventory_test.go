@@ -3,6 +3,7 @@ package agentsync
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -222,13 +223,5 @@ func writeSkill(t *testing.T, root, name, content string) {
 }
 
 func sameTools(a, b []Tool) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(a, b)
 }
