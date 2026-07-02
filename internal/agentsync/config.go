@@ -47,6 +47,7 @@ type Target struct {
 	Scope      Scope  `toml:"scope" json:"scope"`
 	SkillsPath string `toml:"skills_path" json:"skills_path"`
 	AgentsPath string `toml:"agents_path" json:"agents_path"`
+	RulesPath  string `toml:"rules_path" json:"rules_path"`
 	Mode       string `toml:"mode" json:"mode"`
 }
 
@@ -63,11 +64,12 @@ func DefaultConfig(home, root string) Config {
 		Sources: []Source{
 			{Name: "repo-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 100},
 			{Name: "repo-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 100},
+			{Name: "repo-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 100},
 		},
 		Targets: []Target{
-			{Tool: ToolClaude, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".claude", "skills"), AgentsPath: filepath.Join(root, ".claude", "agents"), Mode: "symlink"},
-			{Tool: ToolCodex, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".codex", "skills"), AgentsPath: filepath.Join(root, ".codex", "agents"), Mode: "symlink"},
-			{Tool: ToolGemini, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".gemini", "skills"), AgentsPath: filepath.Join(root, ".gemini", "agents"), Mode: "symlink"},
+			{Tool: ToolClaude, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".claude", "skills"), AgentsPath: filepath.Join(root, ".claude", "agents"), RulesPath: filepath.Join(root, "CLAUDE.md"), Mode: "symlink"},
+			{Tool: ToolCodex, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".codex", "skills"), AgentsPath: filepath.Join(root, ".codex", "agents"), RulesPath: filepath.Join(root, "AGENTS.md"), Mode: "symlink"},
+			{Tool: ToolGemini, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".gemini", "skills"), AgentsPath: filepath.Join(root, ".gemini", "agents"), RulesPath: filepath.Join(root, "GEMINI.md"), Mode: "symlink"},
 			{Tool: ToolClaude, Scope: ScopeGlobal, SkillsPath: filepath.Join(home, ".claude", "skills"), AgentsPath: filepath.Join(home, ".claude", "agents"), Mode: "symlink"},
 			{Tool: ToolCodex, Scope: ScopeGlobal, SkillsPath: filepath.Join(home, ".codex", "skills"), AgentsPath: filepath.Join(home, ".codex", "agents"), Mode: "symlink"},
 			{Tool: ToolGemini, Scope: ScopeGlobal, SkillsPath: filepath.Join(home, ".gemini", "skills"), AgentsPath: filepath.Join(home, ".gemini", "agents"), Mode: "symlink"},
@@ -148,7 +150,7 @@ func normalizeConfig(cfg *Config, home, root string) error {
 			return fmt.Errorf("source %d: name is required", i)
 		}
 		switch s.Kind {
-		case "skill", "agent":
+		case "skill", "agent", "rules":
 		default:
 			return fmt.Errorf("source %s: unsupported kind %q", s.Name, s.Kind)
 		}
@@ -172,6 +174,7 @@ func normalizeConfig(cfg *Config, home, root string) error {
 		}
 		t.SkillsPath = expandPath(t.SkillsPath, home, root)
 		t.AgentsPath = expandPath(t.AgentsPath, home, root)
+		t.RulesPath = expandPath(t.RulesPath, home, root)
 	}
 	return nil
 }

@@ -128,6 +128,9 @@ func (l Layout) SyncConfig() string { return filepath.Join(l.Dir(), "sync.toml")
 // Manifest returns the pinned agent-manifest path.
 func (l Layout) Manifest() string { return filepath.Join(l.Dir(), "manifest.md") }
 
+// Rules returns the canonical hand-authored agent-rules source path.
+func (l Layout) Rules() string { return filepath.Join(l.Dir(), "rules.md") }
+
 // IndexMD returns the generated table-of-contents path.
 func (l Layout) IndexMD() string { return filepath.Join(l.Dir(), "INDEX.md") }
 

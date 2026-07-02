@@ -19,6 +19,7 @@ type Kind string
 const (
 	KindSkill Kind = "skill"
 	KindAgent Kind = "agent"
+	KindRules Kind = "rules"
 )
 
 // Item is one discovered agent asset routed to one or more tools.
@@ -94,6 +95,8 @@ func discoverSource(src Source, defaults []Tool) ([]Item, error) {
 		return discoverSkills(src, defaults)
 	case string(KindAgent):
 		return discoverAgents(src, defaults)
+	case string(KindRules):
+		return discoverRules(src, defaults)
 	default:
 		return nil, fmt.Errorf("source %s: unsupported kind %q", src.Name, src.Kind)
 	}
@@ -161,6 +164,33 @@ func discoverAgents(src Source, defaults []Tool) ([]Item, error) {
 		return nil, fmt.Errorf("discover agents %s: %w", src.Name, err)
 	}
 	return items, nil
+}
+
+// discoverRules reads the single canonical rules file at src.Path into exactly
+// one KindRules item. Unlike skills and agents, a rules source is a file, not a
+// folder walked for many items. A missing file yields no items, matching the
+// missing-folder behavior of the other kinds.
+func discoverRules(src Source, defaults []Tool) ([]Item, error) {
+	info, err := os.Stat(src.Path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("stat rules %s: %w", src.Name, err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("rules source %s: %s is a directory, want a file", src.Name, src.Path)
+	}
+	item, err := readItem(src, KindRules, src.Path, src.Path)
+	if err != nil {
+		return nil, err
+	}
+	targets, err := ParseTargets(item.Frontmatter, defaults)
+	if err != nil {
+		return nil, fmt.Errorf("rules %s: %w", item.Name, err)
+	}
+	item.Targets = targets
+	return []Item{item}, nil
 }
 
 func readItem(src Source, kind Kind, sourcePath, contentPath string) (Item, error) {
@@ -243,10 +273,14 @@ func frontmatterString(frontmatter map[string]any, key string) string {
 }
 
 func itemName(kind Kind, sourcePath string) string {
-	if kind == KindAgent {
+	switch kind {
+	case KindAgent:
 		return strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+	case KindRules:
+		return "rules"
+	default:
+		return filepath.Base(sourcePath)
 	}
-	return filepath.Base(sourcePath)
 }
 
 func hashBytes(raw []byte) string {

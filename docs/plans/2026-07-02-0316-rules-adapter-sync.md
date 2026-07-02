@@ -1,6 +1,6 @@
 ---
 title: Rules adapter sync - implementation plan
-status: Draft
+status: Done
 version: 1
 date: 2026-07-02
 related:
@@ -42,38 +42,38 @@ Add a third `KindRules` to `internal/agentsync` that renders a canonical `.stard
 - Modify: `internal/config/config.go`, `internal/agentsync/config.go`, `internal/agentsync/inventory.go`, `internal/agentsync/plan.go`, `internal/agentsync/apply.go`
 - Create: `internal/agentsync/rules.go`
 
-- [ ] Add `Layout.Rules()` returning `<.stardust>/rules.md`; unit test it like `TestLayoutSyncConfig`.
-- [ ] Add `KindRules Kind = "rules"`. Accept `"rules"` in `normalizeConfig`'s source-kind switch.
-- [ ] Add `RulesPath string` (`toml:"rules_path"`) to `Target`; expand it in `normalizeConfig` via `expandPath`.
-- [ ] Wire `DefaultConfig`: a `repo-rules` source at `.stardust/rules.md` (kind `rules`, priority 100), and `RulesPath` on the three repo targets (claude -> `CLAUDE.md`, codex -> `AGENTS.md`, gemini -> `GEMINI.md`). Leave global `RulesPath` empty.
-- [ ] Update `config_test.go` expectations for the new default source and target field. Run, loop to green.
-- [ ] Commit `feat(agentsync): add rules kind and canonical source config`.
-- [ ] `discoverRules(src, defaults)`: stat `src.Path` as a file; read it into one `Item{Kind: KindRules, Name: frontmatter name or "rules"}`; apply `ParseTargets`; a missing file returns nil. Add the `case "rules"` branch to `discoverSource`.
-- [ ] Test discover: one item from a seeded `.stardust/rules.md`, `targets` frontmatter honored, missing file yields none. Run, loop to green.
-- [ ] Commit `feat(agentsync): discover the canonical rules source`.
-- [ ] `internal/agentsync/rules.go`: the two markdown markers as constants; `rulesAdapter{fileName, render}`; `rulesAdapters` map for claude / codex / gemini; `render` strips frontmatter and normalizes; `injectRulesBlock` / `stripRulesBlock` mirroring `block.go` (create if absent, replace in place, preserve outside lines, collapse blank runs).
-- [ ] Test the block: user lines preserved, exactly one block, idempotent re-inject, strip removes only the block, CRLF target, no frontmatter fence in the rendered block, unknown tool errors. Run, loop to green.
-- [ ] Commit `feat(agentsync): render and compose rules blocks`.
-- [ ] `buildRulesAction(target, item)`: status `create` (missing file or absent block) / `ok` (block equals render) / `drift` (block differs), mode `compose`, never `conflict`. In `BuildPlan`, skip `KindRules` items when `RulesPath == ""`; branch `buildAction` to `buildRulesAction` for `KindRules`.
-- [ ] Test plan: create / ok / drift / skip-empty-path / no-conflict. Run, loop to green.
-- [ ] Commit `feat(agentsync): plan rules compose actions`.
-- [ ] `composeRules(action)`: read `action.Source`, render for `action.Tool`, `injectRulesBlock` into `action.Target`. Add `case "compose"` to `createTarget`; in `applyAction`, make `compose`-mode `drift` re-inject on a plain apply while leaving symlink and copy `--repair` guards unchanged.
-- [ ] Test apply: compose create writes a fresh file with the block; compose drift heals without `--repair`; symlink and copy repair behavior unchanged. Run, loop to green.
-- [ ] `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` green.
-- [ ] Commit `feat(agentsync): apply rules compose and self-heal drift`.
+- [x] Add `Layout.Rules()` returning `<.stardust>/rules.md`; unit test it like `TestLayoutSyncConfig`.
+- [x] Add `KindRules Kind = "rules"`. Accept `"rules"` in `normalizeConfig`'s source-kind switch.
+- [x] Add `RulesPath string` (`toml:"rules_path"`) to `Target`; expand it in `normalizeConfig` via `expandPath`.
+- [x] Wire `DefaultConfig`: a `repo-rules` source at `.stardust/rules.md` (kind `rules`, priority 100), and `RulesPath` on the three repo targets (claude -> `CLAUDE.md`, codex -> `AGENTS.md`, gemini -> `GEMINI.md`). Leave global `RulesPath` empty.
+- [x] Update `config_test.go` expectations for the new default source and target field. Run, loop to green.
+- [x] Commit `feat(agentsync): add rules kind and canonical source config`.
+- [x] `discoverRules(src, defaults)`: stat `src.Path` as a file; read it into one `Item{Kind: KindRules, Name: frontmatter name or "rules"}`; apply `ParseTargets`; a missing file returns nil. Add the `case "rules"` branch to `discoverSource`.
+- [x] Test discover: one item from a seeded `.stardust/rules.md`, `targets` frontmatter honored, missing file yields none. Run, loop to green.
+- [x] Commit `feat(agentsync): discover the canonical rules source`.
+- [x] `internal/agentsync/rules.go`: the two markdown markers as constants; `rulesAdapter{fileName, render}`; `rulesAdapters` map for claude / codex / gemini; `render` strips frontmatter and normalizes; `injectRulesBlock` / `stripRulesBlock` mirroring `block.go` (create if absent, replace in place, preserve outside lines, collapse blank runs).
+- [x] Test the block: user lines preserved, exactly one block, idempotent re-inject, strip removes only the block, CRLF target, no frontmatter fence in the rendered block, unknown tool errors. Run, loop to green.
+- [x] Commit `feat(agentsync): render and compose rules blocks`.
+- [x] `buildRulesAction(target, item)`: status `create` (missing file or absent block) / `ok` (block equals render) / `drift` (block differs), mode `compose`, never `conflict`. In `BuildPlan`, skip `KindRules` items when `RulesPath == ""`; branch `buildAction` to `buildRulesAction` for `KindRules`.
+- [x] Test plan: create / ok / drift / skip-empty-path / no-conflict. Run, loop to green.
+- [x] Commit `feat(agentsync): plan rules compose actions`.
+- [x] `composeRules(action)`: read `action.Source`, render for `action.Tool`, `injectRulesBlock` into `action.Target`. Add `case "compose"` to `createTarget`; in `applyAction`, make `compose`-mode `drift` re-inject on a plain apply while leaving symlink and copy `--repair` guards unchanged.
+- [x] Test apply: compose create writes a fresh file with the block; compose drift heals without `--repair`; symlink and copy repair behavior unchanged. Run, loop to green.
+- [x] `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` green.
+- [x] Commit `feat(agentsync): apply rules compose and self-heal drift`.
 
 ## Task 2: verify, document, and gate
 
 - Modify: `SPEC.md`, `README.md`
 - Verify: end-to-end round-trip and the full gate
 
-- [ ] Integration test: seed `.stardust/rules.md`, run sync through the service layer, assert `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` each carry the block with pre-existing user lines intact.
-- [ ] Integration test: `stardust sync --check` exits 0 when in sync; edit the canonical file; assert `--check` exits non-zero; run `sync`; assert it heals and re-check is 0.
-- [ ] Update SPEC.md section 4.2 and README line ~214 to state rules sync ships (canonical source, sentinel-block compose, per-tool adapters), removing the deferral wording.
-- [ ] Set the spec `status` to `Implemented` and this plan `status` to `Done`.
-- [ ] Regenerate the docs index: `stardust index && stardust registry`.
-- [ ] Full gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, zero U+2014 / U+2013 in touched files, `stardust check` clean.
-- [ ] Commit `docs(agentsync): mark rules-adapter sync shipped`.
+- [x] Integration test: seed `.stardust/rules.md`, run sync through the service layer, assert `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` each carry the block with pre-existing user lines intact.
+- [x] Integration test: `stardust sync --check` exits 0 when in sync; edit the canonical file; assert `--check` exits non-zero; run `sync`; assert it heals and re-check is 0.
+- [x] Update SPEC.md section 4.2 and README line ~214 to state rules sync ships (canonical source, sentinel-block compose, per-tool adapters), removing the deferral wording.
+- [x] Set the spec `status` to `Implemented` and this plan `status` to `Done`.
+- [x] Regenerate the docs index: `stardust index && stardust registry`.
+- [x] Full gate: `go build ./...`, `go test ./...`, `make lint`, `gofmt -l .` empty, zero U+2014 / U+2013 in touched files, `stardust check` clean.
+- [x] Commit `docs(agentsync): mark rules-adapter sync shipped`.
 
 ## Verification
 

@@ -137,6 +137,79 @@ func TestDiscoverFindsAgentMarkdownFiles(t *testing.T) {
 	}
 }
 
+func TestDiscoverReadsSingleRulesItem(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".stardust", "rules.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create stardust dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("---\nname: rules\ntargets: [claude, codex]\n---\n# Rules\n"), 0o644); err != nil {
+		t.Fatalf("write rules: %v", err)
+	}
+
+	items, err := Discover(Config{
+		Sources:        []Source{{Name: "repo-rules", Path: path, Kind: "rules", Priority: 100}},
+		DefaultTargets: []Tool{ToolClaude, ToolCodex, ToolGemini},
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("Discover() returned %d items, want 1: %#v", len(items), items)
+	}
+	if got, want := items[0].Kind, KindRules; got != want {
+		t.Fatalf("rules kind = %q, want %q", got, want)
+	}
+	if got, want := items[0].Name, "rules"; got != want {
+		t.Fatalf("rules name = %q, want %q", got, want)
+	}
+	if got, want := items[0].Targets, []Tool{ToolClaude, ToolCodex}; !sameTools(got, want) {
+		t.Fatalf("rules targets = %#v, want %#v", got, want)
+	}
+	if items[0].Hash == "" {
+		t.Fatal("rules hash is empty")
+	}
+}
+
+func TestDiscoverRulesDefaultsNameAndTargets(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "rules.md")
+	if err := os.WriteFile(path, []byte("# Rules without frontmatter\n"), 0o644); err != nil {
+		t.Fatalf("write rules: %v", err)
+	}
+
+	items, err := Discover(Config{
+		Sources:        []Source{{Name: "repo-rules", Path: path, Kind: "rules", Priority: 100}},
+		DefaultTargets: []Tool{ToolGemini},
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("Discover() returned %d items, want 1", len(items))
+	}
+	if got, want := items[0].Name, "rules"; got != want {
+		t.Fatalf("rules name = %q, want %q", got, want)
+	}
+	if got, want := items[0].Targets, []Tool{ToolGemini}; !sameTools(got, want) {
+		t.Fatalf("rules targets = %#v, want %#v", got, want)
+	}
+}
+
+func TestDiscoverRulesMissingFileYieldsNone(t *testing.T) {
+	root := t.TempDir()
+	items, err := Discover(Config{
+		Sources:        []Source{{Name: "repo-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 100}},
+		DefaultTargets: []Tool{ToolClaude},
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("Discover() returned %d items, want 0", len(items))
+	}
+}
+
 func writeSkill(t *testing.T, root, name, content string) {
 	t.Helper()
 	dir := filepath.Join(root, name)

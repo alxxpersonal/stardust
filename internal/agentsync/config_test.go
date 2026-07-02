@@ -17,6 +17,48 @@ func TestLayoutSyncConfig(t *testing.T) {
 	}
 }
 
+func TestLayoutRules(t *testing.T) {
+	layout := config.Layout{Root: "/vault"}
+
+	if got, want := layout.Rules(), "/vault/.stardust/rules.md"; got != want {
+		t.Fatalf("Rules() = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultConfigWiresRules(t *testing.T) {
+	cfg := DefaultConfig("/home", "/vault")
+
+	var src *Source
+	for i := range cfg.Sources {
+		if cfg.Sources[i].Kind == string(KindRules) {
+			src = &cfg.Sources[i]
+			break
+		}
+	}
+	if src == nil {
+		t.Fatal("DefaultConfig() has no rules source")
+	}
+	if got, want := src.Path, filepath.Join("/vault", ".stardust", "rules.md"); got != want {
+		t.Fatalf("rules source path = %q, want %q", got, want)
+	}
+
+	wantRepo := map[Tool]string{
+		ToolClaude: filepath.Join("/vault", "CLAUDE.md"),
+		ToolCodex:  filepath.Join("/vault", "AGENTS.md"),
+		ToolGemini: filepath.Join("/vault", "GEMINI.md"),
+	}
+	for _, target := range cfg.Targets {
+		if target.Scope == ScopeRepo {
+			if got, want := target.RulesPath, wantRepo[target.Tool]; got != want {
+				t.Fatalf("repo %s RulesPath = %q, want %q", target.Tool, got, want)
+			}
+		}
+		if target.Scope == ScopeGlobal && target.RulesPath != "" {
+			t.Fatalf("global %s RulesPath = %q, want empty", target.Tool, target.RulesPath)
+		}
+	}
+}
+
 func TestLoadConfigExpandsHomeAndRepoRelativePaths(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")

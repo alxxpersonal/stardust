@@ -57,6 +57,76 @@ func TestBuildPlanClassifiesTargetState(t *testing.T) {
 	}
 }
 
+func TestBuildPlanClassifiesRulesState(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, ".stardust", "rules.md")
+	if err := os.MkdirAll(filepath.Dir(source), 0o755); err != nil {
+		t.Fatalf("create source dir: %v", err)
+	}
+	if err := os.WriteFile(source, []byte("---\nname: rules\n---\n# Rules\n\nbe kind\n"), 0o644); err != nil {
+		t.Fatalf("write rules source: %v", err)
+	}
+	rendered := renderRulesBody("---\nname: rules\n---\n# Rules\n\nbe kind\n")
+
+	claudePath := filepath.Join(root, "CLAUDE.md") // create (missing)
+	codexPath := filepath.Join(root, "AGENTS.md")  // ok (matching block)
+	geminiPath := filepath.Join(root, "GEMINI.md") // drift (stale block)
+
+	if err := os.WriteFile(codexPath, []byte("# Repo owned\n"), 0o644); err != nil {
+		t.Fatalf("write codex target: %v", err)
+	}
+	if err := injectRulesBlock(codexPath, rendered); err != nil {
+		t.Fatalf("seed ok block: %v", err)
+	}
+	if err := injectRulesBlock(geminiPath, "stale body"); err != nil {
+		t.Fatalf("seed drift block: %v", err)
+	}
+
+	cfg := Config{Targets: []Target{
+		{Tool: ToolClaude, Scope: ScopeRepo, RulesPath: claudePath, Mode: "symlink"},
+		{Tool: ToolCodex, Scope: ScopeRepo, RulesPath: codexPath, Mode: "symlink"},
+		{Tool: ToolGemini, Scope: ScopeRepo, RulesPath: geminiPath, Mode: "symlink"},
+		{Tool: ToolClaude, Scope: ScopeGlobal, RulesPath: "", Mode: "symlink"}, // skipped, empty path
+	}}
+	item := Item{Name: "rules", Kind: KindRules, SourcePath: source, Targets: []Tool{ToolClaude, ToolCodex, ToolGemini}}
+
+	plan, err := BuildPlan(cfg, []Item{item}, Options{Scope: ScopeAll})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	got := map[string]Action{}
+	for _, action := range plan.Actions {
+		got[string(action.Tool)+"/"+string(action.Scope)] = action
+	}
+	if len(plan.Actions) != 3 {
+		t.Fatalf("len(Actions) = %d, want 3 (empty-path target skipped): %#v", len(plan.Actions), plan.Actions)
+	}
+	assertActionStatus(t, got["claude/repo"], "create", claudePath)
+	assertActionStatus(t, got["codex/repo"], "ok", codexPath)
+	assertActionStatus(t, got["gemini/repo"], "drift", geminiPath)
+	if _, ok := got["claude/global"]; ok {
+		t.Fatal("empty RulesPath target produced an action, want it skipped")
+	}
+	for _, action := range plan.Actions {
+		if action.Mode != "compose" {
+			t.Fatalf("rules action mode = %q, want compose", action.Mode)
+		}
+		if action.Status == "conflict" {
+			t.Fatal("rules produced a conflict, want never")
+		}
+	}
+	if got, want := plan.Missing, 1; got != want {
+		t.Fatalf("Missing = %d, want %d", got, want)
+	}
+	if got, want := plan.Drift, 1; got != want {
+		t.Fatalf("Drift = %d, want %d", got, want)
+	}
+	if got, want := plan.Conflicts, 0; got != want {
+		t.Fatalf("Conflicts = %d, want %d", got, want)
+	}
+}
+
 func TestBuildPlanFiltersTools(t *testing.T) {
 	root := t.TempDir()
 	item := Item{

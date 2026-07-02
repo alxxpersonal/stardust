@@ -1,6 +1,6 @@
 ---
 title: Rules adapter sync for CLAUDE.md, AGENTS.md, and GEMINI.md
-status: Draft
+status: Implemented
 version: 1
 date: 2026-07-02
 related:

@@ -26,6 +26,11 @@ func applyAction(action Action, repair bool) error {
 	case "create":
 		return createTarget(action)
 	case "drift":
+		if action.Mode == "compose" {
+			// Compose owns only its sentinel block, so re-composing is safe and
+			// idempotent (ADR 0007). Rules self-heal on a plain sync, no --repair.
+			return composeRules(action)
+		}
 		if !repair {
 			return fmt.Errorf("sync drift at %s; rerun with --repair", action.Target)
 		}
@@ -55,9 +60,27 @@ func createTarget(action Action) error {
 		return createSymlink(action.Source, action.Target)
 	case "copy":
 		return copyPath(action.Source, action.Target)
+	case "compose":
+		return composeRules(action)
 	default:
 		return fmt.Errorf("unsupported sync mode %q for %s", action.Mode, action.Target)
 	}
+}
+
+// composeRules renders the canonical rules source for the action's tool and
+// injects it into the target's managed block, preserving every user line
+// outside the block. It is the write path for both compose create and the
+// compose-drift self-heal.
+func composeRules(action Action) error {
+	raw, err := os.ReadFile(action.Source)
+	if err != nil {
+		return fmt.Errorf("read rules source %s: %w", action.Source, err)
+	}
+	rendered, err := renderRules(action.Tool, string(raw))
+	if err != nil {
+		return err
+	}
+	return injectRulesBlock(action.Target, rendered)
 }
 
 func createSymlink(source, target string) error {

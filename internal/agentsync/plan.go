@@ -54,6 +54,9 @@ func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
 			if !itemTargetsTool(item, target.Tool) {
 				continue
 			}
+			if item.Kind == KindRules && target.RulesPath == "" {
+				continue
+			}
 			action, err := buildAction(target, item)
 			if err != nil {
 				return Plan{}, err
@@ -111,6 +114,9 @@ func (p Plan) Markdown() string {
 }
 
 func buildAction(target Target, item Item) (Action, error) {
+	if item.Kind == KindRules {
+		return buildRulesAction(target, item)
+	}
 	action := Action{
 		Kind:     item.Kind,
 		ItemName: item.Name,
@@ -153,10 +159,62 @@ func buildAction(target Target, item Item) (Action, error) {
 	return action, nil
 }
 
+// buildRulesAction classifies a rules item against a compose target. A missing
+// file or a file without our block is create; a present block equal to the
+// rendered body is ok; a present block that differs is drift. Rules never
+// produce a conflict: composing into a user-owned file is always safe (ADR 0007).
+func buildRulesAction(target Target, item Item) (Action, error) {
+	action := Action{
+		Kind:     item.Kind,
+		ItemName: item.Name,
+		Tool:     target.Tool,
+		Scope:    target.Scope,
+		Source:   filepath.Clean(item.SourcePath),
+		Target:   target.RulesPath,
+		Mode:     "compose",
+	}
+
+	raw, err := os.ReadFile(item.SourcePath)
+	if err != nil {
+		return Action{}, fmt.Errorf("read rules source %s: %w", item.SourcePath, err)
+	}
+	rendered, err := renderRules(target.Tool, string(raw))
+	if err != nil {
+		return Action{}, err
+	}
+
+	existing, err := os.ReadFile(target.RulesPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			action.Status = "create"
+			action.Reason = "missing"
+			return action, nil
+		}
+		return Action{}, fmt.Errorf("read rules target %s: %w", target.RulesPath, err)
+	}
+
+	current, found := extractRulesBlock(string(existing))
+	if !found {
+		action.Status = "create"
+		action.Reason = "block absent"
+		return action, nil
+	}
+	if strings.TrimSpace(current) == strings.TrimSpace(rendered) {
+		action.Status = "ok"
+		action.Reason = "composed"
+		return action, nil
+	}
+	action.Status = "drift"
+	action.Reason = "block differs from source"
+	return action, nil
+}
+
 func itemTargetPath(target Target, item Item) string {
 	switch item.Kind {
 	case KindAgent:
 		return filepath.Join(target.AgentsPath, item.Name+".md")
+	case KindRules:
+		return target.RulesPath
 	default:
 		return filepath.Join(target.SkillsPath, item.Name)
 	}

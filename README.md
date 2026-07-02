@@ -211,7 +211,7 @@ targets: [claude, codex]
 ---
 ```
 
-Rules adapter sync is intentionally deferred. `stardust sync` manages skills and agents now; format adapters for `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` need separate tool-specific rules instead of blind symlinks.
+Rules adapter sync ships. Author rules once in a canonical `.stardust/rules.md`, and `stardust sync` renders that body per tool through a format-aware adapter map, composing it into `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` as a sentinel-delimited managed block instead of a blind symlink. Compose owns only its block, so every line you write outside it survives each sync; a missing or stale block is reported by `stardust sync --check`, and a plain `stardust sync` self-heals compose drift without `--repair`.
 
 ## Context bundles
 
