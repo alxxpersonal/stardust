@@ -67,7 +67,7 @@ Conclusion: a lean, dependency-light, model-distribution-free, CGO-free in-binar
 
 Conclusion: reusing Ollama for a true cross-encoder rerank does not work now. But it is the obvious future once the endpoint lands, and the design must be pre-wired to capture it for free.
 
-**What actually reranks over the contract the tree already speaks?** llama.cpp `llama-server` serves `/v1/rerank` when launched with `--reranking` (mutually exclusive with `--embeddings`) and `pooling=rank`. bge-reranker-v2-m3 (Q4_K_M GGUF) is the reference well-behaved model. Results come back in input order and are sorted by `relevance_score` client-side, which `internal/rerank` already does. The only gap is that the user must hand-configure the URL.
+**What actually reranks over the contract the tree already speaks?** llama.cpp `llama-server` serves `/v1/rerank` when launched with `--reranking` (which requires `--embedding` with `pooling=rank`). bge-reranker-v2-m3 (Q4_K_M GGUF) is the reference well-behaved model. Results come back in input order and are sorted by `relevance_score` client-side, which `internal/rerank` already does. The only gap is that the user must hand-configure the URL.
 
 </details>
 
