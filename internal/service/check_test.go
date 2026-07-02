@@ -217,6 +217,38 @@ func TestDuplicateNameCrossCollectionScoped(t *testing.T) {
 	require.True(t, hasCheckIssue(res.Issues, "duplicate-name"))
 }
 
+// TestCheckBareDuplicateNameWarnsOnlyWhenReferenced pins the referenced-
+// ambiguity rule: free-form notes sharing a basename (multiple README.md) are
+// ordinary repo shape and stay silent until a wikilink actually targets the
+// shared name, at which point the ambiguity is real and warns.
+func TestCheckBareDuplicateNameWarnsOnlyWhenReferenced(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("README.md", "# Root\n\nsee [[guide]]\n")
+	write("plugin/README.md", "# Plugin readme\n")
+	write("guide.md", "# Guide\n\nsee [[readme-like-nothing]]\n")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	require.False(t, hasCheckIssue(res.Issues, "duplicate-name"), "unreferenced basename twins must stay silent")
+
+	// The moment a wikilink targets the shared name, the ambiguity is real.
+	write("guide.md", "# Guide\n\nsee [[readme]]\n")
+	res, err = svc.Check(context.Background())
+	require.NoError(t, err)
+	require.True(t, hasCheckIssue(res.Issues, "duplicate-name"), "a referenced shared name is genuinely ambiguous")
+}
+
 func TestCheckSuppressesConfiguredDirectoryIndexDuplicates(t *testing.T) {
 	ctx := context.Background()
 	root := directoryIndexVault(t)

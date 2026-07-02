@@ -84,10 +84,26 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		key := vault.CollectionKey(rel)
 		nameToPaths[key] = append(nameToPaths[key], rel)
 	}
+	// Wikilink targets are gathered lazily, only when a bare-name duplicate
+	// exists, so the common clean path pays nothing.
+	var linkTargets map[string]bool
 	for name, ps := range nameToPaths {
 		if len(ps) > 1 {
 			if allDirectoryIndexPaths(ps, directoryIndexPaths) {
 				continue
+			}
+			// A collection-qualified duplicate (docs/<coll>/ slug reuse) violates
+			// the docs naming convention and always warns. A bare basename shared
+			// by free-form notes (multiple README.md, a command file matching a
+			// root doc) is ordinary repo shape: it only becomes a problem when a
+			// wikilink actually targets that name, so it warns only then.
+			if !strings.Contains(name, "/") {
+				if linkTargets == nil {
+					linkTargets = wikilinkTargets(s.Layout.Root, paths)
+				}
+				if !linkTargets[name] {
+					continue
+				}
 			}
 			sort.Strings(ps)
 			issues = append(issues, Issue{
@@ -145,6 +161,23 @@ func mapConventionIssues(in []convention.ConventionIssue) []Issue {
 	out := make([]Issue, 0, len(in))
 	for _, issue := range in {
 		out = append(out, Issue{Severity: issue.Severity, Kind: issue.Kind, Path: issue.Path, Detail: issue.Detail})
+	}
+	return out
+}
+
+// wikilinkTargets returns the set of normalized wikilink targets used anywhere
+// in the vault, so duplicate-name can warn only on names a link actually
+// references (a bare basename shared by unreferenced files is not ambiguity).
+func wikilinkTargets(root string, paths []string) map[string]bool {
+	out := map[string]bool{}
+	for _, rel := range paths {
+		note, err := vault.Parse(root, rel)
+		if err != nil {
+			continue
+		}
+		for _, t := range vault.ExtractLinks(note.Body) {
+			out[t] = true
+		}
 	}
 	return out
 }

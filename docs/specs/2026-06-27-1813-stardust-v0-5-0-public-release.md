@@ -1,6 +1,6 @@
 ---
 title: Stardust v0.5.0 public release
-status: Draft
+status: Implemented
 version: 1
 date: 2026-06-27
 related: [docs/research/2026-06-27-1721-github-wiki-compatibility.md, .github/workflows/ci.yml, README.md]
