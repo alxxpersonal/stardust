@@ -59,10 +59,10 @@ Files:
 
 Steps:
 
-- [ ] Inventory every shipped post-v0.5.0 feature against source (git log v0.5.0..HEAD as the checklist): the JSON-RPC surface, MCP-through-registry, agent assets + rules sync, hooks compose, init auto-detect + status, the TUI, wiki mode (sibling autodetect, non-markdown pages), mount routing, contradiction candidates, endpoint-free reranking, the audit command, the plugin command set.
-- [ ] Write the agent-assets section: the docs/agents layout, placement-as-sharing, auto-sync, the compat story, honestly scoped (reranking needs a local runtime, the TS client covers a subset, candidates are review-prompts).
-- [ ] Refresh stale sections without bloating; verify every claim (command names, flags, config keys) in source; link docs/ for depth.
-- [ ] Dash scan; full gate; commit `docs(readme): document the agent asset home and post-release surface`.
+- [x] Inventory every shipped post-v0.5.0 feature against source (git log v0.5.0..HEAD as the checklist): the JSON-RPC surface, MCP-through-registry, agent assets + rules sync, hooks compose, init auto-detect + status, the TUI, wiki mode (sibling autodetect, non-markdown pages), mount routing, contradiction candidates, endpoint-free reranking, the audit command, the plugin command set.
+- [x] Write the agent-assets section: the docs/agents layout, placement-as-sharing, auto-sync, the compat story, honestly scoped (reranking needs a local runtime, the TS client covers a subset, candidates are review-prompts).
+- [x] Refresh stale sections without bloating; verify every claim (command names, flags, config keys) in source; link docs/ for depth.
+- [x] Dash scan; full gate; commit `docs(readme): document the agent asset home and post-release surface`.
 
 ## Task 4: adversarial review
 
