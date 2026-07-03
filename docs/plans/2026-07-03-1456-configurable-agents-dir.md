@@ -1,6 +1,6 @@
 ---
 title: Configurable agents dir - implementation plan
-status: Active
+status: Done
 version: 1
 date: 2026-07-03
 related:
@@ -48,10 +48,10 @@ Files:
 
 Steps:
 
-- [ ] Add the one-line `agents_dir` documentation to the README agent-assets section and setup.md's config shape; dash scan; sync the touched command file into the newest `~/.claude/plugins/cache/stardust-local/stardust/<version>/` dir.
-- [ ] Live end-to-end in a temp repo with `agents_dir = "docs/skills"`: scaffold, check-clean skill, registry listing, hook-driven sync into all three tool dirs, `sync --check` drift gate; then the same flow with NO knob proving the default is byte-identical to v0.6.0 behavior; then the three invalid values each produce `bad-agents-dir`.
-- [ ] Full gate; index regen; commit `docs(config): document the agents_dir knob`.
-- [ ] Flip this plan to Done and the spec to Implemented in the same commit; verify repo check 0/0; report defects honestly instead of silencing.
+- [x] Add the one-line `agents_dir` documentation to the README agent-assets section and setup.md's config shape; dash scan; sync the touched command file into the newest `~/.claude/plugins/cache/stardust-local/stardust/<version>/` dir.
+- [x] Live end-to-end in a temp repo with `agents_dir = "docs/skills"`: scaffold, check-clean skill, registry listing, hook-driven sync into all three tool dirs, `sync --check` drift gate; then the same flow with NO knob proving the default is byte-identical to v0.6.0 behavior; then the three invalid values each produce `bad-agents-dir`.
+- [x] Full gate; index regen; commit `docs(config): document the agents_dir knob`.
+- [x] Flip this plan to Done and the spec to Implemented in the same commit; verify repo check 0/0; report defects honestly instead of silencing.
 
 ## Verification
 

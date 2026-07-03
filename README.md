@@ -181,6 +181,8 @@ The post-commit hook regenerates `docs/INDEX.md` on every commit (after the incr
 
 Shared agent assets live in one place: `docs/agents/`. Drop a skill at `docs/agents/skills/<name>/SKILL.md`, a subagent at `docs/agents/subagents/<name>.md`, and shared rules at `docs/agents/rules.md`, and `stardust sync` materializes them into every configured AI tool directory (`.claude/`, `.codex/`, `.gemini/`) as symlinks or copies. `stardust init` scaffolds the area for a code repo.
 
+The home is configurable: set `agents_dir` in `.stardust/config.toml` (empty or absent means `docs/agents`) to relocate the whole area, and every seam - the sync source defaults, the stray-doc and orphan exemptions, the registry Agents section, and the `init --docs` scaffold - follows the configured path, while `stardust check` rejects an absolute, repo-escaping, or collection-colliding value (ADR 0048).
+
 **Placement is the sharing switch.** An asset under `docs/agents/` is shared to every configured tool. An asset dropped directly into a tool dir (`.claude/skills/` and friends) stays tool-local and is never touched by sync. The `targets:` frontmatter is an optional narrowing on top:
 
 ```yaml

@@ -1,6 +1,6 @@
 ---
 title: Configurable agent assets directory
-status: Approved
+status: Implemented
 version: 1
 date: 2026-07-03
 related:
@@ -126,3 +126,4 @@ In a temp repo with `agents_dir = "docs/skills"`: init scaffolds `docs/skills/{s
 </details>
 
 - Reviewed 2026-07-03 after implementing Task 1: the config resolver, sync defaults, check exemptions, registry section, and init scaffold now realize this spec; references hold.
+- Implemented 2026-07-03 after Task 2: docs (README agent-assets section, plugin setup command) document the knob, and live end-to-end verification confirms the Verification section - `agents_dir = "docs/skills"` scaffolds, checks clean, lists in the registry, and hook-syncs into all three repo tool dirs with a working drift gate; the no-knob default is byte-identical to the v0.6.0 binary across check, sync plan, and registry output; and the absolute, repo-escaping, and collection-colliding values each raise `bad-agents-dir`.

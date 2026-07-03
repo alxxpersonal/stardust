@@ -40,6 +40,9 @@ Read `$ARGUMENTS`.
 - `repo`, or empty when `${CLAUDE_PROJECT_DIR}/.stardust` is a directory: repo mode. Repo
   mode is zero-config. If `.stardust/` is missing in the project root, offer to run
   `stardust init --docs` there. Then write the default config below so the tunables exist.
+  The repo's own knobs live in `.stardust/config.toml`; among them `agents_dir` (empty or
+  absent means `docs/agents`) relocates the shared agent-assets home that sync, the checks,
+  and the registry all follow (ADR 0048).
 - `vault`, or empty when no repo is detected: vault mode. Follow the vault steps.
 
 ## Vault mode steps
