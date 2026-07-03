@@ -147,3 +147,4 @@ The suppression is intentionally narrow. A document that is not a configured dir
 
 </details>
 
+- Reviewed 2026-07-03 against the instruction-file orphan exemption in internal/service/check.go (ADR 0047 amendment); the behavior this doc relies on is unchanged.

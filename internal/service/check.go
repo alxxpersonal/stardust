@@ -57,8 +57,10 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		}
 		// docs/agents holds synced operational assets (skills, subagents, the
 		// rules source), not linked notes; standing alone is their normal state
-		// (ADR 0047), so they are exempt from the orphan warning.
-		if strings.HasPrefix(p, "docs/agents/") {
+		// (ADR 0047), so they are exempt from the orphan warning. The root
+		// instruction files are rules-compose targets under the same rule.
+		if strings.HasPrefix(p, "docs/agents/") ||
+			p == "CLAUDE.md" || p == "AGENTS.md" || p == "GEMINI.md" {
 			continue
 		}
 		issues = append(issues, Issue{Severity: "warn", Kind: "orphan", Path: p, Detail: "no links in or out"})

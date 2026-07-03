@@ -61,3 +61,4 @@ The rule exempts `docs/INDEX.md` and markdown under `docs/templates/`.
 
 </details>
 
+- Reviewed 2026-07-03 against the instruction-file orphan exemption in internal/service/check.go (ADR 0047 amendment); the behavior this doc relies on is unchanged.

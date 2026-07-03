@@ -264,6 +264,9 @@ func TestCheckDocsAgentsAreaIsNotOrphaned(t *testing.T) {
 	}
 	write("docs/agents/rules.md", "# Rules\n\nZero em dashes ever.\n")
 	write("docs/agents/skills/demo/SKILL.md", "---\nname: demo\ndescription: demo skill\n---\n# Demo\n")
+	// The rules-compose targets are operational files under the same rule.
+	write("CLAUDE.md", "# Rules\n\ncomposed instruction file with no links\n")
+	write("GEMINI.md", "# Rules\n\ncomposed instruction file with no links\n")
 	write("Home.md", "# Home\n\nsee [[Other]]\n")
 	write("Other.md", "# Other\n\nsee [[Home]]\n")
 
@@ -274,8 +277,11 @@ func TestCheckDocsAgentsAreaIsNotOrphaned(t *testing.T) {
 	res, err := svc.Check(context.Background())
 	require.NoError(t, err)
 	for _, is := range res.Issues {
-		if is.Kind == "orphan" && strings.HasPrefix(is.Path, "docs/agents/") {
-			t.Fatalf("docs/agents asset flagged orphan: %+v", is)
+		if is.Kind != "orphan" {
+			continue
+		}
+		if strings.HasPrefix(is.Path, "docs/agents/") || is.Path == "CLAUDE.md" || is.Path == "GEMINI.md" {
+			t.Fatalf("operational asset flagged orphan: %+v", is)
 		}
 	}
 }
