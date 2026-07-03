@@ -32,6 +32,12 @@ jobs:
           BINDIR="$(go env GOPATH)/bin"
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$BINDIR" v2.11.3
           "$BINDIR/golangci-lint" run ./...
+      - name: stardust drift gate
+        run: |
+          BINDIR="$(go env GOPATH)/bin"
+          go build -o "$BINDIR/stardust" ./cmd/stardust
+          "$BINDIR/stardust" check --strict
+          "$BINDIR/stardust" sync --check
 
   plugin:
     runs-on: ubuntu-latest

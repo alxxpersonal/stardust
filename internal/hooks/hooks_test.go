@@ -27,6 +27,37 @@ func TestPostCommitRegeneratesRegistry(t *testing.T) {
 	require.Contains(t, registryLine, "|| true", "registry line must not fail the commit")
 }
 
+// guardedLineAt returns the whole hook line that contains the byte at idx.
+func guardedLineAt(body string, idx int) string {
+	start := strings.LastIndexByte(body[:idx], '\n') + 1
+	end := strings.IndexByte(body[idx:], '\n')
+	if end < 0 {
+		return body[start:]
+	}
+	return body[start : idx+end]
+}
+
+func TestHookBodiesRunSyncAfterRegistry(t *testing.T) {
+	// post-commit: sync runs after the registry regeneration so freshly indexed
+	// agent assets materialize into the tool dirs on the same commit.
+	registryIdx := strings.Index(postCommit, "stardust registry")
+	require.GreaterOrEqual(t, registryIdx, 0, "post-commit hook must regenerate the docs registry")
+	syncIdx := strings.Index(postCommit, "stardust sync")
+	require.GreaterOrEqual(t, syncIdx, 0, "post-commit hook must sync agent assets")
+	require.Greater(t, syncIdx, registryIdx, "sync line must come after the registry line")
+	require.Contains(t, guardedLineAt(postCommit, syncIdx), "|| true", "post-commit sync line must not fail the commit")
+	require.Contains(t, guardedLineAt(postCommit, syncIdx), "command -v stardust", "post-commit sync line must be guarded on stardust presence")
+
+	// post-merge: sync runs after the re-index so a pull materializes new assets.
+	mergeIndexIdx := strings.Index(postMerge, "stardust index")
+	require.GreaterOrEqual(t, mergeIndexIdx, 0, "post-merge hook must still re-index")
+	mergeSyncIdx := strings.Index(postMerge, "stardust sync")
+	require.GreaterOrEqual(t, mergeSyncIdx, 0, "post-merge hook must sync agent assets")
+	require.Greater(t, mergeSyncIdx, mergeIndexIdx, "post-merge sync line must come after the index line")
+	require.Contains(t, guardedLineAt(postMerge, mergeSyncIdx), "|| true", "post-merge sync line must not fail the commit")
+	require.Contains(t, guardedLineAt(postMerge, mergeSyncIdx), "command -v stardust", "post-merge sync line must be guarded on stardust presence")
+}
+
 // configValue returns the configured git value for key in root, or "" when unset.
 func configValue(t *testing.T, root, key string) string {
 	t.Helper()
@@ -106,7 +137,7 @@ func TestInstallComposeModeAppendsBlockAndKeepsHooksPath(t *testing.T) {
 	if starts, ends := countMarkers(postCommitBody); starts != 1 || ends != 1 {
 		t.Fatalf("post-commit markers = (%d start, %d end), want exactly one of each", starts, ends)
 	}
-	for _, want := range []string{"stardust index", "stardust registry"} {
+	for _, want := range []string{"stardust index", "stardust registry", "stardust sync"} {
 		if !strings.Contains(postCommitBody, want) {
 			t.Fatalf("post-commit = %q, want the %q line composed in", postCommitBody, want)
 		}

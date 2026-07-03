@@ -138,4 +138,5 @@ End to end in a temp repo: `stardust init --docs` scaffolds `docs/agents/`; a sk
 - internal/hooks/hooks.go (the guarded hook bodies)
 - .github/workflows/ci.yml
 - docs/adr/0039-rules-adapter-sync.md, docs/adr/0047-agent-assets-docs-home.md
+- Reviewed 2026-07-03 against the Task 2 implementation: `internal/hooks/hooks.go` gained the guarded `stardust sync` line and `.github/workflows/ci.yml` gained the drift gate, both as specified; references hold.
 </details>

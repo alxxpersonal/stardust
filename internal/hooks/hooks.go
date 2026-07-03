@@ -21,10 +21,14 @@ const postCommitBody = `# stardust: index changed notes after each commit, non-b
 command -v stardust >/dev/null 2>&1 && stardust index --since HEAD~1 --background >/dev/null 2>&1 || true
 # stardust: regenerate the grouped docs registry, non-blocking, never fail the commit
 command -v stardust >/dev/null 2>&1 && stardust registry >/dev/null 2>&1 || true
+# stardust: materialize shared agent assets into the tool dirs, non-blocking, never fail the commit
+command -v stardust >/dev/null 2>&1 && stardust sync >/dev/null 2>&1 || true
 `
 
 const postMergeBody = `# stardust: re-index after pulling or rewriting history, non-blocking
 command -v stardust >/dev/null 2>&1 && stardust index --background >/dev/null 2>&1 || true
+# stardust: materialize shared agent assets after a pull, non-blocking
+command -v stardust >/dev/null 2>&1 && stardust sync >/dev/null 2>&1 || true
 `
 
 const preCommitWarnBody = `# stardust: warn on vault issues, never blocks the commit

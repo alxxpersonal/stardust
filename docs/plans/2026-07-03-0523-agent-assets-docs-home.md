@@ -46,10 +46,10 @@ Files:
 
 Steps:
 
-- [ ] Failing test: the owned post-commit and post-merge bodies (and the composed sentinel block) contain the guarded `stardust sync` line after the registry line; implement in the shared body constants so owned and composed stay byte-consistent.
-- [ ] Re-run the hooks idempotency tests: a reinstall replaces the sentinel block with the new body, exactly one block.
-- [ ] Add the CI step: build the binary in-workflow and run `stardust sync --check` from the repo root (plus `stardust check --strict` if the workflow does not already gate it); keep the workflow's existing shape.
-- [ ] Full gate; commit `feat(hooks): run agent-asset sync automatically with a ci drift gate`.
+- [x] Failing test: the owned post-commit and post-merge bodies (and the composed sentinel block) contain the guarded `stardust sync` line after the registry line; implement in the shared body constants so owned and composed stay byte-consistent.
+- [x] Re-run the hooks idempotency tests: a reinstall replaces the sentinel block with the new body, exactly one block.
+- [x] Add the CI step: build the binary in-workflow and run `stardust sync --check` from the repo root (plus `stardust check --strict` if the workflow does not already gate it); keep the workflow's existing shape.
+- [x] Full gate; commit `feat(hooks): run agent-asset sync automatically with a ci drift gate`.
 
 ## Task 3: README
 
