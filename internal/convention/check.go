@@ -98,12 +98,16 @@ func registeredDocFolders(root string) ([]string, error) {
 }
 
 // checkStrayDoc rejects markdown under docs that is outside registered folders.
+// docs/agents is a convention-known area (shared agent assets: skills,
+// subagents, rules.md), exempted the same way docs/templates is: its files carry
+// skill or agent frontmatter, not doc frontmatter, so they are indexed and
+// searchable without collection-field validation (ADR 0047).
 func checkStrayDoc(rel string, allowedFolders []string) (ConventionIssue, bool) {
 	rel = filepath.ToSlash(rel)
 	if !strings.HasPrefix(rel, "docs/") {
 		return ConventionIssue{}, false
 	}
-	if rel == "docs/INDEX.md" || strings.HasPrefix(rel, "docs/templates/") {
+	if rel == "docs/INDEX.md" || strings.HasPrefix(rel, "docs/templates/") || strings.HasPrefix(rel, "docs/agents/") {
 		return ConventionIssue{}, false
 	}
 	for _, folder := range allowedFolders {

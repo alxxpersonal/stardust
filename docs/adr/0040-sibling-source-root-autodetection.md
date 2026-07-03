@@ -58,3 +58,5 @@ Add sibling autodetection as a gap-filler behind one new resolver, and gate acce
 - `internal/convention/detect.go` (KindGitHubWiki, hasWikiSuffix, gitConfigPath, hasGitHubWikiSignal)
 - `internal/config/config.go` (SourceRoot, ResolveSourceRoot)
 - `internal/service/governs.go`, `internal/service/check.go` (source-repo drift bindings)
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

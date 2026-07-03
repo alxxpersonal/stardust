@@ -150,3 +150,5 @@ Detector and verifier are separate subagent instances so the verifier is not anc
 - `docs/examples/cron-jobs/librarian/prompt.md` (notify, question, review taxonomy and propose-not-mutate)
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

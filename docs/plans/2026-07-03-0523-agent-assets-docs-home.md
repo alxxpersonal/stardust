@@ -19,7 +19,7 @@ Make `docs/agents/` the natively understood canonical home for shared agent asse
 
 ## Context
 
-Read first: the spec and ADR 0047 (normative), `internal/agentsync/config.go` (DefaultConfig sources and targets, ImportOnly semantics), `internal/agentsync/inventory.go` (per-Kind discovery), `internal/convention/check.go` (checkStrayDoc:101, CheckSkills:129), `internal/hooks/hooks.go` (the guarded bodies, owned and composed), `internal/cli/init.go` (the docs scaffold), `.github/workflows/ci.yml`, and `internal/service/registry.go` (how registry sections render).
+Read first: the spec and ADR 0047 (normative), `internal/agentsync/config.go` (DefaultConfig sources and targets, ImportOnly semantics), `internal/agentsync/inventory.go` (per-Kind discovery), `internal/convention/check.go` (checkStrayDoc:105, CheckSkills:133), `internal/hooks/hooks.go` (the guarded bodies, owned and composed), `internal/cli/init.go` (the docs scaffold), `.github/workflows/ci.yml`, and `internal/service/registry.go` (how registry sections render).
 
 ## Task 1: the docs/agents area, natively understood
 
@@ -30,12 +30,12 @@ Files:
 
 Steps:
 
-- [ ] Failing test: a `docs/agents/skills/demo/SKILL.md` in a docs-convention repo produces zero stray-doc issues; implement the `docs/agents/` exemption beside the `docs/templates/` one.
-- [ ] Failing test: `agentsync.DefaultConfig` repo sources point at `docs/agents/skills`, `docs/agents/subagents`, `docs/agents/rules.md` at Priority 100, with `skills/`, `agents/`, `.stardust/rules.md` present as ImportOnly compat; implement the repoint. Pin collision resolution: the same item name in old and new sources resolves to the docs/agents copy.
-- [ ] Failing test: `stardust init --docs` scaffolds `docs/agents/skills/`, `docs/agents/subagents/`, and a `docs/agents/rules.md` stub; implement.
-- [ ] Failing test: the registry output contains an Agents section listing a seeded skill's name, description, and targets plus a seeded subagent; implement following the collection-section rendering pattern.
-- [ ] Confirm `CheckSkills` validates the new path (extend only if folder-scoped) and that index/search cover the area (an integration assertion in the existing service test style).
-- [ ] Full gate; commit `feat(agentsync): home shared agent assets in docs/agents`.
+- [x] Failing test: a `docs/agents/skills/demo/SKILL.md` in a docs-convention repo produces zero stray-doc issues; implement the `docs/agents/` exemption beside the `docs/templates/` one.
+- [x] Failing test: `agentsync.DefaultConfig` repo sources point at `docs/agents/skills`, `docs/agents/subagents`, `docs/agents/rules.md` at Priority 100, with `skills/`, `agents/`, `.stardust/rules.md` present as ImportOnly compat; implement the repoint. Pin collision resolution: the same item name in old and new sources resolves to the docs/agents copy.
+- [x] Failing test: `stardust init --docs` scaffolds `docs/agents/skills/`, `docs/agents/subagents/`, and a `docs/agents/rules.md` stub; implement.
+- [x] Failing test: the registry output contains an Agents section listing a seeded skill's name, description, and targets plus a seeded subagent; implement following the collection-section rendering pattern.
+- [x] Confirm `CheckSkills` validates the new path (extend only if folder-scoped) and that index/search cover the area (an integration assertion in the existing service test style).
+- [x] Full gate; commit `feat(agentsync): home shared agent assets in docs/agents`.
 
 ## Task 2: automatic sync
 

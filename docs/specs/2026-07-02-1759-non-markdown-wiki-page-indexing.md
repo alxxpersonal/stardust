@@ -195,3 +195,5 @@ Rules are the smallest set that yields clean prose; residual punctuation is left
 5. Mark research improvement 9 and the "Left as proposals" non-markdown line shipped; regenerate the docs index.
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

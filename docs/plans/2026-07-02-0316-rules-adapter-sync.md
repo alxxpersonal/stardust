@@ -91,3 +91,5 @@ Add a third `KindRules` to `internal/agentsync` that renders a canonical `.stard
 - `compose` is the only mode that self-heals drift; symlink and copy `--repair` is byte-identical to today.
 - Skill and agent sync behavior is unchanged.
 - No new command, flag, or config file was added.
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

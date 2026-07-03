@@ -63,3 +63,5 @@ Index non-markdown wiki pages additively through the existing pipeline, with che
 - `internal/graph/graph.go` (`resolveIndex`, `byBase` basename resolution)
 - `internal/convention/check.go` (`CheckDocs`, the forbidden-dash and docs-convention blocks)
 - GitHub Markup supported formats and extensions: github/markup
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

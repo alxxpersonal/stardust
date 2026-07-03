@@ -147,3 +147,5 @@ The suppression is intentionally narrow. A document that is not a configured dir
 
 </details>
 - Reviewed 2026-07-03 against the duplicate-name referenced-ambiguity gate in internal/service/check.go (ADR 0046); the behavior this doc relies on is unchanged.
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

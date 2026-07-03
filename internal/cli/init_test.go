@@ -50,6 +50,64 @@ func TestInitDocsScaffold(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestInitDocsScaffoldsAgentsArea runs `init --docs` and asserts the docs/agents
+// home is scaffolded: skills/ and subagents/ subfolders plus a rules.md stub.
+func TestInitDocsScaffoldsAgentsArea(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--docs"})
+	require.NoError(t, cmd.Execute())
+
+	for _, sub := range []string{"skills", "subagents"} {
+		info, err := os.Stat(filepath.Join(root, "docs", "agents", sub))
+		require.NoErrorf(t, err, "expected docs/agents/%s", sub)
+		require.Truef(t, info.IsDir(), "docs/agents/%s must be a directory", sub)
+	}
+	rules := filepath.Join(root, "docs", "agents", "rules.md")
+	info, err := os.Stat(rules)
+	require.NoError(t, err)
+	require.False(t, info.IsDir(), "docs/agents/rules.md must be a file")
+	body, err := os.ReadFile(rules)
+	require.NoError(t, err)
+	require.NotEmpty(t, body, "rules.md stub must have content")
+}
+
+// TestInitNoDocsSkipsAgentsArea asserts a plain `init` does not scaffold docs/agents.
+func TestInitNoDocsSkipsAgentsArea(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(filepath.Join(root, "docs", "agents"))
+	require.True(t, os.IsNotExist(err), "plain init must not scaffold docs/agents")
+}
+
+// TestInitDocsScaffoldAgentsAreaIdempotent asserts a second `init --docs` never
+// clobbers an edited rules.md.
+func TestInitDocsScaffoldAgentsAreaIdempotent(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--docs"})
+	require.NoError(t, cmd.Execute())
+
+	rules := filepath.Join(root, "docs", "agents", "rules.md")
+	require.NoError(t, os.WriteFile(rules, []byte("# My real rules\n"), 0o644))
+
+	cmd2 := newInitCmd()
+	cmd2.SetArgs([]string{"--docs"})
+	require.NoError(t, cmd2.Execute())
+
+	body, err := os.ReadFile(rules)
+	require.NoError(t, err)
+	require.Equal(t, "# My real rules\n", string(body), "re-running init must not clobber edited rules.md")
+}
+
 // TestInitNoDocs runs a plain `init` and asserts no docs collections are written.
 func TestInitNoDocs(t *testing.T) {
 	root := t.TempDir()

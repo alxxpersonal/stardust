@@ -61,3 +61,5 @@ The rule exempts `docs/INDEX.md` and markdown under `docs/templates/`.
 
 </details>
 - Reviewed 2026-07-03 against the duplicate-name referenced-ambiguity gate in internal/service/check.go (ADR 0046); the behavior this doc relies on is unchanged.
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

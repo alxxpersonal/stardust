@@ -24,7 +24,7 @@ agentsync ships (skills, agents, rules synced into `.claude/`, `.codex/`, `.gemi
 <br>
 
 - `internal/agentsync` resolves sources by priority with `ImportOnly` compat entries, discovers items per Kind (`KindSkill`, `KindAgent`, `KindRules`), and applies symlink/copy plans per tool target with `--check` and `--repair` (ADR 0039 added rules with sentinel-block compose).
-- `checkStrayDoc` (internal/convention/check.go:101) rejects markdown under `docs/` outside registered collection folders, exempting only `docs/INDEX.md` and `docs/templates/`. Anything landed under `docs/agents/` today is a stray-doc error.
+- `checkStrayDoc` (internal/convention/check.go:105) rejects markdown under `docs/` outside registered collection folders, exempting only `docs/INDEX.md` and `docs/templates/`. Anything landed under `docs/agents/` today is a stray-doc error.
 - `CheckSkills` walks the repo for `SKILL.md` files and validates their frontmatter (`name`, `targets`), so skill validation is location-independent already.
 - The hooks (`internal/hooks`) run guarded `stardust index` and `stardust registry` lines on post-commit and post-merge, in owned or composed mode (ADR 0007/0008); there is no sync line.
 - CI (`.github/workflows/ci.yml`) builds and tests; it runs no stardust drift gate.

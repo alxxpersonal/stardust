@@ -87,3 +87,5 @@ The GitHub wiki compatibility research (`docs/research/2026-06-27-1721-github-wi
 - Non-markdown pages are index-and-search plus resolvable target only: no out edges, no drift.
 - Extensions are recognized everywhere, not gated to a wiki `Kind`; `.asc` is excluded.
 - No new parser or rendering dependency; extraction is regex and line rules only.
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

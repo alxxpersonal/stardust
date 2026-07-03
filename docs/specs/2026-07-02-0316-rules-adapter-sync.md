@@ -150,3 +150,5 @@ One rule, inherited from ADR 0007: stardust owns only its block, never the file.
 7. Refresh SPEC.md 4.2 and README to mark rules sync shipped; regenerate the docs index.
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

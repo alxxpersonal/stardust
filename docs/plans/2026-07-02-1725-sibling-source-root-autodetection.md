@@ -85,3 +85,5 @@ Cross-repo drift shipped in commit `3ae7e54` behind an explicit `source_root`, n
 - The remote-URL identity match is required; a same-named different-repo sibling cannot bind.
 - The sibling is derived only from a `<name>.wiki` basename; URL-only and structural wikis are excluded.
 - Source-repo drift counting and `(source repo)` labels from commit 3ae7e54 are unchanged.
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

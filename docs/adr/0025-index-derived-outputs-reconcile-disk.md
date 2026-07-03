@@ -59,3 +59,5 @@ Registry generation validates that indexed collection rows cover the collection 
 - `internal/service/registry.go`
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

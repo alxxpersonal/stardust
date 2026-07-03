@@ -40,3 +40,4 @@ agentsync's canonical sources are scattered outside the doc workflow: repo-root 
 
 - docs/specs/2026-07-03-0523-agent-assets-docs-home.md
 - internal/agentsync/config.go, internal/convention/check.go, internal/hooks/hooks.go
+- Verified 2026-07-03 against the Task 1 implementation (docs/agents source repoint and the stray-doc exemption); decision unchanged.

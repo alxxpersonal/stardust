@@ -121,12 +121,48 @@ func scaffoldVault(ctx context.Context, root, check string, docs bool) (hooks.Re
 		if err := writeDocsCollections(layout.Collections()); err != nil {
 			return hooks.Result{}, err
 		}
+		if err := scaffoldAgentsArea(root); err != nil {
+			return hooks.Result{}, err
+		}
 	}
 
 	if gitx.IsRepo(ctx, root) {
 		return hooks.Install(ctx, root, layout.Hooks(), check)
 	}
 	return hooks.Result{}, nil
+}
+
+// agentsRulesStub is the placeholder body written to docs/agents/rules.md when
+// init scaffolds the agent-assets area. It is a plain markdown source (no
+// frontmatter required) that compose-sync injects into each tool's instruction
+// file; the user replaces it with their real cross-agent rules.
+const agentsRulesStub = `# Shared agent rules
+
+Rules placed here compose into every configured tool's instruction file when
+stardust sync runs. Replace this stub with your cross-agent rules.
+`
+
+// scaffoldAgentsArea creates the docs/agents home for shared agent assets: the
+// skills/ and subagents/ kind subfolders and a rules.md stub. An existing
+// rules.md is left untouched so re-running init --docs never clobbers real rules;
+// the subfolders are created idempotently with MkdirAll.
+func scaffoldAgentsArea(root string) error {
+	agentsDir := filepath.Join(root, "docs", "agents")
+	for _, sub := range []string{"skills", "subagents"} {
+		if err := os.MkdirAll(filepath.Join(agentsDir, sub), 0o755); err != nil {
+			return fmt.Errorf("create docs/agents/%s: %w", sub, err)
+		}
+	}
+	rules := filepath.Join(agentsDir, "rules.md")
+	if _, err := os.Stat(rules); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat docs/agents/rules.md: %w", err)
+	}
+	if err := os.WriteFile(rules, []byte(agentsRulesStub), 0o644); err != nil {
+		return fmt.Errorf("write docs/agents/rules.md: %w", err)
+	}
+	return nil
 }
 
 // writeDocsCollections writes the four docs collection configs under

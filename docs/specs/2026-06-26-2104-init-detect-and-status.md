@@ -301,3 +301,5 @@ None blocking. The both-flags-set tiebreak (`--docs` wins) is decided and docume
 - `docs/adr/0027-init-auto-detect-default-policy.md`, `docs/adr/0028-status-command-and-json-contract.md`
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

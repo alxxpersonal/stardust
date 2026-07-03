@@ -144,6 +144,55 @@ func TestCheckDocsReportsStrayDocs(t *testing.T) {
 	}
 }
 
+// TestCheckDocsExemptsDocsAgents asserts the docs/agents area is convention-known:
+// its skills, subagents, and rules.md are never stray-docs, mirroring the
+// docs/templates exemption, even in a docs-convention repo.
+func TestCheckDocsExemptsDocsAgents(t *testing.T) {
+	root := t.TempDir()
+	cfg := "path = \"docs/specs\"\ndescription = \"specs\"\n\n" +
+		"[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n"
+	writeFile(t, root, ".stardust/collections/specs/config.toml", cfg)
+	writeFile(t, root, "docs/agents/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill\n---\n# Demo\n")
+	writeFile(t, root, "docs/agents/subagents/reviewer.md", "---\nname: reviewer\n---\n# Reviewer\n")
+	writeFile(t, root, "docs/agents/rules.md", "# Shared rules\n")
+
+	issues, err := CheckDocs(root, nil)
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+	for _, p := range []string{
+		"docs/agents/skills/demo/SKILL.md",
+		"docs/agents/subagents/reviewer.md",
+		"docs/agents/rules.md",
+	} {
+		if hasIssuePath(issues, "stray-doc", p) {
+			t.Fatalf("docs/agents must be exempt from stray-doc, got %#v for %s", issues, p)
+		}
+	}
+	// Skill frontmatter must not be validated against the doc schema.
+	for _, kind := range []string{"bad-doc-name", "missing-doc-field", "bad-doc-status"} {
+		if hasIssuePath(issues, kind, "docs/agents/skills/demo/SKILL.md") {
+			t.Fatalf("doc-schema rule %s must not fire on a docs/agents skill, got %#v", kind, issues)
+		}
+	}
+}
+
+// TestCheckSkillsCoversDocsAgents confirms the existing repo-wide skill walk
+// validates skills homed under docs/agents: a bad target is flagged there too, so
+// no folder-scoped extension is needed.
+func TestCheckSkillsCoversDocsAgents(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "docs/agents/skills/foo/SKILL.md", "---\nname: foo\ntargets: [wat]\n---\n# Foo\n")
+
+	issues, err := CheckSkills(root)
+	if err != nil {
+		t.Fatalf("CheckSkills() error = %v", err)
+	}
+	if !hasIssuePath(issues, "bad-target", "docs/agents/skills/foo/SKILL.md") {
+		t.Fatalf("CheckSkills must cover docs/agents skills, got %#v", issues)
+	}
+}
+
 // TestCheckDocsNonMarkdownDashOnlyNoDocsConvention asserts the forbidden-dash
 // rule runs on a non-markdown wiki page while the docs-convention block (stray
 // doc, doc-name, drift) never fires on it, even in a docs-convention repo.

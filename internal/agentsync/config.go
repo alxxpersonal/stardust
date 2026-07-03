@@ -59,12 +59,24 @@ type Config struct {
 }
 
 // DefaultConfig returns a generic repo-first sync configuration.
+//
+// Shared agent assets are homed under docs/agents so they ride the doc workflow
+// (indexed, searchable, registry-listed, drift-tracked). Those docs-homed
+// sources carry Priority 100 and materialize into tool dirs. The legacy repo-root
+// skills/, agents/, and .stardust/rules.md are kept only as ImportOnly compat
+// sources at a lower precedence (a higher priority number loses to 100 in
+// Discover), so an item defined in both places resolves to the docs/agents copy,
+// and a not-yet-migrated legacy asset stays visible for adoption without being
+// synced from its old home.
 func DefaultConfig(home, root string) Config {
 	return Config{
 		Sources: []Source{
-			{Name: "repo-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 100},
-			{Name: "repo-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 100},
-			{Name: "repo-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 100},
+			{Name: "repo-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: "skill", Priority: 100},
+			{Name: "repo-agents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: "agent", Priority: 100},
+			{Name: "repo-rules", Path: filepath.Join(root, "docs", "agents", "rules.md"), Kind: "rules", Priority: 100},
+			{Name: "compat-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 200, ImportOnly: true},
+			{Name: "compat-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 200, ImportOnly: true},
+			{Name: "compat-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 200, ImportOnly: true},
 		},
 		Targets: []Target{
 			{Tool: ToolClaude, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".claude", "skills"), AgentsPath: filepath.Join(root, ".claude", "agents"), RulesPath: filepath.Join(root, "CLAUDE.md"), Mode: "symlink"},

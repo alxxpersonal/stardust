@@ -114,6 +114,10 @@ func runRegistry(cmd *cobra.Command, output string) error {
 	if err != nil {
 		return err
 	}
+	agents, err := svc.AgentsSection()
+	if err != nil {
+		return err
+	}
 
 	out := output
 	if !filepath.IsAbs(out) {
@@ -122,7 +126,7 @@ func runRegistry(cmd *cobra.Command, output string) error {
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return fmt.Errorf("create registry dir: %w", err)
 	}
-	if err := manifest.WriteRegistry(out, groups); err != nil {
+	if err := manifest.WriteRegistry(out, groups, agents); err != nil {
 		return err
 	}
 	if err := svc.RefreshManifest(ctx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/alxxpersonal/stardust/internal/agentsync"
 	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/manifest"
 	"github.com/alxxpersonal/stardust/internal/vault"
@@ -29,11 +30,15 @@ func (s *Service) RegenerateRegistry(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	agents, err := s.AgentsSection()
+	if err != nil {
+		return err
+	}
 	out := filepath.Join(s.Layout.Root, "docs", "INDEX.md")
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return fmt.Errorf("create registry dir: %w", err)
 	}
-	if err := manifest.WriteRegistry(out, groups); err != nil {
+	if err := manifest.WriteRegistry(out, groups, agents); err != nil {
 		return err
 	}
 	if err := s.RefreshManifest(ctx); err != nil {
@@ -96,6 +101,54 @@ func (s *Service) Registry(order []string) ([]manifest.RegistryGroup, error) {
 		groups = append(groups, group)
 	}
 	return groups, nil
+}
+
+// AgentsSection discovers the docs/agents-homed shared agent assets (skills and
+// subagents) and shapes them for the registry's Agents section. It reads only the
+// canonical docs/agents home under the vault root, so the section mirrors the
+// cross-agent surface visible in the tree, independent of any legacy compat
+// sources. A missing area yields an empty section, never an error. Items arrive
+// pre-sorted by kind then name from Discover, so skills and subagents stay
+// deterministic.
+func (s *Service) AgentsSection() (manifest.AgentsSection, error) {
+	root := s.Layout.Root
+	cfg := agentsync.Config{
+		Sources: []agentsync.Source{
+			{Name: "docs-agents-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: string(agentsync.KindSkill), Priority: 100},
+			{Name: "docs-agents-subagents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: string(agentsync.KindAgent), Priority: 100},
+		},
+		DefaultTargets: []agentsync.Tool{agentsync.ToolClaude, agentsync.ToolCodex, agentsync.ToolGemini},
+	}
+	items, err := agentsync.Discover(cfg)
+	if err != nil {
+		return manifest.AgentsSection{}, fmt.Errorf("discover agent assets: %w", err)
+	}
+	var section manifest.AgentsSection
+	for _, item := range items {
+		switch item.Kind {
+		case agentsync.KindSkill:
+			section.Skills = append(section.Skills, manifest.AgentSkill{
+				Name:        item.Name,
+				Description: frontmatterString(item.Frontmatter, "description"),
+				Targets:     toolStrings(item.Targets),
+			})
+		case agentsync.KindAgent:
+			section.Subagents = append(section.Subagents, manifest.AgentSubagent{
+				Name:        item.Name,
+				Description: frontmatterString(item.Frontmatter, "description"),
+			})
+		}
+	}
+	return section, nil
+}
+
+// toolStrings projects sync tool identifiers to their string form for rendering.
+func toolStrings(tools []agentsync.Tool) []string {
+	out := make([]string, len(tools))
+	for i, t := range tools {
+		out[i] = string(t)
+	}
+	return out
 }
 
 // registryIndexStale reports whether indexed records for folder disagree with

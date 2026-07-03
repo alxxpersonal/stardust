@@ -82,6 +82,67 @@ func TestRegistry(t *testing.T) {
 	require.Empty(t, groups[3].Records)
 }
 
+// writeUnder writes body to a vault-relative path, creating parent dirs.
+func writeUnder(t *testing.T, root, rel, body string) {
+	t.Helper()
+	p := filepath.Join(root, filepath.FromSlash(rel))
+	require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+	require.NoError(t, os.WriteFile(p, []byte(body), 0o644))
+}
+
+// TestRegistryAgentsSection asserts docs/agents-homed skills and subagents land
+// in the registry's Agents section written to docs/INDEX.md, with a skill's name,
+// description, and targets and a subagent's name.
+func TestRegistryAgentsSection(t *testing.T) {
+	ctx := context.Background()
+	root := emptyVault(t)
+	writeUnder(t, root, "docs/agents/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill for the registry\ntargets: [claude, codex]\n---\n# Demo\n")
+	writeUnder(t, root, "docs/agents/subagents/reviewer.md", "---\nname: reviewer\ndescription: Reviews diffs\n---\n# Reviewer\n")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	require.NoError(t, svc.RegenerateRegistry(ctx))
+
+	data, err := os.ReadFile(filepath.Join(root, "docs", "INDEX.md"))
+	require.NoError(t, err)
+	got := string(data)
+	require.Contains(t, got, "## Agents")
+	require.Contains(t, got, "### Skills")
+	require.Contains(t, got, "| demo | Demo skill for the registry | claude, codex |")
+	require.Contains(t, got, "### Subagents")
+	require.Contains(t, got, "| reviewer | Reviews diffs |")
+}
+
+// TestIndexAdmitsDocsAgentsArea asserts a docs/agents-homed skill is indexed and
+// returned by search, confirming the area rides the healthy path once the
+// stray-doc error is lifted.
+func TestIndexAdmitsDocsAgentsArea(t *testing.T) {
+	ctx := context.Background()
+	root := emptyVault(t)
+	writeUnder(t, root, "docs/agents/skills/widget/SKILL.md", "---\nname: widget\n---\n# Widget\nzephyr quokka retrieval index search\n")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	res, err := svc.Query(ctx, "zephyr quokka retrieval index search", 10)
+	require.NoError(t, err)
+	var found bool
+	for _, h := range res.Hits {
+		if h.Path == "docs/agents/skills/widget/SKILL.md" {
+			found = true
+			break
+		}
+	}
+	require.Truef(t, found, "docs/agents skill must be searchable, hits: %#v", res.Hits)
+}
+
 func TestRegistryFailsWhenIndexEmptyOrStale(t *testing.T) {
 	ctx := context.Background()
 

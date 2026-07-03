@@ -168,3 +168,5 @@ type SourceBinding struct {
 5. Mark research improvement 8 and the "Left as proposals" item shipped; regenerate the docs index.
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

@@ -196,3 +196,5 @@ Inline plugin commands:
 - `docs/adr/0022-docs-plans-canonical-native-plan-mirrors.md`
 
 </details>
+
+- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).
