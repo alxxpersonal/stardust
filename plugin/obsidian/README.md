@@ -1,6 +1,6 @@
 # Stardust - Obsidian plugin
 
-Surfaces Stardust's hybrid search inside Obsidian. A thin client over the local Stardust HTTP API (`stardust serve`) - all logic lives in the daemon, the plugin is just UI.
+Surfaces Stardust's hybrid search inside Obsidian. A thin client over the local Stardust daemon (`stardust serve`, typed JSON-RPC at `POST /rpc`) - all logic lives in the daemon, the plugin is just UI.
 
 ## Prerequisites
 

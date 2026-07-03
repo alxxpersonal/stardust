@@ -1,6 +1,6 @@
 {
   "name": "stardust-obsidian",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "description": "Obsidian plugin for Stardust: hybrid search over your vault via the local daemon.",
   "main": "main.js",
   "scripts": {
