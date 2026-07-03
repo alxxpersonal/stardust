@@ -143,4 +143,5 @@ End to end in a temp repo: `stardust init --docs` scaffolds `docs/agents/`; a sk
 
 ## Amendments
 
+- 2026-07-03: the live end-to-end caught repo assets leaking into the GLOBAL tool dirs (a repo skill symlinked into the home .claude/skills). Sources now carry a scope and BuildPlan materializes an item only into targets of its source's scope; an unscoped source from an older sync.toml keeps matching everything. Pinned by TestBuildPlanScopesRepoSourcesToRepoTargets.
 - 2026-07-03: adversarial review caught the original wording contradiction ("ImportOnly compat" versus "existing repos keep syncing"; BuildPlan skips ImportOnly items, so a legacy-only layout silently stopped syncing). Corrected: compat sources are real, lower-precedence sources; only tool dirs are import-only. Also exempted docs/agents/ from the orphan warning (synced assets stand alone by design). Pinned by TestBuildPlanMaterializesLegacyCompatSkill and TestCheckDocsAgentsAreaIsNotOrphaned.

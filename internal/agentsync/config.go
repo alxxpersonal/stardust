@@ -39,6 +39,10 @@ type Source struct {
 	Kind       string `toml:"kind" json:"kind"`
 	Priority   int    `toml:"priority" json:"priority"`
 	ImportOnly bool   `toml:"import_only" json:"import_only"`
+	// Scope pins the item to targets of the same scope: a repo-homed asset must
+	// never materialize into another repo or the global tool dirs. Empty means
+	// unscoped (matches any target scope), preserving older sync.toml files.
+	Scope Scope `toml:"scope" json:"scope"`
 }
 
 // Target declares a tool directory that Stardust can maintain.
@@ -71,12 +75,12 @@ type Config struct {
 func DefaultConfig(home, root string) Config {
 	return Config{
 		Sources: []Source{
-			{Name: "repo-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: "skill", Priority: 100},
-			{Name: "repo-agents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: "agent", Priority: 100},
-			{Name: "repo-rules", Path: filepath.Join(root, "docs", "agents", "rules.md"), Kind: "rules", Priority: 100},
-			{Name: "compat-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 200},
-			{Name: "compat-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 200},
-			{Name: "compat-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 200},
+			{Name: "repo-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: "skill", Priority: 100, Scope: ScopeRepo},
+			{Name: "repo-agents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: "agent", Priority: 100, Scope: ScopeRepo},
+			{Name: "repo-rules", Path: filepath.Join(root, "docs", "agents", "rules.md"), Kind: "rules", Priority: 100, Scope: ScopeRepo},
+			{Name: "compat-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 200, Scope: ScopeRepo},
+			{Name: "compat-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 200, Scope: ScopeRepo},
+			{Name: "compat-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 200, Scope: ScopeRepo},
 		},
 		Targets: []Target{
 			{Tool: ToolClaude, Scope: ScopeRepo, SkillsPath: filepath.Join(root, ".claude", "skills"), AgentsPath: filepath.Join(root, ".claude", "agents"), RulesPath: filepath.Join(root, "CLAUDE.md"), Mode: "symlink"},
@@ -95,8 +99,8 @@ func DefaultConfig(home, root string) Config {
 func DefaultMigrationConfig(home, root string) Config {
 	cfg := DefaultConfig(home, root)
 	cfg.Sources = []Source{
-		{Name: "canonical-skills", Path: filepath.Join(home, "skills"), Kind: "skill", Priority: 0},
-		{Name: "canonical-agents", Path: filepath.Join(home, "agents"), Kind: "agent", Priority: 0},
+		{Name: "canonical-skills", Path: filepath.Join(home, "skills"), Kind: "skill", Priority: 0, Scope: ScopeGlobal},
+		{Name: "canonical-agents", Path: filepath.Join(home, "agents"), Kind: "agent", Priority: 0, Scope: ScopeGlobal},
 		{Name: "shared-agent-skills", Path: filepath.Join(home, ".agents", "skills"), Kind: "skill", Priority: 30, ImportOnly: true},
 		{Name: "claude-global-skills", Path: filepath.Join(home, ".claude", "skills"), Kind: "skill", Priority: 40, ImportOnly: true},
 		{Name: "claude-global-agents", Path: filepath.Join(home, ".claude", "agents"), Kind: "agent", Priority: 40, ImportOnly: true},

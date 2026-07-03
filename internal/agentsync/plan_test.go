@@ -80,14 +80,62 @@ func TestBuildPlanMaterializesLegacyCompatSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildPlan() error = %v", err)
 	}
-	var skillActions int
+	var skillActions, globalLeaks int
 	for _, a := range plan.Actions {
 		if a.ItemName == "legacyskill" && a.Kind == KindSkill {
 			skillActions++
+			if a.Scope == ScopeGlobal {
+				globalLeaks++
+			}
 		}
 	}
 	if skillActions == 0 {
 		t.Fatal("a legacy-only root skill produced no sync actions; the compat source must keep materializing")
+	}
+	if globalLeaks != 0 {
+		t.Fatalf("a repo-scoped skill planned %d global actions; repo assets must never leak into global tool dirs", globalLeaks)
+	}
+}
+
+// TestBuildPlanScopesRepoSourcesToRepoTargets pins the leak the live e2e caught:
+// a docs/agents (repo-scoped) skill run with Scope all must materialize ONLY
+// into the repo tool dirs, never the global home ones.
+func TestBuildPlanScopesRepoSourcesToRepoTargets(t *testing.T) {
+	root := t.TempDir()
+	skill := filepath.Join(root, "docs", "agents", "skills", "demo")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("---\nname: demo\ndescription: d\n---\n# D\n"), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	cfg := DefaultConfig(filepath.Join(root, "home"), root)
+	items, err := Discover(cfg)
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	plan, err := BuildPlan(cfg, items, Options{Scope: ScopeAll})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+	repo, global := 0, 0
+	for _, a := range plan.Actions {
+		if a.ItemName != "demo" {
+			continue
+		}
+		switch a.Scope {
+		case ScopeRepo:
+			repo++
+		case ScopeGlobal:
+			global++
+		}
+	}
+	if repo == 0 {
+		t.Fatal("the docs/agents skill must materialize into the repo tool dirs")
+	}
+	if global != 0 {
+		t.Fatalf("the docs/agents skill planned %d global actions; it must never leave the repo", global)
 	}
 }
 

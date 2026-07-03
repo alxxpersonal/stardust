@@ -26,6 +26,7 @@ agentsync's canonical sources are scattered outside the doc workflow: repo-root 
 - One glance at `docs/agents/` shows the entire cross-agent surface, and it rides every doc workflow: search, registry, check, drift.
 - Adding a skill is one file in one place; every configured harness gets it on the next commit or pull with no manual step.
 - Existing repos keep working through compat sources and can migrate by moving files.
+- Sources are scope-pinned: a repo-homed asset materializes only into that repo's tool dirs, never the global ones; global canonical sources stay global.
 - Commits gain a no-op-fast sync pass; the line is guarded and can never fail a commit.
 - Deferred, with revisit triggers: KindCommand (harness command formats diverge: markdown frontmatter for claude, plain prompt files for codex, TOML for gemini; translation is lossy today, revisit when two harnesses converge), MCP config sync (server declarations embed tool-specific transport and permission shapes), `.agents/` as a target (no confirmed native reader; it stays ImportOnly).
 

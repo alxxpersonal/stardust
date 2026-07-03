@@ -92,3 +92,4 @@ Add a third `KindRules` to `internal/agentsync` that renders a canonical `.stard
 - Skill and agent sync behavior is unchanged.
 - No new command, flag, or config file was added.
 
+- Reviewed 2026-07-03 against the source scope pinning in internal/agentsync (config.go, plan.go); the behavior this doc relies on is unchanged.

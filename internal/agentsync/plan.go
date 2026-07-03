@@ -51,6 +51,13 @@ func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
 			if item.Source.ImportOnly {
 				continue
 			}
+			// A scoped source only materializes into targets of its own scope: a
+			// repo-homed asset must never leak into the global tool dirs (or
+			// another repo), and a global canonical asset never lands repo-side.
+			// An unscoped source (an older sync.toml) keeps matching everything.
+			if item.Source.Scope != "" && item.Source.Scope != target.Scope {
+				continue
+			}
 			if !itemTargetsTool(item, target.Tool) {
 				continue
 			}

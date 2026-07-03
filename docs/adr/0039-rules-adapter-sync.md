@@ -59,3 +59,4 @@ Extend `internal/agentsync`, do not build a parallel system.
 - docs/adr/0008-sentinel-block-hook-injection.md
 - `internal/hooks/block.go`
 - `internal/agentsync/inventory.go`, `internal/agentsync/plan.go`, `internal/agentsync/apply.go`
+- Reviewed 2026-07-03 against the source scope pinning in internal/agentsync (config.go, plan.go); the behavior this doc relies on is unchanged.
