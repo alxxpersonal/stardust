@@ -1,6 +1,6 @@
 ---
 title: Agent assets docs home - implementation plan
-status: Active
+status: Done
 version: 1
 date: 2026-07-03
 related:
@@ -68,10 +68,10 @@ Steps:
 
 Steps:
 
-- [ ] Fresh binary; temp repo end to end: init --docs scaffolds the area; a skill under docs/agents appears in check (clean), registry, and search; an installed-hooks commit materializes symlinks into `.claude/skills`, `.codex/skills`, `.gemini/skills` with no manual sync; breaking a symlink makes `sync --check` exit nonzero; a `.claude/skills`-only skill is never touched; a legacy root `skills/` repo still syncs via compat.
-- [ ] The stardust repo itself: check still 0 errors 0 warnings, its CI workflow carries the gate, full go/lint/gofmt gate green, dash scan, conventional commits with zero trailers, `docs/INDEX.md` statuses match frontmatter.
-- [ ] README: spot-verify every feature claim against source and the shipped binaries.
-- [ ] Report defects; do not fix silently.
+- [x] Fresh binary; temp repo end to end: init --docs scaffolds the area; a skill under docs/agents appears in check (clean), registry, and search; an installed-hooks commit materializes symlinks into `.claude/skills`, `.codex/skills`, `.gemini/skills` with no manual sync; breaking a symlink makes `sync --check` exit nonzero; a `.claude/skills`-only skill is never touched; a legacy root `skills/` repo still syncs via compat.
+- [x] The stardust repo itself: check still 0 errors 0 warnings, its CI workflow carries the gate, full go/lint/gofmt gate green, dash scan, conventional commits with zero trailers, `docs/INDEX.md` statuses match frontmatter.
+- [x] README: spot-verify every feature claim against source and the shipped binaries.
+- [x] Report defects; do not fix silently.
 
 ## Verification
 

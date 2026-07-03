@@ -1,6 +1,6 @@
 ---
 title: Agent assets live in docs/agents
-status: Approved
+status: Implemented
 version: 1
 date: 2026-07-03
 related:
