@@ -146,3 +146,4 @@ The suppression is intentionally narrow. A document that is not a configured dir
 - `go run ./cmd/stardust check --strict` remains blocked by pre-existing Stardust vault debt unrelated to this feature.
 
 </details>
+- Reviewed 2026-07-03 against the duplicate-name referenced-ambiguity gate in internal/service/check.go (ADR 0046); the behavior this doc relies on is unchanged.

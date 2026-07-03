@@ -46,3 +46,4 @@ Directory indexes remain separate from `docs/INDEX.md`. The docs registry is the
 
 - Spec: docs/specs/2026-06-29-0229-directory-index-convention.md
 - Plan: docs/plans/2026-06-29-0229-directory-index-convention.md
+- Reviewed 2026-07-03 against the duplicate-name referenced-ambiguity gate in internal/service/check.go (ADR 0046); the behavior this doc relies on is unchanged.
