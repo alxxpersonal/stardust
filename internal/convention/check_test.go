@@ -11,7 +11,7 @@ func TestCheckDocsReportsConventionIssues(t *testing.T) {
 	writeFile(t, root, "go.mod", "module example.com/probe\n")
 	writeFile(t, root, "docs/specs/bad-name.md", "---\ntitle: Bad\ntype: spec\nstatus: Weird\ncreated: 2026-06-22\nupdated: 2026-06-22\nrelated: [\"docs/adr/0001-missing.md\"]\ngoverns: [\"internal/missing/*.go\"]\n---\n# Bad\n"+string(rune(0x2014))+"\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -44,7 +44,7 @@ func TestCheckDocFileDefaultSchemaFires(t *testing.T) {
 	// missing created, invalid status
 	writeFile(t, root, "docs/specs/2026-06-22-1000-probe.md", "---\ntitle: Probe\ntype: spec\nstatus: Bogus\nupdated: 2026-06-22\n---\n# Probe\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -61,7 +61,7 @@ func TestCheckDocsPlainVaultSkipsDocsConvention(t *testing.T) {
 	writeFile(t, root, "docs/specs/plain-page.md", "# Plain Page\n")
 	writeFile(t, root, "docs/loose.md", "# Loose\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestCheckDocsGitHubWikiSkipsDocsConventionEvenWithCollections(t *testing.T)
 	writeFile(t, root, ".stardust/collections/specs/config.toml", "path = \"docs/specs\"\ndescription = \"specs\"\n\n[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n")
 	writeFile(t, root, "docs/specs/plain-page.md", "# Plain Page\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestCheckDocFileUsesCommittedSchema(t *testing.T) {
 	writeFile(t, root, ".stardust/collections/specs/config.toml", cfg)
 	writeFile(t, root, "docs/specs/2026-06-22-1000-probe.md", "---\ntitle: Probe\n---\n# Probe\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -122,7 +122,7 @@ func TestCheckDocsReportsStrayDocs(t *testing.T) {
 	writeFile(t, root, "docs/INDEX.md", "# Docs Index\n")
 	writeFile(t, root, "docs/templates/spec.md", "# Template\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -156,7 +156,7 @@ func TestCheckDocsExemptsDocsAgents(t *testing.T) {
 	writeFile(t, root, "docs/agents/subagents/reviewer.md", "---\nname: reviewer\n---\n# Reviewer\n")
 	writeFile(t, root, "docs/agents/rules.md", "# Shared rules\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -174,6 +174,33 @@ func TestCheckDocsExemptsDocsAgents(t *testing.T) {
 		if hasIssuePath(issues, kind, "docs/agents/skills/demo/SKILL.md") {
 			t.Fatalf("doc-schema rule %s must not fire on a docs/agents skill, got %#v", kind, issues)
 		}
+	}
+}
+
+// TestCheckDocsStrayExemptionFollowsConfiguredDir asserts the stray-doc
+// exemption tracks the configured agents dir: with agents_dir at docs/skills, the
+// docs/skills area is exempt while the former docs/agents home is flagged stray
+// again (the finish-the-move signal from ADR 0048).
+func TestCheckDocsStrayExemptionFollowsConfiguredDir(t *testing.T) {
+	root := t.TempDir()
+	cfg := "path = \"docs/specs\"\ndescription = \"specs\"\n\n" +
+		"[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n"
+	writeFile(t, root, ".stardust/collections/specs/config.toml", cfg)
+	writeFile(t, root, "docs/skills/rules.md", "# Shared rules\n")
+	writeFile(t, root, "docs/skills/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill\n---\n# Demo\n")
+	writeFile(t, root, "docs/agents/rules.md", "# Old home\n")
+
+	issues, err := CheckDocs(root, nil, "docs/skills")
+	if err != nil {
+		t.Fatalf("CheckDocs() error = %v", err)
+	}
+	for _, p := range []string{"docs/skills/rules.md", "docs/skills/skills/demo/SKILL.md"} {
+		if hasIssuePath(issues, "stray-doc", p) {
+			t.Fatalf("configured agents dir must be exempt from stray-doc, got %#v for %s", issues, p)
+		}
+	}
+	if !hasIssuePath(issues, "stray-doc", "docs/agents/rules.md") {
+		t.Fatalf("relocated config must flag the former docs/agents home as stray, got %#v", issues)
 	}
 }
 
@@ -204,7 +231,7 @@ func TestCheckDocsNonMarkdownDashOnlyNoDocsConvention(t *testing.T) {
 	// a markdown control that must still be doc-linted.
 	writeFile(t, root, "docs/specs/loose.md", "# Loose\n")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}

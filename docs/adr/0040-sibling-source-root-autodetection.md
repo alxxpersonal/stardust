@@ -60,3 +60,5 @@ Add sibling autodetection as a gap-filler behind one new resolver, and gate acce
 - `internal/service/governs.go`, `internal/service/check.go` (source-repo drift bindings)
 
 - Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

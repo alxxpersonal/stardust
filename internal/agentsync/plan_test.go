@@ -71,7 +71,7 @@ func TestBuildPlanMaterializesLegacyCompatSkill(t *testing.T) {
 		t.Fatalf("write legacy skill: %v", err)
 	}
 
-	cfg := DefaultConfig(filepath.Join(root, "home"), root)
+	cfg := DefaultConfig(filepath.Join(root, "home"), root, "docs/agents")
 	items, err := Discover(cfg)
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
@@ -110,7 +110,7 @@ func TestBuildPlanScopesRepoSourcesToRepoTargets(t *testing.T) {
 		t.Fatalf("write skill: %v", err)
 	}
 
-	cfg := DefaultConfig(filepath.Join(root, "home"), root)
+	cfg := DefaultConfig(filepath.Join(root, "home"), root, "docs/agents")
 	items, err := Discover(cfg)
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)

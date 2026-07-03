@@ -124,3 +124,5 @@ In a temp repo with `agents_dir = "docs/skills"`: init scaffolds `docs/skills/{s
 - internal/config/config.go, internal/agentsync/config.go, internal/convention/check.go, internal/service/check.go, internal/service/registry.go, internal/cli/init.go
 - docs/adr/0047-agent-assets-docs-home.md, docs/adr/0048-configurable-agents-dir.md
 </details>
+
+- Reviewed 2026-07-03 after implementing Task 1: the config resolver, sync defaults, check exemptions, registry section, and init scaffold now realize this spec; references hold.

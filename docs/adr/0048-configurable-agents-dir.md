@@ -38,3 +38,5 @@ ADR 0047 fixed the agent-assets home at `docs/agents/` across six seams (sync so
 
 - docs/specs/2026-07-03-1456-configurable-agents-dir.md
 - internal/config/config.go, internal/agentsync/config.go, internal/convention/check.go, internal/service/check.go, internal/service/registry.go, internal/cli/init.go
+
+- Reviewed 2026-07-03 after implementing Task 1: the referenced seams (agentsync sources, check exemptions, registry section, init scaffold) now read the resolved agents dir; the decision is realized in code, references hold.

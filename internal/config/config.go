@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -25,6 +26,7 @@ type Config struct {
 	RerankerURL   string            `toml:"reranker_url"`   // optional cross-encoder endpoint; empty = disabled
 	RerankerModel string            `toml:"reranker_model"` // optional model name passed to the reranker
 	SourceRoot    string            `toml:"source_root"`    // optional source repo root for wiki or vault docs; empty = same repo only
+	AgentsDirRaw  string            `toml:"agents_dir"`     // repo-relative agent-assets home; empty = docs/agents (resolve via AgentsDir)
 	Conventions   ConventionsConfig `toml:"conventions"`
 }
 
@@ -81,6 +83,20 @@ func (c Config) ResolveSourceRoot(vaultRoot string) (string, error) {
 		return "", fmt.Errorf("resolve source root: %w", err)
 	}
 	return abs, nil
+}
+
+// AgentsDir returns the repo-relative agent-assets home, defaulting to
+// docs/agents. The value is slash-normalized: forward slashes, lexically cleaned,
+// with any trailing slash trimmed. This resolver is the single owner of the
+// default and normalization so no convention seam hardcodes the literal. The
+// backing field is AgentsDirRaw because a struct cannot carry both a field and a
+// method of the same name.
+func (c Config) AgentsDir() string {
+	raw := strings.TrimSpace(c.AgentsDirRaw)
+	if raw == "" {
+		return "docs/agents"
+	}
+	return path.Clean(filepath.ToSlash(raw))
 }
 
 // Load reads and parses config.toml at path, falling back to defaults for any

@@ -28,7 +28,7 @@ func (s *Service) Sync(_ context.Context, opts agentsync.Options) (SyncResult, e
 		configPath = filepath.Join(s.Layout.Root, configPath)
 	}
 
-	cfg, err := agentsync.LoadConfig(configPath, home, s.Layout.Root)
+	cfg, err := agentsync.LoadConfig(configPath, home, s.Layout.Root, s.Config.AgentsDir())
 	if err != nil {
 		return SyncResult{}, err
 	}

@@ -40,3 +40,5 @@ The warning's own rationale is "wikilinks to it are ambiguous", so the check now
 - internal/service/check.go (the gate and wikilinkTargets)
 - internal/service/check_test.go (the pin)
 - docs/adr/0018-drift-detection-by-commit-distance.md (review-prompt precedent)
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

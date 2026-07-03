@@ -32,7 +32,7 @@ func TestCheckDocsDriftFlagsReferencedCode(t *testing.T) {
 	writeFile(t, root, "internal/store/daemon.go", "package store\n\nconst A = 2\n")
 	gitCommitConvention(t, root, "2026-06-28T10:00:00", "edit daemon 2")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -78,7 +78,7 @@ func TestCheckDocsDriftCleanWhenCodeUnmoved(t *testing.T) {
 			"related: [\"internal/store/daemon.go\"]\n---\n# Uses Daemon\n\nSee `internal/store/daemon.go`.\n")
 	gitCommitConvention(t, root, "2026-06-26T10:00:00", "add adr and code")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}
@@ -103,7 +103,7 @@ func TestCheckDocsGovernsKeepsImplementedGate(t *testing.T) {
 	writeFile(t, root, "internal/foo.go", "package internal\n\nconst X = 1\n")
 	gitCommitConvention(t, root, "2026-06-27T10:00:00", "edit foo")
 
-	issues, err := CheckDocs(root, nil)
+	issues, err := CheckDocs(root, nil, "docs/agents")
 	if err != nil {
 		t.Fatalf("CheckDocs() error = %v", err)
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestDefaultMigrationConfigIncludesCanonicalAndImportSources(t *testing.T) {
-	cfg := DefaultMigrationConfig("/home/user", "/vault")
+	cfg := DefaultMigrationConfig("/home/user", "/vault", "docs/agents")
 
 	if got, want := cfg.Sources[0].Path, "/home/user/skills"; got != want {
 		t.Fatalf("canonical skills path = %q, want %q", got, want)

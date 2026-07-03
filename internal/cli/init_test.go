@@ -74,6 +74,32 @@ func TestInitDocsScaffoldsAgentsArea(t *testing.T) {
 	require.NotEmpty(t, body, "rules.md stub must have content")
 }
 
+// TestInitDocsScaffoldsConfiguredAgentsDir asserts init --docs scaffolds the
+// agents area at a pre-existing config's agents_dir (docs/skills) instead of the
+// default docs/agents.
+func TestInitDocsScaffoldsConfiguredAgentsDir(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust"), 0o755))
+	cfg := config.Default()
+	cfg.AgentsDirRaw = "docs/skills"
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), cfg))
+	t.Chdir(root)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--docs"})
+	require.NoError(t, cmd.Execute())
+
+	for _, sub := range []string{"skills", "subagents"} {
+		info, err := os.Stat(filepath.Join(root, "docs", "skills", sub))
+		require.NoErrorf(t, err, "expected docs/skills/%s", sub)
+		require.Truef(t, info.IsDir(), "docs/skills/%s must be a directory", sub)
+	}
+	_, err := os.Stat(filepath.Join(root, "docs", "skills", "rules.md"))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(root, "docs", "agents"))
+	require.True(t, os.IsNotExist(err), "relocated config must not scaffold docs/agents")
+}
+
 // TestInitNoDocsSkipsAgentsArea asserts a plain `init` does not scaffold docs/agents.
 func TestInitNoDocsSkipsAgentsArea(t *testing.T) {
 	root := t.TempDir()

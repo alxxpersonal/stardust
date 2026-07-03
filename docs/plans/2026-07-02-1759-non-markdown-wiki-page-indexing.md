@@ -89,3 +89,5 @@ The GitHub wiki compatibility research (`docs/research/2026-06-27-1721-github-wi
 - No new parser or rendering dependency; extraction is regex and line rules only.
 
 - Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

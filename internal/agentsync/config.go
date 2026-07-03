@@ -64,20 +64,22 @@ type Config struct {
 
 // DefaultConfig returns a generic repo-first sync configuration.
 //
-// Shared agent assets are homed under docs/agents so they ride the doc workflow
-// (indexed, searchable, registry-listed, drift-tracked). Those docs-homed
-// sources carry Priority 100 and materialize into tool dirs. The legacy repo-root
+// Shared agent assets are homed under agentsDir (the resolved repo-relative
+// agent-assets home, docs/agents by default) so they ride the doc workflow
+// (indexed, searchable, registry-listed, drift-tracked). Those homed sources
+// carry Priority 100 and materialize into tool dirs. The legacy repo-root
 // skills/, agents/, and .stardust/rules.md stay REAL sources at a lower
 // precedence (a higher priority number loses to 100 in Discover), so a legacy
-// layout keeps syncing until its files move into docs/agents, while an item
-// defined in both places resolves to the docs/agents copy. Only the tool dirs
+// layout keeps syncing until its files move into agentsDir, while an item
+// defined in both places resolves to the agentsDir copy. Only the tool dirs
 // themselves are ImportOnly: sync never rebroadcasts a tool-local asset.
-func DefaultConfig(home, root string) Config {
+func DefaultConfig(home, root, agentsDir string) Config {
+	agents := filepath.FromSlash(agentsDir)
 	return Config{
 		Sources: []Source{
-			{Name: "repo-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: "skill", Priority: 100, Scope: ScopeRepo},
-			{Name: "repo-agents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: "agent", Priority: 100, Scope: ScopeRepo},
-			{Name: "repo-rules", Path: filepath.Join(root, "docs", "agents", "rules.md"), Kind: "rules", Priority: 100, Scope: ScopeRepo},
+			{Name: "repo-skills", Path: filepath.Join(root, agents, "skills"), Kind: "skill", Priority: 100, Scope: ScopeRepo},
+			{Name: "repo-agents", Path: filepath.Join(root, agents, "subagents"), Kind: "agent", Priority: 100, Scope: ScopeRepo},
+			{Name: "repo-rules", Path: filepath.Join(root, agents, "rules.md"), Kind: "rules", Priority: 100, Scope: ScopeRepo},
 			{Name: "compat-skills", Path: filepath.Join(root, "skills"), Kind: "skill", Priority: 200, Scope: ScopeRepo},
 			{Name: "compat-agents", Path: filepath.Join(root, "agents"), Kind: "agent", Priority: 200, Scope: ScopeRepo},
 			{Name: "compat-rules", Path: filepath.Join(root, ".stardust", "rules.md"), Kind: "rules", Priority: 200, Scope: ScopeRepo},
@@ -95,9 +97,11 @@ func DefaultConfig(home, root string) Config {
 }
 
 // DefaultMigrationConfig returns a generic migration layout for adopting
-// existing agent assets into a neutral home-level canonical source.
-func DefaultMigrationConfig(home, root string) Config {
-	cfg := DefaultConfig(home, root)
+// existing agent assets into a neutral home-level canonical source. It reuses
+// DefaultConfig's targets, so it takes the same agentsDir even though it replaces
+// the source list wholesale.
+func DefaultMigrationConfig(home, root, agentsDir string) Config {
+	cfg := DefaultConfig(home, root, agentsDir)
 	cfg.Sources = []Source{
 		{Name: "canonical-skills", Path: filepath.Join(home, "skills"), Kind: "skill", Priority: 0, Scope: ScopeGlobal},
 		{Name: "canonical-agents", Path: filepath.Join(home, "agents"), Kind: "agent", Priority: 0, Scope: ScopeGlobal},
@@ -109,15 +113,17 @@ func DefaultMigrationConfig(home, root string) Config {
 }
 
 // LoadConfig reads sync.toml, expands paths, and validates tool and scope names.
-func LoadConfig(path, home, root string) (Config, error) {
+// agentsDir is the resolved repo-relative agent-assets home used to build the
+// default source list when sync.toml is missing or omits sources.
+func LoadConfig(path, home, root, agentsDir string) (Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return DefaultConfig(home, root), nil
+			return DefaultConfig(home, root, agentsDir), nil
 		}
 		return Config{}, fmt.Errorf("read sync config %s: %w", path, err)
 	}
-	cfg := DefaultConfig(home, root)
+	cfg := DefaultConfig(home, root, agentsDir)
 	if err := toml.Unmarshal(b, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse sync config %s: %w", path, err)
 	}

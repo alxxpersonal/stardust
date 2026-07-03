@@ -152,3 +152,5 @@ One rule, inherited from ADR 0007: stardust owns only its block, never the file.
 </details>
 
 - Reviewed 2026-07-03 against the source scope pinning in internal/agentsync (config.go, plan.go); the behavior this doc relies on is unchanged.
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

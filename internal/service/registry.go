@@ -103,19 +103,19 @@ func (s *Service) Registry(order []string) ([]manifest.RegistryGroup, error) {
 	return groups, nil
 }
 
-// AgentsSection discovers the docs/agents-homed shared agent assets (skills and
-// subagents) and shapes them for the registry's Agents section. It reads only the
-// canonical docs/agents home under the vault root, so the section mirrors the
-// cross-agent surface visible in the tree, independent of any legacy compat
-// sources. A missing area yields an empty section, never an error. Items arrive
-// pre-sorted by kind then name from Discover, so skills and subagents stay
-// deterministic.
+// AgentsSection discovers the configured agents-dir-homed shared agent assets
+// (skills and subagents) and shapes them for the registry's Agents section. It
+// reads only the resolved agent-assets home (docs/agents by default, relocatable
+// per ADR 0048) under the vault root, so the section mirrors the cross-agent
+// surface visible in the tree, independent of any legacy compat sources. A
+// missing area yields an empty section, never an error. Items arrive pre-sorted
+// by kind then name from Discover, so skills and subagents stay deterministic.
 func (s *Service) AgentsSection() (manifest.AgentsSection, error) {
-	root := s.Layout.Root
+	agentsHome := filepath.Join(s.Layout.Root, filepath.FromSlash(s.Config.AgentsDir()))
 	cfg := agentsync.Config{
 		Sources: []agentsync.Source{
-			{Name: "docs-agents-skills", Path: filepath.Join(root, "docs", "agents", "skills"), Kind: string(agentsync.KindSkill), Priority: 100},
-			{Name: "docs-agents-subagents", Path: filepath.Join(root, "docs", "agents", "subagents"), Kind: string(agentsync.KindAgent), Priority: 100},
+			{Name: "docs-agents-skills", Path: filepath.Join(agentsHome, "skills"), Kind: string(agentsync.KindSkill), Priority: 100},
+			{Name: "docs-agents-subagents", Path: filepath.Join(agentsHome, "subagents"), Kind: string(agentsync.KindAgent), Priority: 100},
 		},
 		DefaultTargets: []agentsync.Tool{agentsync.ToolClaude, agentsync.ToolCodex, agentsync.ToolGemini},
 	}

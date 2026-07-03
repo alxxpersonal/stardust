@@ -121,7 +121,15 @@ func scaffoldVault(ctx context.Context, root, check string, docs bool) (hooks.Re
 		if err := writeDocsCollections(layout.Collections()); err != nil {
 			return hooks.Result{}, err
 		}
-		if err := scaffoldAgentsArea(root); err != nil {
+		// Scaffold the agent-assets area at the config's resolved agents dir. The
+		// config on disk is either the freshly-saved default (docs/agents) or a
+		// pre-existing one the user relocated, so a repo that set agents_dir before
+		// init scaffolds there while every other repo keeps docs/agents.
+		cfg, err := config.Load(layout.Config())
+		if err != nil {
+			return hooks.Result{}, err
+		}
+		if err := scaffoldAgentsArea(root, cfg.AgentsDir()); err != nil {
 			return hooks.Result{}, err
 		}
 	}
@@ -132,8 +140,8 @@ func scaffoldVault(ctx context.Context, root, check string, docs bool) (hooks.Re
 	return hooks.Result{}, nil
 }
 
-// agentsRulesStub is the placeholder body written to docs/agents/rules.md when
-// init scaffolds the agent-assets area. It is a plain markdown source (no
+// agentsRulesStub is the placeholder body written to the agent-assets home's
+// rules.md when init scaffolds the area. It is a plain markdown source (no
 // frontmatter required) that compose-sync injects into each tool's instruction
 // file; the user replaces it with their real cross-agent rules.
 const agentsRulesStub = `# Shared agent rules
@@ -142,25 +150,26 @@ Rules placed here compose into every configured tool's instruction file when
 stardust sync runs. Replace this stub with your cross-agent rules.
 `
 
-// scaffoldAgentsArea creates the docs/agents home for shared agent assets: the
-// skills/ and subagents/ kind subfolders and a rules.md stub. An existing
-// rules.md is left untouched so re-running init --docs never clobbers real rules;
-// the subfolders are created idempotently with MkdirAll.
-func scaffoldAgentsArea(root string) error {
-	agentsDir := filepath.Join(root, "docs", "agents")
+// scaffoldAgentsArea creates the shared agent-assets home at agentsDir (the
+// resolved repo-relative home, docs/agents by default): the skills/ and
+// subagents/ kind subfolders and a rules.md stub. An existing rules.md is left
+// untouched so re-running init --docs never clobbers real rules; the subfolders
+// are created idempotently with MkdirAll.
+func scaffoldAgentsArea(root, agentsDir string) error {
+	home := filepath.Join(root, filepath.FromSlash(agentsDir))
 	for _, sub := range []string{"skills", "subagents"} {
-		if err := os.MkdirAll(filepath.Join(agentsDir, sub), 0o755); err != nil {
-			return fmt.Errorf("create docs/agents/%s: %w", sub, err)
+		if err := os.MkdirAll(filepath.Join(home, sub), 0o755); err != nil {
+			return fmt.Errorf("create %s/%s: %w", agentsDir, sub, err)
 		}
 	}
-	rules := filepath.Join(agentsDir, "rules.md")
+	rules := filepath.Join(home, "rules.md")
 	if _, err := os.Stat(rules); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat docs/agents/rules.md: %w", err)
+		return fmt.Errorf("stat %s/rules.md: %w", agentsDir, err)
 	}
 	if err := os.WriteFile(rules, []byte(agentsRulesStub), 0o644); err != nil {
-		return fmt.Errorf("write docs/agents/rules.md: %w", err)
+		return fmt.Errorf("write %s/rules.md: %w", agentsDir, err)
 	}
 	return nil
 }

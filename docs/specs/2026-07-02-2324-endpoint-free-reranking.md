@@ -143,3 +143,5 @@ Latency: hardware-dependent and stated as a range, not a promise. A local bge-re
 - **No behavior change for existing deployments.** A vault with `reranker_url` already set produces byte-identical rerank behavior to today; discovery is inert when a URL is configured.
 
 </details>
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

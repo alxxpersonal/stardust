@@ -152,3 +152,5 @@ Detector and verifier are separate subagent instances so the verifier is not anc
 </details>
 
 - Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

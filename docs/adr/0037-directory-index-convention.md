@@ -47,3 +47,5 @@ Directory indexes remain separate from `docs/INDEX.md`. The docs registry is the
 - Spec: docs/specs/2026-06-29-0229-directory-index-convention.md
 - Plan: docs/plans/2026-06-29-0229-directory-index-convention.md
 - Reviewed 2026-07-03 against the instruction-file orphan exemption in internal/service/check.go (ADR 0047 amendment); the behavior this doc relies on is unchanged.
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

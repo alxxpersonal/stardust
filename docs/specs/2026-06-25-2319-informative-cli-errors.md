@@ -218,3 +218,5 @@ The fang adoption and the cosmic colorscheme (sibling spec `docs/specs/2026-06-2
 - The exo-jobs informative-errors spec `docs/specs/2026-06-25-2305-informative-cli-errors.md` (the proven template this adapts).
 
 </details>
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

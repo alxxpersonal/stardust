@@ -87,3 +87,5 @@ Cross-repo drift shipped in commit `3ae7e54` behind an explicit `source_root`, n
 - Source-repo drift counting and `(source repo)` labels from commit 3ae7e54 are unchanged.
 
 - Reviewed 2026-07-03 against the instruction-file orphan exemption in internal/service/check.go (ADR 0047 amendment); the behavior this doc relies on is unchanged.
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

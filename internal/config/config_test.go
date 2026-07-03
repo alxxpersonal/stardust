@@ -48,6 +48,51 @@ func TestResolveSourceRootAbsolute(t *testing.T) {
 	}
 }
 
+func TestAgentsDirDefaultsToDocsAgents(t *testing.T) {
+	if got := Default().AgentsDir(); got != "docs/agents" {
+		t.Fatalf("AgentsDir() = %q, want docs/agents", got)
+	}
+	cfg := Default()
+	cfg.AgentsDirRaw = "   "
+	if got := cfg.AgentsDir(); got != "docs/agents" {
+		t.Fatalf("AgentsDir() on whitespace = %q, want docs/agents", got)
+	}
+}
+
+func TestAgentsDirNormalizes(t *testing.T) {
+	cases := map[string]string{
+		"docs/skills":       "docs/skills",
+		"docs/skills/":      "docs/skills",
+		"  docs/skills  ":   "docs/skills",
+		"docs//skills":      "docs/skills",
+		"./docs/skills":     "docs/skills",
+		"agents-home":       "agents-home",
+		"docs/agents/nest/": "docs/agents/nest",
+	}
+	for in, want := range cases {
+		cfg := Default()
+		cfg.AgentsDirRaw = in
+		if got := cfg.AgentsDir(); got != want {
+			t.Fatalf("AgentsDir(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestAgentsDirRoundTripsThroughToml(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.toml")
+	if err := os.WriteFile(path, []byte("agents_dir = \"docs/skills\"\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := cfg.AgentsDir(); got != "docs/skills" {
+		t.Fatalf("AgentsDir() after Load = %q, want docs/skills", got)
+	}
+}
+
 func TestLoadDirectoryIndexesConfig(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "config.toml")

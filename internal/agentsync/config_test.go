@@ -26,7 +26,7 @@ func TestLayoutRules(t *testing.T) {
 }
 
 func TestDefaultConfigWiresRules(t *testing.T) {
-	cfg := DefaultConfig("/home", "/vault")
+	cfg := DefaultConfig("/home", "/vault", "docs/agents")
 
 	var primary, compat *Source
 	for i := range cfg.Sources {
@@ -88,7 +88,7 @@ func TestDefaultConfigWiresRules(t *testing.T) {
 // a lower precedence (a higher priority number), so docs/agents wins any
 // collision.
 func TestDefaultConfigHomesAgentAssetsInDocs(t *testing.T) {
-	cfg := DefaultConfig("/home", "/vault")
+	cfg := DefaultConfig("/home", "/vault", "docs/agents")
 	byName := map[string]Source{}
 	for _, s := range cfg.Sources {
 		byName[s.Name] = s
@@ -139,7 +139,7 @@ func TestDiscoverPrefersDocsAgentsOverCompat(t *testing.T) {
 	writeSkill(t, filepath.Join(root, "skills"), "shared",
 		"---\nname: shared\ndescription: legacy copy\n---\n# Shared (legacy)\n")
 
-	items, err := Discover(DefaultConfig(home, root))
+	items, err := Discover(DefaultConfig(home, root, "docs/agents"))
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
 	}
@@ -159,6 +159,33 @@ func TestDiscoverPrefersDocsAgentsOverCompat(t *testing.T) {
 	}
 	if got[0].Source.ImportOnly {
 		t.Fatal("docs/agents winner must not be import-only")
+	}
+}
+
+// TestDefaultConfigHomesReposUnderConfiguredDir asserts the three repo sources
+// build under the passed agents dir instead of a hardcoded docs/agents, while the
+// legacy compat sources stay at the repo root regardless of the knob.
+func TestDefaultConfigHomesReposUnderConfiguredDir(t *testing.T) {
+	cfg := DefaultConfig("/home", "/vault", "docs/skills")
+	byName := map[string]Source{}
+	for _, s := range cfg.Sources {
+		byName[s.Name] = s
+	}
+	wantRepo := map[string]string{
+		"repo-skills": filepath.Join("/vault", "docs", "skills", "skills"),
+		"repo-agents": filepath.Join("/vault", "docs", "skills", "subagents"),
+		"repo-rules":  filepath.Join("/vault", "docs", "skills", "rules.md"),
+	}
+	for name, want := range wantRepo {
+		if got := byName[name].Path; got != want {
+			t.Fatalf("source %q path = %q, want %q", name, got, want)
+		}
+	}
+	if got, want := byName["compat-skills"].Path, filepath.Join("/vault", "skills"); got != want {
+		t.Fatalf("compat-skills path = %q, want %q (unaffected by knob)", got, want)
+	}
+	if got, want := byName["compat-rules"].Path, filepath.Join("/vault", ".stardust", "rules.md"); got != want {
+		t.Fatalf("compat-rules path = %q, want %q (unaffected by knob)", got, want)
 	}
 }
 
@@ -187,7 +214,7 @@ mode = "copy"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg, err := LoadConfig(path, home, root)
+	cfg, err := LoadConfig(path, home, root, "docs/agents")
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
@@ -211,12 +238,12 @@ func TestLoadConfigMissingReturnsDefaultConfig(t *testing.T) {
 	home := filepath.Join(dir, "home")
 	root := filepath.Join(dir, "vault")
 
-	cfg, err := LoadConfig(filepath.Join(dir, "missing.toml"), home, root)
+	cfg, err := LoadConfig(filepath.Join(dir, "missing.toml"), home, root, "docs/agents")
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	want := DefaultConfig(home, root)
+	want := DefaultConfig(home, root, "docs/agents")
 	if !reflect.DeepEqual(cfg, want) {
 		t.Fatalf("LoadConfig() = %#v, want %#v", cfg, want)
 	}

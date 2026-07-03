@@ -232,3 +232,5 @@ Feeds the plan at `docs/plans/2026-07-02-2234-cross-note-contradiction-candidate
 - `CLAUDE.md`, `.claude/rules/go.md`, `SPEC.md`.
 
 </details>
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

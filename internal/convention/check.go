@@ -28,8 +28,10 @@ var (
 	adrDocNameRe         = regexp.MustCompile(`^\d{4}-[a-z0-9][a-z0-9-]*\.md$`)
 )
 
-// CheckDocs validates convention docs and forbidden dash characters.
-func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
+// CheckDocs validates convention docs and forbidden dash characters. agentsDir is
+// the resolved repo-relative agent-assets home (docs/agents by default): markdown
+// under it is exempt from the stray-doc rule the same way docs/templates is.
+func CheckDocs(root string, ignore []string, agentsDir string) ([]ConventionIssue, error) {
 	paths, err := vault.Scan(root, ignore)
 	if err != nil {
 		return nil, err
@@ -60,7 +62,7 @@ func CheckDocs(root string, ignore []string) ([]ConventionIssue, error) {
 		if !docsActive || !vault.IsMarkdownPath(rel) {
 			continue
 		}
-		if issue, ok := checkStrayDoc(rel, allowedDocFolders); ok {
+		if issue, ok := checkStrayDoc(rel, allowedDocFolders, agentsDir); ok {
 			issues = append(issues, issue)
 		}
 		docType, ok := docTypeForPath(rel)
@@ -98,16 +100,19 @@ func registeredDocFolders(root string) ([]string, error) {
 }
 
 // checkStrayDoc rejects markdown under docs that is outside registered folders.
-// docs/agents is a convention-known area (shared agent assets: skills,
-// subagents, rules.md), exempted the same way docs/templates is: its files carry
-// skill or agent frontmatter, not doc frontmatter, so they are indexed and
-// searchable without collection-field validation (ADR 0047).
-func checkStrayDoc(rel string, allowedFolders []string) (ConventionIssue, bool) {
+// The configured agents dir (default docs/agents) is a convention-known area
+// (shared agent assets: skills, subagents, rules.md), exempted the same way
+// docs/templates is: its files carry skill or agent frontmatter, not doc
+// frontmatter, so they are indexed and searchable without collection-field
+// validation (ADR 0047, relocatable per ADR 0048). When the dir sits outside
+// docs/ the prefix simply never matches a docs/ path, so a former docs/agents
+// home reverts to ordinary docs content and is flagged stray again.
+func checkStrayDoc(rel string, allowedFolders []string, agentsDir string) (ConventionIssue, bool) {
 	rel = filepath.ToSlash(rel)
 	if !strings.HasPrefix(rel, "docs/") {
 		return ConventionIssue{}, false
 	}
-	if rel == "docs/INDEX.md" || strings.HasPrefix(rel, "docs/templates/") || strings.HasPrefix(rel, "docs/agents/") {
+	if rel == "docs/INDEX.md" || strings.HasPrefix(rel, "docs/templates/") || strings.HasPrefix(rel, agentsDir+"/") {
 		return ConventionIssue{}, false
 	}
 	for _, folder := range allowedFolders {

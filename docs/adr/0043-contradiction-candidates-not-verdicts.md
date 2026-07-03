@@ -65,3 +65,5 @@ Split contradiction detection into a deterministic candidate generator in the bi
 - ADR 0016 (vectors on by default, loud degradation), ADR 0018 (drift as a review prompt by commit-distance), ADR 0019 (CI baseline ratchet).
 - `internal/service/digest.go:28-108` (cursor plus `DiffNames` change feed, `temporal.Commitments` body scan), `internal/temporal/temporal.go:12-43` (commitment regex, `TopArea`), `internal/index/search.go:39-199` (`Hybrid`, FTS-only degrade, `Nearest`, RRF), `internal/embed/ollama.go:37-100` (`Available`, batch `Embed`), `internal/service/check.go:15-249` (typed `Issue`, drift as `warn`), `internal/service/service.go:92-164` (`RetrievalMode`, `RetrievalReason`, `ftsOnlyReason`).
 - `docs/examples/cron-jobs/librarian/prompt.md` and `config.toml` (propose-not-mutate, notify / question / review, read-only sandbox).
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

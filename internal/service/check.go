@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/alxxpersonal/stardust/internal/collections"
 	"github.com/alxxpersonal/stardust/internal/convention"
 	"github.com/alxxpersonal/stardust/internal/graph"
 	"github.com/alxxpersonal/stardust/internal/vault"
@@ -51,15 +54,17 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		}
 		issues = append(issues, Issue{Severity: "error", Kind: "broken-link", Path: bl.From, Detail: detail})
 	}
+	agentsPrefix := s.Config.AgentsDir() + "/"
 	for _, p := range g.Orphans() {
 		if directoryIndexPaths[p] {
 			continue
 		}
-		// docs/agents holds synced operational assets (skills, subagents, the
-		// rules source), not linked notes; standing alone is their normal state
-		// (ADR 0047), so they are exempt from the orphan warning. The root
-		// instruction files are rules-compose targets under the same rule.
-		if strings.HasPrefix(p, "docs/agents/") ||
+		// The configured agents dir (default docs/agents) holds synced operational
+		// assets (skills, subagents, the rules source), not linked notes; standing
+		// alone is their normal state (ADR 0047, relocatable per ADR 0048), so they
+		// are exempt from the orphan warning. The root instruction files are
+		// rules-compose targets under the same rule.
+		if strings.HasPrefix(p, agentsPrefix) ||
 			p == "CLAUDE.md" || p == "AGENTS.md" || p == "GEMINI.md" {
 			continue
 		}
@@ -130,7 +135,7 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		issues = append(issues, Issue(issue))
 	}
 
-	docIssues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore)
+	docIssues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore, s.Config.AgentsDir())
 	if err != nil {
 		return CheckResult{}, err
 	}
@@ -145,6 +150,11 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	issues = append(issues, sourceDriftIssues...)
+	agentsDirIssues, err := s.agentsDirIssues()
+	if err != nil {
+		return CheckResult{}, err
+	}
+	issues = append(issues, agentsDirIssues...)
 
 	sort.SliceStable(issues, func(i, j int) bool {
 		if issues[i].Severity != issues[j].Severity {
@@ -229,6 +239,32 @@ func (s *Service) sourceDriftIssues(ctx context.Context) ([]Issue, error) {
 		}
 	}
 	return issues, nil
+}
+
+// agentsDirIssues validates the agents_dir knob (ADR 0048). The resolved home
+// must be repo-relative (not absolute), stay inside the repo root (no ..-escape),
+// and not collide with a registered collection folder; each violation is a single
+// bad-agents-dir error anchored at the config file. The default docs/agents
+// satisfies all three, so an unset knob never fires.
+func (s *Service) agentsDirIssues() ([]Issue, error) {
+	const cfgPath = ".stardust/config.toml"
+	dir := s.Config.AgentsDir()
+	if filepath.IsAbs(filepath.FromSlash(dir)) {
+		return []Issue{{Severity: "error", Kind: "bad-agents-dir", Path: cfgPath, Detail: fmt.Sprintf("agents_dir %q must be a repo-relative path, not absolute", dir)}}, nil
+	}
+	if dir == ".." || strings.HasPrefix(dir, "../") {
+		return []Issue{{Severity: "error", Kind: "bad-agents-dir", Path: cfgPath, Detail: fmt.Sprintf("agents_dir %q escapes the repo root", dir)}}, nil
+	}
+	cols, err := collections.Load(s.Layout.Collections())
+	if err != nil {
+		return nil, err
+	}
+	for _, col := range cols {
+		if folder := path.Clean(filepath.ToSlash(col.Cfg.Path)); folder == dir {
+			return []Issue{{Severity: "error", Kind: "bad-agents-dir", Path: cfgPath, Detail: fmt.Sprintf("agents_dir %q collides with the registered collection folder %q", dir, folder)}}, nil
+		}
+	}
+	return nil, nil
 }
 
 func renderCheck(res CheckResult) string {

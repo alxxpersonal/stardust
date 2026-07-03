@@ -161,3 +161,5 @@ The `pre-commit` check gate (warn/strict) follows the same rule: in compose mode
 
 - Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).
 - Reviewed 2026-07-03 against the automatic-sync change: `internal/hooks/hooks.go` still owns Install, Uninstall, and the guarded hook bodies; the added `stardust sync` line rides the same shared body constants, reference holds.
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

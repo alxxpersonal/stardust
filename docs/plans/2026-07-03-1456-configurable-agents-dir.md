@@ -30,14 +30,14 @@ Files:
 
 Steps:
 
-- [ ] Failing test: `Config.AgentsDir()` returns `docs/agents` when unset, normalizes `docs/skills/` to `docs/skills`, slash-normalizes; implement the field + resolver.
-- [ ] Failing test: `agentsync.DefaultConfig` builds the three repo sources under a passed agents dir (pick the smallest API: an added parameter; update both production callers); default path unchanged byte-for-byte; implement.
-- [ ] Failing test: stray-doc exemption follows a configured `docs/skills` (exempt) while `docs/agents` under that config is flagged again; thread the dir into `CheckDocs`; implement.
-- [ ] Failing test: orphan exemption follows the configured dir; implement in `service.Check`.
-- [ ] Failing test: the registry Agents section discovers under the configured dir; implement.
-- [ ] Failing test: `init --docs` scaffolds the configured dir when config pre-exists, else the default; implement.
-- [ ] Failing test: `bad-agents-dir` check error for absolute, `..`-escaping, and collection-colliding values; implement in `service.Check`.
-- [ ] Full gate; re-source any drifted docs in the same commit; commit `feat(config): make the agent assets home configurable`.
+- [x] Failing test: `Config.AgentsDir()` returns `docs/agents` when unset, normalizes `docs/skills/` to `docs/skills`, slash-normalizes; implement the field + resolver.
+- [x] Failing test: `agentsync.DefaultConfig` builds the three repo sources under a passed agents dir (pick the smallest API: an added parameter; update both production callers); default path unchanged byte-for-byte; implement.
+- [x] Failing test: stray-doc exemption follows a configured `docs/skills` (exempt) while `docs/agents` under that config is flagged again; thread the dir into `CheckDocs`; implement.
+- [x] Failing test: orphan exemption follows the configured dir; implement in `service.Check`.
+- [x] Failing test: the registry Agents section discovers under the configured dir; implement.
+- [x] Failing test: `init --docs` scaffolds the configured dir when config pre-exists, else the default; implement.
+- [x] Failing test: `bad-agents-dir` check error for absolute, `..`-escaping, and collection-colliding values; implement in `service.Check`.
+- [x] Full gate; re-source any drifted docs in the same commit; commit `feat(config): make the agent assets home configurable`.
 
 ## Task 2: docs and adversarial review
 

@@ -51,3 +51,5 @@ func (h *Hint) Unwrap() error   // exposes cause for errors.Is/As
 - docs/specs/2026-06-25-2319-informative-cli-errors.md
 - internal/config/config.go (`ErrNoVault` sentinel)
 - The exo-jobs clierr decision (its ADR 0011)
+
+- Reviewed 2026-07-03 against the configurable agents dir knob (ADR 0048); the behavior this doc relies on is unchanged.

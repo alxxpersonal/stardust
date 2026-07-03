@@ -73,7 +73,7 @@ func (s *Service) fieldFixable(rel, field string) bool {
 // unmatched governs globs, missing title/status) are never touched. It returns
 // what it changed; re-running Check afterward reports any remaining issues.
 func (s *Service) CheckFix(ctx context.Context) (FixResult, error) {
-	issues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore)
+	issues, err := convention.CheckDocs(s.Layout.Root, s.Config.Ignore, s.Config.AgentsDir())
 	if err != nil {
 		return FixResult{}, err
 	}

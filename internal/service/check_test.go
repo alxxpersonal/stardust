@@ -286,6 +286,38 @@ func TestCheckDocsAgentsAreaIsNotOrphaned(t *testing.T) {
 	}
 }
 
+// TestCheckOrphanExemptionFollowsConfiguredAgentsDir asserts the orphan warning
+// exemption tracks agents_dir: with the home relocated to docs/skills, a
+// standalone skill and rules.md under docs/skills are not flagged orphan.
+func TestCheckOrphanExemptionFollowsConfiguredAgentsDir(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	cfg := config.Default()
+	cfg.AgentsDirRaw = "docs/skills"
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), cfg))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("docs/skills/rules.md", "# Rules\n\nZero em dashes ever.\n")
+	write("docs/skills/skills/demo/SKILL.md", "---\nname: demo\ndescription: demo skill\n---\n# Demo\n")
+	write("Home.md", "# Home\n\nsee [[Other]]\n")
+	write("Other.md", "# Other\n\nsee [[Home]]\n")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	for _, is := range res.Issues {
+		if is.Kind == "orphan" && strings.HasPrefix(is.Path, "docs/skills/") {
+			t.Fatalf("relocated agents-dir asset flagged orphan: %+v", is)
+		}
+	}
+}
+
 func TestCheckSuppressesConfiguredDirectoryIndexDuplicates(t *testing.T) {
 	ctx := context.Background()
 	root := directoryIndexVault(t)
@@ -314,6 +346,51 @@ func TestCheckReportsDirectoryIndexDrift(t *testing.T) {
 	res, err := svc.Check(ctx)
 	require.NoError(t, err)
 	require.True(t, hasCheckIssue(res.Issues, "directory-index-missing"))
+}
+
+// TestCheckFlagsBadAgentsDir asserts the knob validation: an absolute path, a
+// repo-escaping path, and a value colliding with a registered collection folder
+// each surface a bad-agents-dir error.
+func TestCheckFlagsBadAgentsDir(t *testing.T) {
+	newVault := func(t *testing.T, agentsDir string, extra func(root string)) string {
+		t.Helper()
+		root := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+		cfg := config.Default()
+		cfg.AgentsDirRaw = agentsDir
+		require.NoError(t, config.Save(config.Layout{Root: root}.Config(), cfg))
+		if extra != nil {
+			extra(root)
+		}
+		return root
+	}
+	writeSpecsCollection := func(root string) {
+		p := filepath.Join(root, ".stardust", "collections", "specs", "config.toml")
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte("path = \"docs/specs\"\ndescription = \"specs\"\n\n[[fields]]\nname = \"title\"\ntype = \"string\"\nrequired = true\n"), 0o644))
+	}
+	cases := []struct {
+		name      string
+		agentsDir string
+		extra     func(root string)
+	}{
+		{"absolute", filepath.Join(t.TempDir(), "agents"), nil},
+		{"escaping", "../outside", nil},
+		{"collides with collection", "docs/specs", writeSpecsCollection},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := newVault(t, tc.agentsDir, tc.extra)
+			svc, err := service.Open(context.Background(), root)
+			require.NoError(t, err)
+			defer func() { _ = svc.Close() }()
+
+			res, err := svc.Check(context.Background())
+			require.NoError(t, err)
+			require.Truef(t, hasCheckIssue(res.Issues, "bad-agents-dir"), "want bad-agents-dir for %q, got %#v", tc.agentsDir, res.Issues)
+			require.NotZero(t, res.Errors, "bad-agents-dir must count as an error")
+		})
+	}
 }
 
 func hasCheckIssue(issues []service.Issue, kind string) bool {

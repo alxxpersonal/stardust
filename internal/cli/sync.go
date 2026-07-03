@@ -90,11 +90,11 @@ func newSyncInitCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("resolve home dir: %w", err)
 			}
-			cfg := agentsync.DefaultConfig(home, vc.Layout.Root)
+			cfg := agentsync.DefaultConfig(home, vc.Layout.Root, vc.Config.AgentsDir())
 			switch profile {
 			case "", "default":
 			case "migration":
-				cfg = agentsync.DefaultMigrationConfig(home, vc.Layout.Root)
+				cfg = agentsync.DefaultMigrationConfig(home, vc.Layout.Root, vc.Config.AgentsDir())
 			default:
 				return fmt.Errorf("unsupported sync profile %q", profile)
 			}
@@ -147,7 +147,7 @@ func newSyncReportCmd() *cobra.Command {
 			} else if !filepath.IsAbs(configPath) {
 				configPath = filepath.Join(vc.Layout.Root, configPath)
 			}
-			cfg, err := agentsync.LoadConfig(configPath, home, vc.Layout.Root)
+			cfg, err := agentsync.LoadConfig(configPath, home, vc.Layout.Root, vc.Config.AgentsDir())
 			if err != nil {
 				return err
 			}

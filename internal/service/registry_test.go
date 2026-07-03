@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/alxxpersonal/stardust/internal/config"
 	"github.com/alxxpersonal/stardust/internal/service"
 )
 
@@ -114,6 +115,34 @@ func TestRegistryAgentsSection(t *testing.T) {
 	require.Contains(t, got, "### Skills")
 	require.Contains(t, got, "| demo | Demo skill for the registry | claude, codex |")
 	require.Contains(t, got, "### Subagents")
+	require.Contains(t, got, "| reviewer | Reviews diffs |")
+}
+
+// TestRegistryAgentsSectionFollowsConfiguredDir asserts the Agents section
+// discovers skills and subagents under the configured agents_dir (docs/skills)
+// rather than the docs/agents literal.
+func TestRegistryAgentsSectionFollowsConfiguredDir(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	cfg := config.Default()
+	cfg.AgentsDirRaw = "docs/skills"
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), cfg))
+	writeUnder(t, root, "docs/skills/skills/demo/SKILL.md", "---\nname: demo\ndescription: Relocated skill\ntargets: [claude, codex]\n---\n# Demo\n")
+	writeUnder(t, root, "docs/skills/subagents/reviewer.md", "---\nname: reviewer\ndescription: Reviews diffs\n---\n# Reviewer\n")
+
+	svc, err := service.Open(ctx, root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+	_, err = svc.Index(ctx, "")
+	require.NoError(t, err)
+
+	require.NoError(t, svc.RegenerateRegistry(ctx))
+
+	data, err := os.ReadFile(filepath.Join(root, "docs", "INDEX.md"))
+	require.NoError(t, err)
+	got := string(data)
+	require.Contains(t, got, "| demo | Relocated skill | claude, codex |")
 	require.Contains(t, got, "| reviewer | Reviews diffs |")
 }
 
