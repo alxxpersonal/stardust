@@ -45,7 +45,7 @@ A wiki workspace named `myrepo.wiki` sitting next to `myrepo` has everything nee
 - Three call sites read the resolved source root, all through `ResolveSourceRoot`:
   - `internal/convention/check.go` (`CheckDocs`, line 43): `governs:` patterns absent locally are looked up under `sourceRoot` (`sourceMatchesGoverns`).
   - `internal/service/governs.go` (`matchGovernedDriftRefs`, line 315): a `governs:` pattern with no local match falls back to `source_root`, producing `driftRef{source: source_repo}` bindings measured with `gitx.CommitCountSinceUnix`.
-  - `internal/service/check.go` (`sourceDriftIssues`, line 197): drives `DriftDocs` and emits `source_repo` bindings as `drift` warnings.
+  - `internal/service/check.go` (`sourceDriftIssues`, line 203): drives `DriftDocs` and emits `source_repo` bindings as `drift` warnings.
 - `internal/service/status_report.go` builds `VaultStatus` (root, initialized, kind, repository, collections, index health). `internal/cli/status.go` renders it human-readable and as JSON. There is no field for the bound source root today, so a detected binding would be invisible.
 - Precedent for conservative gap-filling exists in `DetectKind` itself: the `.git` rule sits below markdown-dominance so a git-backed vault is not misclassified. This spec extends that instinct, it does not fork it.
 
@@ -169,4 +169,3 @@ type SourceBinding struct {
 
 </details>
 
-- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

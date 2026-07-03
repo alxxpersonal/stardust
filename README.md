@@ -191,7 +191,7 @@ targets: [claude, codex]   # optional; omit to sync everywhere
 ---
 ```
 
-**Stardust understands the area natively.** Because it lives under `docs/`, every asset is indexed, searchable, drift-tracked, and validated by the same checks as any note, and it is never flagged as a stray doc (ADR 0047). `stardust registry` lists the skills (name, description, targets) and the subagents in an Agents section, so one glance shows the whole cross-agent surface. Legacy repo-root `skills/`, `agents/`, and `.stardust/rules.md` still work as import-only compat sources at lower precedence, so an existing layout keeps syncing and can migrate by moving files (a name defined in both places resolves to the `docs/agents/` copy).
+**Stardust understands the area natively.** Because it lives under `docs/`, every asset is indexed, searchable, drift-tracked, and validated by the same checks as any note, and it is never flagged as a stray doc (ADR 0047). `stardust registry` lists the skills (name, description, targets) and the subagents in an Agents section, so one glance shows the whole cross-agent surface. Legacy repo-root `skills/`, `agents/`, and `.stardust/rules.md` remain real compat sources at lower precedence, so an existing layout keeps syncing until its files move into `docs/agents/` (a name defined in both places resolves to the `docs/agents/` copy).
 
 **Sync runs itself.** The commit hooks re-run `stardust sync` on post-commit and post-merge (guarded, non-blocking, a no-op on a clean tree), and CI fails on drift with `stardust sync --check`. Hooks materialize symlinks on developer machines; CI verifies and cannot materialize, so the two roles never collide. Dry-run first, then treat check mode as the gate:
 

@@ -227,8 +227,9 @@ Feeds the plan at `docs/plans/2026-07-02-2234-cross-note-contradiction-candidate
 
 - SPEC.md section 11 (future work: "LLM-based contradiction detection"), section 12.4 (temporal behavior 3: "contradiction detection across notes"), section 8 ("this contradicts that"), section 12.3 (add-only, invalidate-not-delete, `superseded_by` / `valid_to`).
 - ADR 0043 (this work), ADR 0016 (vectors on by default, loud degradation), ADR 0018 (drift as a review prompt), ADR 0019 (CI baseline ratchet).
-- Source, verified: `internal/service/digest.go:28-108` (cursor plus `DiffNames` change feed, `temporal.Commitments` body scan), `internal/temporal/temporal.go:18-43` (commitment regex, `TopArea`), `internal/index/search.go:36-199` (`Hybrid`, FTS-only degrade, `Nearest`, RRF), `internal/embed/ollama.go:37-100` (`Available`, batch `Embed`), `internal/service/check.go:15-241` (typed `Issue`, drift as `warn`), `internal/gitx/gitx.go:41-249` (`DiffNames`, `HeadSHA`, `LastCommit`, `CommitCountSince`).
+- Source, verified: `internal/service/digest.go:28-108` (cursor plus `DiffNames` change feed, `temporal.Commitments` body scan), `internal/temporal/temporal.go:18-43` (commitment regex, `TopArea`), `internal/index/search.go:36-199` (`Hybrid`, FTS-only degrade, `Nearest`, RRF), `internal/embed/ollama.go:37-100` (`Available`, batch `Embed`), `internal/service/check.go:15-247` (typed `Issue`, drift as `warn`), `internal/gitx/gitx.go:41-249` (`DiffNames`, `HeadSHA`, `LastCommit`, `CommitCountSince`).
 - `docs/examples/cron-jobs/librarian/prompt.md` and `config.toml` (propose-not-mutate, notify / question / review, read-only sandbox).
 - `CLAUDE.md`, `.claude/rules/go.md`, `SPEC.md`.
 
 </details>
+- Reviewed 2026-07-03 against the compat-materialization and docs/agents orphan-exemption changes in internal/service/check.go and internal/agentsync/config.go (ADR 0047 amendment); the behavior this doc relies on is unchanged.

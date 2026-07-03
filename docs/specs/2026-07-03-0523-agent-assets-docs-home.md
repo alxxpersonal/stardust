@@ -39,7 +39,7 @@ agentsync ships (skills, agents, rules synced into `.claude/`, `.codex/`, `.gemi
 2. stardust understands the area natively: never a stray-doc, indexed and searchable, listed in the registry, validated by the existing skill and agent checks, zero per-repo registration ceremony.
 3. Placement is the sharing switch: an asset under `docs/agents/` syncs to every configured tool; an asset dropped directly into `.claude/skills/` (or any tool dir) stays tool-local and untouched. The `targets:` frontmatter remains an optional narrowing.
 4. Sync runs itself: the stardust git hooks re-run `stardust sync` on post-commit and post-merge, and CI fails on drift via `stardust sync --check`.
-5. Existing layouts keep working: root `skills/`, root `agents/`, and `.stardust/rules.md` demote to ImportOnly compat sources.
+5. Existing layouts keep working: root `skills/`, root `agents/`, and `.stardust/rules.md` remain real compat sources at lower precedence, still materialized until their files migrate; only the tool dirs are import-only.
 </details>
 
 <details>
@@ -69,7 +69,7 @@ agentsync ships (skills, agents, rules synced into `.claude/`, `.codex/`, `.gemi
 1. `checkStrayDoc` exempts `docs/agents/` exactly as it exempts `docs/templates/`.
 2. `CheckSkills` already validates any `SKILL.md` it finds; confirm coverage of the new path and extend the agent-definition validation the same way if it is folder-scoped.
 3. The registry gains an "Agents" section listing skills (name, description, targets) and subagents from `docs/agents/`, generated like the collection sections.
-4. `agentsync.DefaultConfig` repo sources repoint: `repo-skills` to `docs/agents/skills`, `repo-agents` to `docs/agents/subagents`, `repo-rules` to `docs/agents/rules.md`, all Priority 100. The old paths (`skills/`, `agents/`, `.stardust/rules.md`) become ImportOnly compat entries so existing repos keep syncing and `stardust sync` can migrate them in.
+4. `agentsync.DefaultConfig` repo sources repoint: `repo-skills` to `docs/agents/skills`, `repo-agents` to `docs/agents/subagents`, `repo-rules` to `docs/agents/rules.md`, all Priority 100. The old paths (`skills/`, `agents/`, `.stardust/rules.md`) stay real compat sources at Priority 200, still materialized so existing repos keep syncing, with the docs/agents copy winning any name collision; only the tool dirs are import-only.
 
 Indexing and search need no work: the area is markdown under the scan root, and lifting the stray-doc error is what admits it to the healthy path. Drift tracking applies as it does to any note.
 
@@ -140,3 +140,7 @@ End to end in a temp repo: `stardust init --docs` scaffolds `docs/agents/`; a sk
 - docs/adr/0039-rules-adapter-sync.md, docs/adr/0047-agent-assets-docs-home.md
 - Reviewed 2026-07-03 against the Task 2 implementation: `internal/hooks/hooks.go` gained the guarded `stardust sync` line and `.github/workflows/ci.yml` gained the drift gate, both as specified; references hold.
 </details>
+
+## Amendments
+
+- 2026-07-03: adversarial review caught the original wording contradiction ("ImportOnly compat" versus "existing repos keep syncing"; BuildPlan skips ImportOnly items, so a legacy-only layout silently stopped syncing). Corrected: compat sources are real, lower-precedence sources; only tool dirs are import-only. Also exempted docs/agents/ from the orphan warning (synced assets stand alone by design). Pinned by TestBuildPlanMaterializesLegacyCompatSkill and TestCheckDocsAgentsAreaIsNotOrphaned.

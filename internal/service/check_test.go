@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -247,6 +248,36 @@ func TestCheckBareDuplicateNameWarnsOnlyWhenReferenced(t *testing.T) {
 	res, err = svc.Check(context.Background())
 	require.NoError(t, err)
 	require.True(t, hasCheckIssue(res.Issues, "duplicate-name"), "a referenced shared name is genuinely ambiguous")
+}
+
+// TestCheckDocsAgentsAreaIsNotOrphaned pins ADR 0047: docs/agents holds synced
+// operational assets whose normal state is standing alone, so a fresh scaffold
+// (rules.md, a skill) must not produce orphan warnings.
+func TestCheckDocsAgentsAreaIsNotOrphaned(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".stardust", "cache"), 0o755))
+	require.NoError(t, config.Save(config.Layout{Root: root}.Config(), config.Default()))
+	write := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write("docs/agents/rules.md", "# Rules\n\nZero em dashes ever.\n")
+	write("docs/agents/skills/demo/SKILL.md", "---\nname: demo\ndescription: demo skill\n---\n# Demo\n")
+	write("Home.md", "# Home\n\nsee [[Other]]\n")
+	write("Other.md", "# Other\n\nsee [[Home]]\n")
+
+	svc, err := service.Open(context.Background(), root)
+	require.NoError(t, err)
+	defer func() { _ = svc.Close() }()
+
+	res, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	for _, is := range res.Issues {
+		if is.Kind == "orphan" && strings.HasPrefix(is.Path, "docs/agents/") {
+			t.Fatalf("docs/agents asset flagged orphan: %+v", is)
+		}
+	}
 }
 
 func TestCheckSuppressesConfiguredDirectoryIndexDuplicates(t *testing.T) {

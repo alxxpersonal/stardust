@@ -18,7 +18,7 @@ agentsync's canonical sources are scattered outside the doc workflow: repo-root 
 
 1. **Home**: `docs/agents/skills/<name>/SKILL.md`, `docs/agents/subagents/<name>.md`, `docs/agents/rules.md`. `stardust init --docs` scaffolds the area.
 2. **Native**: `docs/agents/` is a convention-known area beside the collections (the `docs/templates/` pattern), never a stray-doc, listed in the registry's Agents section, validated by the skill and agent checks, indexed and drift-tracked like any note. It is NOT a registered collection, because skill frontmatter is not doc frontmatter.
-3. **Sharing by placement**: under `docs/agents/` means synced to every configured tool; directly in a tool dir means tool-local, never touched. `targets:` frontmatter remains an optional narrowing. Root `skills/`, `agents/`, and `.stardust/rules.md` demote to ImportOnly compat.
+3. **Sharing by placement**: under `docs/agents/` means synced to every configured tool; directly in a tool dir means tool-local, never touched. `targets:` frontmatter remains an optional narrowing. Root `skills/`, `agents/`, and `.stardust/rules.md` demote to lower-precedence compat sources that keep materializing until migrated; only the tool dirs are import-only.
 4. **Auto-sync**: the guarded hook bodies (post-commit, post-merge, owned and composed alike) gain a `stardust sync` line, and CI runs `stardust sync --check` as a drift gate. Hooks materialize symlinks on developer machines; CI verifies and cannot materialize, and the docs say so plainly.
 
 ## Consequences

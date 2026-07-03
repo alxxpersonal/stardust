@@ -151,4 +151,3 @@ One rule, inherited from ADR 0007: stardust owns only its block, never the file.
 
 </details>
 
-- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

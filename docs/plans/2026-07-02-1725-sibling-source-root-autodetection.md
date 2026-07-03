@@ -35,7 +35,7 @@ Cross-repo drift shipped in commit `3ae7e54` behind an explicit `source_root`, n
 - `internal/config/config.go` - `Config.SourceRoot`, `Config.ResolveSourceRoot` (the explicit-value primitive to delegate to).
 - `internal/convention/check.go` - `CheckDocs` line 43, the first call site.
 - `internal/service/governs.go` - `matchGovernedDriftRefs` line 315, the second call site.
-- `internal/service/check.go` - `sourceDriftIssues` line 197, the third call site.
+- `internal/service/check.go` - `sourceDriftIssues` line 203, the third call site.
 - `internal/service/status_report.go` - `VaultStatus`, `GatherStatus`; `internal/cli/status.go` - `writeStatusHuman` for the human render.
 
 ## Task 1: build the resolver, wiring, and visibility
@@ -86,4 +86,3 @@ Cross-repo drift shipped in commit `3ae7e54` behind an explicit `source_root`, n
 - The sibling is derived only from a `<name>.wiki` basename; URL-only and structural wikis are excluded.
 - Source-repo drift counting and `(source repo)` labels from commit 3ae7e54 are unchanged.
 
-- Reviewed 2026-07-03 against the docs/agents agent-assets home (ADR 0047).

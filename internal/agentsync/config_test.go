@@ -33,9 +33,10 @@ func TestDefaultConfigWiresRules(t *testing.T) {
 		if cfg.Sources[i].Kind != string(KindRules) {
 			continue
 		}
-		if cfg.Sources[i].ImportOnly {
+		switch cfg.Sources[i].Name {
+		case "compat-rules":
 			compat = &cfg.Sources[i]
-		} else {
+		case "repo-rules":
 			primary = &cfg.Sources[i]
 		}
 	}
@@ -54,8 +55,14 @@ func TestDefaultConfigWiresRules(t *testing.T) {
 	if got, want := compat.Path, filepath.Join("/vault", ".stardust", "rules.md"); got != want {
 		t.Fatalf("compat rules source path = %q, want %q", got, want)
 	}
-	if !compat.ImportOnly {
-		t.Fatal("compat rules source must be import-only")
+	// A legacy layout keeps syncing until migrated: the compat source is real,
+	// not import-only, and its higher priority number loses collisions to the
+	// docs/agents copy.
+	if compat.ImportOnly {
+		t.Fatal("compat rules source must keep materializing (not import-only)")
+	}
+	if compat.Priority <= primary.Priority {
+		t.Fatalf("compat priority %d must lose to primary %d", compat.Priority, primary.Priority)
 	}
 
 	wantRepo := map[Tool]string{
@@ -76,9 +83,10 @@ func TestDefaultConfigWiresRules(t *testing.T) {
 }
 
 // TestDefaultConfigHomesAgentAssetsInDocs asserts the repo sources point at the
-// docs/agents home at Priority 100, and that the legacy repo-root paths are kept
-// only as import-only compat sources at a lower precedence (a higher priority
-// number), so docs/agents wins any collision.
+// docs/agents home at Priority 100, and that the legacy repo-root paths stay
+// REAL compat sources (still materialized, so a legacy layout keeps syncing) at
+// a lower precedence (a higher priority number), so docs/agents wins any
+// collision.
 func TestDefaultConfigHomesAgentAssetsInDocs(t *testing.T) {
 	cfg := DefaultConfig("/home", "/vault")
 	byName := map[string]Source{}
@@ -96,9 +104,9 @@ func TestDefaultConfigHomesAgentAssetsInDocs(t *testing.T) {
 		"repo-skills":   {filepath.Join("/vault", "docs", "agents", "skills"), "skill", 100, false},
 		"repo-agents":   {filepath.Join("/vault", "docs", "agents", "subagents"), "agent", 100, false},
 		"repo-rules":    {filepath.Join("/vault", "docs", "agents", "rules.md"), "rules", 100, false},
-		"compat-skills": {filepath.Join("/vault", "skills"), "skill", 200, true},
-		"compat-agents": {filepath.Join("/vault", "agents"), "agent", 200, true},
-		"compat-rules":  {filepath.Join("/vault", ".stardust", "rules.md"), "rules", 200, true},
+		"compat-skills": {filepath.Join("/vault", "skills"), "skill", 200, false},
+		"compat-agents": {filepath.Join("/vault", "agents"), "agent", 200, false},
+		"compat-rules":  {filepath.Join("/vault", ".stardust", "rules.md"), "rules", 200, false},
 	}
 	for name, w := range cases {
 		s, ok := byName[name]

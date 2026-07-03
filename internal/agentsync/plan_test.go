@@ -57,6 +57,40 @@ func TestBuildPlanClassifiesTargetState(t *testing.T) {
 	}
 }
 
+// TestBuildPlanMaterializesLegacyCompatSkill pins the reviewer-found regression:
+// a legacy repo with ONLY a root skills/ layout (no docs/agents copy) must keep
+// syncing into tool dirs through the compat source, because compat sources are
+// real, not import-only. Only tool-dir sources are import-only.
+func TestBuildPlanMaterializesLegacyCompatSkill(t *testing.T) {
+	root := t.TempDir()
+	legacy := filepath.Join(root, "skills", "legacyskill")
+	if err := os.MkdirAll(legacy, 0o755); err != nil {
+		t.Fatalf("create legacy skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, "SKILL.md"), []byte("---\nname: legacyskill\ndescription: legacy\n---\n# Legacy\n"), 0o644); err != nil {
+		t.Fatalf("write legacy skill: %v", err)
+	}
+
+	cfg := DefaultConfig(filepath.Join(root, "home"), root)
+	items, err := Discover(cfg)
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	plan, err := BuildPlan(cfg, items, Options{Scope: ScopeRepo})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+	var skillActions int
+	for _, a := range plan.Actions {
+		if a.ItemName == "legacyskill" && a.Kind == KindSkill {
+			skillActions++
+		}
+	}
+	if skillActions == 0 {
+		t.Fatal("a legacy-only root skill produced no sync actions; the compat source must keep materializing")
+	}
+}
+
 func TestBuildPlanClassifiesRulesState(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, ".stardust", "rules.md")

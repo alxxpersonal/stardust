@@ -55,6 +55,12 @@ func (s *Service) Check(ctx context.Context) (CheckResult, error) {
 		if directoryIndexPaths[p] {
 			continue
 		}
+		// docs/agents holds synced operational assets (skills, subagents, the
+		// rules source), not linked notes; standing alone is their normal state
+		// (ADR 0047), so they are exempt from the orphan warning.
+		if strings.HasPrefix(p, "docs/agents/") {
+			continue
+		}
 		issues = append(issues, Issue{Severity: "warn", Kind: "orphan", Path: p, Detail: "no links in or out"})
 	}
 
