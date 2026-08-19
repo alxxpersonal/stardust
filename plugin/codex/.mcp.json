@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stardust": {
+      "command": "stardust",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}

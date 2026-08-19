@@ -90,6 +90,17 @@ claude plugin install stardust@stardust-local
 
 The plugin wires that MCP server, injects a stardust-first policy plus a live read-only workspace-state block at session start, arms maintenance and digest crons, and ships inline authoring commands: `/stardust:execute` (spec, plan, and build in one turn), `/stardust:spec`, `/stardust:plan`, `/stardust:doc`, `/stardust:adr`, `/stardust:audit` (a verified workspace audit written to `docs/research/`), plus `/stardust:setup`, `/stardust:status`, `/stardust:refresh`, and `/stardust:crons`.
 
+## Codex CLI
+
+A Codex-native plugin lives in [plugin/codex/](plugin/codex). It wires the same MCP server, injects the session-start policy and workspace state, and ships the authoring workflows as both slash commands (`/stardust:spec`, `/stardust:plan`, `/stardust:execute`, ...) and intent-triggered Agent Skills. Verified against `codex-cli 0.144.1`:
+
+```sh
+codex plugin marketplace add ./plugin/codex
+codex plugin add stardust@stardust-codex-local
+```
+
+New plugin hooks need a one-time `/hooks` trust before the session-start injection fires. For just the tools, skip the plugin: `codex mcp add stardust -- stardust serve --mcp`. Full install, verification, and uninstall steps are in the plugin's own `plugin/codex/README.md`.
+
 ## Mounts (federate other sources)
 
 A mount is any MCP server (a database, email, calendar, code host, ...) declared under `.stardust/mounts/<name>/config.toml`. `stardust query --mounts` fans the query out to every mount plus the local index and fuses the rankings with RRF, so one search spans your whole context, not just your notes. Stardust does not write connectors; it aggregates the MCP ecosystem's existing ones.

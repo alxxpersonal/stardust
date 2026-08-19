@@ -1,0 +1,28 @@
+{
+  "description": "stardust-plugin: inject the stardust-first policy and live workspace state at session start; optional debounced retrieval reminder on prompt submit.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "timeout": 12
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prompt-submit.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

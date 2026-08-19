@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+### Features
+
+- **plugin:** Add a Codex CLI plugin (`plugin/codex/`) at parity with the Claude Code plugin: the stardust MCP server, session-start policy and live workspace-state injection, the authoring workflows as both `/stardust:*` slash commands and Agent Skills, verified end to end against codex-cli 0.144.1
+
 ### Bug Fixes
 
 - **conventions:** Keep directory links out of graph

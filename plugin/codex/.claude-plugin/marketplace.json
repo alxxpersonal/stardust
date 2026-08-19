@@ -1,0 +1,19 @@
+{
+  "name": "stardust-codex-local",
+  "description": "Local development marketplace for the Stardust Codex plugin",
+  "owner": {
+    "name": "alxxpersonal",
+    "email": "personal@alxx.dev"
+  },
+  "plugins": [
+    {
+      "name": "stardust",
+      "description": "Make stardust the context spine of a Codex session: MCP server, session-start policy and live workspace state, plus authoring skills (stardust-execute, stardust-spec, stardust-plan, stardust-doc, stardust-adr, stardust-audit) that write specs, plans, ADRs, and docs. Works for an Obsidian vault and a docs-convention code repo.",
+      "version": "0.6.0",
+      "source": "./",
+      "author": {
+        "name": "alxxpersonal"
+      }
+    }
+  ]
+}

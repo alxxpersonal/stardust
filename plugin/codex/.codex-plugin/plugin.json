@@ -1,0 +1,36 @@
+{
+  "name": "stardust",
+  "version": "0.6.0",
+  "description": "Make stardust the context spine of a Codex session: wire the stardust MCP server, inject the current plans, specs, and verification state at session start, route context through hybrid keyword and semantic retrieval, and run the docs write workflows as skills (stardust-execute, stardust-spec, stardust-plan, stardust-doc, stardust-adr, stardust-audit, stardust-status, stardust-refresh). Works for an Obsidian vault and a docs-convention code repo.",
+  "author": {
+    "name": "alxxpersonal"
+  },
+  "homepage": "https://github.com/alxxpersonal/stardust",
+  "repository": "https://github.com/alxxpersonal/stardust",
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "search",
+    "rag",
+    "notes",
+    "mcp",
+    "obsidian",
+    "context",
+    "agent",
+    "workflow",
+    "codex",
+    "hooks",
+    "skills"
+  ],
+  "mcpServers": "./.mcp.json",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stardust",
+    "shortDescription": "Markdown-truth context spine for your vault and repos",
+    "longDescription": "Stardust indexes a markdown vault or a docs-convention repo into a hybrid keyword and vector index and exposes it to Codex: MCP tools for search, bundles, and write-back; a session-start policy plus live workspace state; and the spec, plan, doc, and audit workflows as skills.",
+    "developerName": "alxxpersonal",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/alxxpersonal/stardust"
+  }
+}
