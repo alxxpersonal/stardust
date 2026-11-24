@@ -215,7 +215,7 @@ stardust sync --check                  # exit non-zero on drift (the CI gate)
 stardust sync --repair                 # repair drifted stardust-managed targets
 ```
 
-Rules compose rather than clobber (ADR 0039). Author rules once in `docs/agents/rules.md`, and `stardust sync` renders that body per tool through a format-aware adapter, composing it into `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` as a sentinel-delimited managed block instead of a blind symlink. Compose owns only its block, so every line you write outside it survives each sync; a missing or stale block is reported by `stardust sync --check`, and a plain `stardust sync` self-heals compose drift without `--repair`. The sync config lives at `.stardust/sync.toml`; `stardust sync init` scaffolds it and `stardust sync report` lists adoptable assets from migration sources.
+Rules compose rather than clobber (ADR 0039). Author rules once in `docs/agents/rules.md`, and `stardust sync` renders that body per tool through a format-aware adapter, composing it into `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` as a sentinel-delimited managed block instead of a blind symlink. Compose owns only its block, so every line you write outside it survives each sync; a missing or stale block is reported by `stardust sync --check`, and a plain `stardust sync` self-heals compose drift without `--repair`. The sync config lives at `.stardust/sync.toml`; `stardust sync init` scaffolds it and `stardust sync report` lists adoptable assets from migration sources. A source can list `exclude` glob patterns that skip matching asset names, so a per-machine config passed with `--config` can leave out another machine's prefixed skills from a shared folder.
 
 ## Context bundles
 

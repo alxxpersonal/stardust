@@ -95,16 +95,47 @@ func discoverSource(src Source, defaults []Tool) ([]Item, error) {
 		}
 		return nil, fmt.Errorf("stat source %s: %w", src.Name, err)
 	}
+	var items []Item
+	var err error
 	switch src.Kind {
 	case string(KindSkill):
-		return discoverSkills(src, defaults)
+		items, err = discoverSkills(src, defaults)
 	case string(KindAgent):
-		return discoverAgents(src, defaults)
+		items, err = discoverAgents(src, defaults)
 	case string(KindRules):
-		return discoverRules(src, defaults)
+		items, err = discoverRules(src, defaults)
 	default:
 		return nil, fmt.Errorf("source %s: unsupported kind %q", src.Name, src.Kind)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return excludeItems(src, items)
+}
+
+// excludeItems drops the items whose name matches one of the source's exclude patterns.
+func excludeItems(src Source, items []Item) ([]Item, error) {
+	if len(src.Exclude) == 0 {
+		return items, nil
+	}
+	kept := make([]Item, 0, len(items))
+	for _, item := range items {
+		excluded := false
+		for _, pattern := range src.Exclude {
+			matched, err := filepath.Match(pattern, item.Name)
+			if err != nil {
+				return nil, fmt.Errorf("source %s: exclude pattern %q: %w", src.Name, pattern, err)
+			}
+			if matched {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			kept = append(kept, item)
+		}
+	}
+	return kept, nil
 }
 
 func discoverSkills(src Source, defaults []Tool) ([]Item, error) {

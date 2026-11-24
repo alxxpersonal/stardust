@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -82,6 +83,43 @@ func TestDiscoverRejectsUnknownTargets(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("Discover() error = nil, want validation error")
+	}
+}
+
+func TestDiscoverSkipsExcludedNames(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "skills")
+	writeSkill(t, source, "shared", "---\nname: shared\n---\n# Shared\n")
+	writeSkill(t, source, "mac-ednas", "---\nname: mac-ednas\n---\n# Mac\n")
+	writeSkill(t, source, "edkali-ednas", "---\nname: edkali-ednas\n---\n# Edkali\n")
+
+	items, err := Discover(Config{
+		Sources:        []Source{{Name: "skills", Path: source, Kind: "skill", Exclude: []string{"edkali-*"}}},
+		DefaultTargets: []Tool{ToolClaude},
+	})
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	var names []string
+	for _, item := range items {
+		names = append(names, item.Name)
+	}
+	if got, want := strings.Join(names, ","), "mac-ednas,shared"; got != want {
+		t.Fatalf("discovered names = %q, want %q", got, want)
+	}
+}
+
+func TestDiscoverRejectsBadExcludePattern(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "skills")
+	writeSkill(t, source, "shared", "---\nname: shared\n---\n# Shared\n")
+
+	_, err := Discover(Config{
+		Sources:        []Source{{Name: "skills", Path: source, Kind: "skill", Exclude: []string{"["}}},
+		DefaultTargets: []Tool{ToolClaude},
+	})
+	if err == nil {
+		t.Fatal("Discover() error = nil, want bad pattern error")
 	}
 }
 

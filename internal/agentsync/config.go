@@ -43,6 +43,10 @@ type Source struct {
 	// never materialize into another repo or the global tool dirs. Empty means
 	// unscoped (matches any target scope), preserving older sync.toml files.
 	Scope Scope `toml:"scope" json:"scope"`
+	// Exclude lists glob patterns matched against asset names. Matching assets
+	// are skipped, so one machine's config can leave out another machine's
+	// prefixed skills from a shared source folder.
+	Exclude []string `toml:"exclude" json:"exclude"`
 }
 
 // Target declares a tool directory that Stardust can maintain.
