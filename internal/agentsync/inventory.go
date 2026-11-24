@@ -33,7 +33,9 @@ type Item struct {
 	Source      Source         `json:"source"`
 }
 
-// Discover scans configured sources for skills and agents.
+// Discover scans configured sources for skills and agents. Same-named assets
+// compete only within one source scope, where the lowest priority number wins,
+// so a repo asset never shadows a global asset that shares its name.
 func Discover(cfg Config) ([]Item, error) {
 	chosen := map[string]Item{}
 	for _, src := range cfg.Sources {
@@ -42,7 +44,7 @@ func Discover(cfg Config) ([]Item, error) {
 			return nil, err
 		}
 		for _, item := range items {
-			key := string(item.Kind) + "\x00" + item.Name
+			key := string(item.Kind) + "\x00" + string(item.Source.Scope) + "\x00" + item.Name
 			current, ok := chosen[key]
 			if !ok || item.Source.Priority < current.Source.Priority {
 				chosen[key] = item
@@ -58,7 +60,10 @@ func Discover(cfg Config) ([]Item, error) {
 		if out[i].Kind != out[j].Kind {
 			return out[i].Kind < out[j].Kind
 		}
-		return out[i].Name < out[j].Name
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Source.Scope < out[j].Source.Scope
 	})
 	return out, nil
 }

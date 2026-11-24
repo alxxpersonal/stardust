@@ -47,23 +47,7 @@ func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
 		if !scopeAllowed(target.Scope, opts.Scope) || !toolAllowed(target.Tool, opts.Tools) {
 			continue
 		}
-		for _, item := range items {
-			if item.Source.ImportOnly {
-				continue
-			}
-			// A scoped source only materializes into targets of its own scope: a
-			// repo-homed asset must never leak into the global tool dirs (or
-			// another repo), and a global canonical asset never lands repo-side.
-			// An unscoped source (an older sync.toml) keeps matching everything.
-			if item.Source.Scope != "" && item.Source.Scope != target.Scope {
-				continue
-			}
-			if !itemTargetsTool(item, target.Tool) {
-				continue
-			}
-			if item.Kind == KindRules && target.RulesPath == "" {
-				continue
-			}
+		for _, item := range targetItems(target, items) {
 			action, err := buildAction(target, item)
 			if err != nil {
 				return Plan{}, err
@@ -93,6 +77,45 @@ func BuildPlan(cfg Config, items []Item, opts Options) (Plan, error) {
 		return a.ItemName < b.ItemName
 	})
 	return plan, nil
+}
+
+// targetItems returns the items that materialize into target, one per kind and
+// name. When several eligible items share a name, the lowest priority number
+// wins, and a scoped source beats an unscoped one at equal priority.
+func targetItems(target Target, items []Item) []Item {
+	var out []Item
+	index := map[string]int{}
+	for _, item := range items {
+		if item.Source.ImportOnly {
+			continue
+		}
+		// A scoped source only materializes into targets of its own scope: a
+		// repo-homed asset must never leak into the global tool dirs (or
+		// another repo), and a global canonical asset never lands repo-side.
+		// An unscoped source (an older sync.toml) keeps matching everything.
+		if item.Source.Scope != "" && item.Source.Scope != target.Scope {
+			continue
+		}
+		if !itemTargetsTool(item, target.Tool) {
+			continue
+		}
+		if item.Kind == KindRules && target.RulesPath == "" {
+			continue
+		}
+		key := string(item.Kind) + "\x00" + item.Name
+		i, ok := index[key]
+		if !ok {
+			index[key] = len(out)
+			out = append(out, item)
+			continue
+		}
+		current := out[i]
+		if item.Source.Priority < current.Source.Priority ||
+			(item.Source.Priority == current.Source.Priority && current.Source.Scope == "" && item.Source.Scope != "") {
+			out[i] = item
+		}
+	}
+	return out
 }
 
 // Markdown renders the sync plan as a compact markdown table.

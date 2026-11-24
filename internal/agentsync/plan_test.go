@@ -139,6 +139,80 @@ func TestBuildPlanScopesRepoSourcesToRepoTargets(t *testing.T) {
 	}
 }
 
+func TestBuildPlanKeepsSameNamedRepoAndGlobalSkills(t *testing.T) {
+	root := t.TempDir()
+	repoSkills := filepath.Join(root, "repo-skills")
+	globalSkills := filepath.Join(root, "skills")
+	writeSkill(t, repoSkills, "git-commits", "---\nname: git-commits\n---\n# Repo\n")
+	writeSkill(t, globalSkills, "git-commits", "---\nname: git-commits\n---\n# Global\n")
+
+	cfg := Config{
+		Sources: []Source{
+			{Name: "repo", Path: repoSkills, Kind: "skill", Priority: 0, Scope: ScopeRepo},
+			{Name: "global", Path: globalSkills, Kind: "skill", Priority: 0, Scope: ScopeGlobal},
+		},
+		Targets: []Target{
+			{Tool: ToolClaude, Scope: ScopeRepo, SkillsPath: filepath.Join(root, "repo", ".claude", "skills"), Mode: "symlink"},
+			{Tool: ToolClaude, Scope: ScopeGlobal, SkillsPath: filepath.Join(root, "home", ".claude", "skills"), Mode: "symlink"},
+		},
+		DefaultTargets: []Tool{ToolClaude},
+	}
+	items, err := Discover(cfg)
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	plan, err := BuildPlan(cfg, items, Options{Scope: ScopeAll})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	sources := map[Scope]string{}
+	for _, a := range plan.Actions {
+		if a.ItemName == "git-commits" {
+			sources[a.Scope] = a.Source
+		}
+	}
+	if got, want := sources[ScopeRepo], filepath.Join(repoSkills, "git-commits"); got != want {
+		t.Fatalf("repo action source = %q, want %q", got, want)
+	}
+	if got, want := sources[ScopeGlobal], filepath.Join(globalSkills, "git-commits"); got != want {
+		t.Fatalf("global action source = %q, want %q", got, want)
+	}
+}
+
+func TestBuildPlanPrefersScopedSourceOverUnscopedDuplicate(t *testing.T) {
+	root := t.TempDir()
+	legacy := filepath.Join(root, "legacy")
+	scoped := filepath.Join(root, "scoped")
+	writeSkill(t, legacy, "shared", "---\nname: shared\n---\n# Legacy\n")
+	writeSkill(t, scoped, "shared", "---\nname: shared\n---\n# Scoped\n")
+
+	cfg := Config{
+		Sources: []Source{
+			{Name: "legacy", Path: legacy, Kind: "skill", Priority: 0},
+			{Name: "scoped", Path: scoped, Kind: "skill", Priority: 0, Scope: ScopeGlobal},
+		},
+		Targets: []Target{
+			{Tool: ToolClaude, Scope: ScopeGlobal, SkillsPath: filepath.Join(root, "home", ".claude", "skills"), Mode: "symlink"},
+		},
+		DefaultTargets: []Tool{ToolClaude},
+	}
+	items, err := Discover(cfg)
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	plan, err := BuildPlan(cfg, items, Options{Scope: ScopeAll})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+	if len(plan.Actions) != 1 {
+		t.Fatalf("BuildPlan() returned %d actions, want 1: %#v", len(plan.Actions), plan.Actions)
+	}
+	if got, want := plan.Actions[0].Source, filepath.Join(scoped, "shared"); got != want {
+		t.Fatalf("action source = %q, want %q", got, want)
+	}
+}
+
 func TestBuildPlanClassifiesRulesState(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, ".stardust", "rules.md")
